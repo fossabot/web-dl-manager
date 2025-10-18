@@ -64,6 +64,12 @@ jobs:
         run: |
           docker run -d --name gallery-dl-app -p 8000:8000 ghcr.io/jyf0214/gallery-dl-web:${{ needs.build_and_push.outputs.sha_tag }}
 
+      - name: Check container status
+        run: |
+          sleep 5
+          docker ps -a
+          docker logs gallery-dl-app
+
       - name: Run cloudflared tunnel
         run: |
           cloudflared tunnel --url http://localhost:8000 > cloudflared.log 2>&1 &
