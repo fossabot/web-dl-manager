@@ -21,7 +21,19 @@
 
                         <form action="/download" method="post" id="download-form">
                             <div class="mb-3">
-                                <label for="url" class="form-label">Gallery URL</label>
+                                <label for="downloader" class="form-label">Downloader</label>
+                                <select class="form-select" id="downloader" name="downloader">
+                                    <option value="gallery-dl" selected>gallery-dl (Default)</option>
+                                    <option value="kemono-dl">kemono-dl (kemono.party, coomer.party)</option>
+                                </select>
+                            </div>
+
+                            <div id="kemono-warning" class="alert alert-danger" style="display: none;">
+                                <strong>Warning:</strong> The content on kemono.party and coomer.party is primarily adult-oriented. Please ensure you are of legal age and are not violating any local laws by accessing this content.
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="url" class="form-label">URL</label>
                                 <input type="url" class="form-control" id="url" name="url" required placeholder="e.g., https://www.deviantart.com/username/gallery/all">
                             </div>
 
@@ -191,6 +203,20 @@
             const spinner = button.querySelector('.spinner-border');
             button.disabled = true;
             spinner.style.display = 'inline-block';
+        });
+
+        const downloaderSelect = document.getElementById('downloader');
+        const kemonoWarning = document.getElementById('kemono-warning');
+        const advancedOptions = document.getElementById('accordion-credentials');
+
+        downloaderSelect.addEventListener('change', function() {
+            if (this.value === 'kemono-dl') {
+                kemonoWarning.style.display = 'block';
+                advancedOptions.style.display = 'none';
+            } else {
+                kemonoWarning.style.display = 'none';
+                advancedOptions.style.display = 'block';
+            }
         });
 
         // Initialize on page load

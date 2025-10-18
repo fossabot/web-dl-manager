@@ -167,7 +167,7 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
         
     return config_path
 
-async def process_download_job(task_id: str, url: str, service: str, upload_path: str, params: dict):
+async def process_download_job(task_id: str, url: str, downloader: str, service: str, upload_path: str, params: dict):
     """The main background task for a download job."""
     task_download_dir = DOWNLOADS_DIR / task_id
     task_archive_path = ARCHIVES_DIR / f"{task_id}.zst"
@@ -182,21 +182,27 @@ async def process_download_job(task_id: str, url: str, service: str, upload_path
         if params.get("auto_proxy"):
             proxy = await get_working_proxy(status_file)
         
-        gallery_dl_cmd = f"gallery-dl --verbose -D {task_download_dir}"
-        if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
-            gallery_dl_cmd += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret={params['deviantart_client_secret']}"
-        if proxy:
-            gallery_dl_cmd += f" --proxy {proxy}"
-        gallery_dl_cmd += f" {url}"
+        downloader = params.get("downloader", "gallery-dl")
 
-        gallery_dl_cmd_log = f"gallery-dl --verbose -D {task_download_dir}"
-        if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
-            gallery_dl_cmd_log += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret=****"
-        if proxy:
-            gallery_dl_cmd_log += f" --proxy {proxy}"
-        gallery_dl_cmd_log += f" {url}"
+        if downloader == "kemono-dl":
+            command = f"kemono-dl --url {url} -o {task_download_dir}"
+            command_log = command # No secrets in kemono-dl command yet
+        else: # Default to gallery-dl
+            command = f"gallery-dl --verbose -D {task_download_dir}"
+            if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
+                command += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret={params['deviantart_client_secret']}"
+            if proxy:
+                command += f" --proxy {proxy}"
+            command += f" {url}"
 
-        await run_command(gallery_dl_cmd, gallery_dl_cmd_log, status_file)
+            command_log = f"gallery-dl --verbose -D {task_download_dir}"
+            if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
+                command_log += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret=****"
+            if proxy:
+                command_log += f" --proxy {proxy}"
+            command_log += f" {url}"
+
+        await run_command(command, command_log, status_file)
 
         # 2. Compress the downloaded folder
         downloaded_folders = [d for d in task_download_dir.iterdir() if d.is_dir()]
@@ -254,6 +260,7 @@ async def get_login(request: Request):
 async def create_download_job(
     request: Request,
     url: str = Form(...),
+    downloader: str = Form('gallery-dl'),
     upload_service: str = Form(...),
     upload_path: str = Form(None),
     # WebDAV
@@ -291,7 +298,7 @@ async def create_download_job(
         raise HTTPException(status_code=400, detail="Upload Path is required for this service.")
 
     # Run the job in the background
-    asyncio.create_task(process_download_job(task_id, url, upload_service, upload_path, params))
+    asyncio.create_task(process_download_job(task_id, url, downloader, upload_service, upload_path, params))
     
     return RedirectResponse(f"/status/{task_id}", status_code=303)
 
