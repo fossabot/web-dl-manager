@@ -6,12 +6,14 @@ from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from gofile import Gofile
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path("/data/downloads")
 ARCHIVES_DIR = Path("/data/archives")
 STATUS_DIR = Path("/data/status")
+PRIVATE_MODE = os.getenv("PRIVATE_MODE", "false").lower() == "true"
 
 # Create directories if they don't exist
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
@@ -49,6 +51,9 @@ async def run_command(command: str, status_file: Path):
 
 def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     """Creates a temporary rclone config file."""
+    if service == "gofile":
+        return None
+
     config_dir = Path("/tmp/rclone_configs")
     os.makedirs(config_dir, exist_ok=True)
     config_path = config_dir / f"{task_id}.conf"
@@ -91,7 +96,6 @@ async def process_download_job(task_id: str, url: str, service: str, upload_path
         await run_command(gallery_dl_cmd, status_file)
 
         # 2. Compress the downloaded folder
-        # The folder created by gallery-dl might have a different name, so we find it
         downloaded_folders = [d for d in task_download_dir.iterdir() if d.is_dir()]
         if not downloaded_folders:
             raise FileNotFoundError("No sub-directory found in download folder. gallery-dl might have failed.")
@@ -100,17 +104,25 @@ async def process_download_job(task_id: str, url: str, service: str, upload_path
         compress_cmd = f"zstd -r \"{source_folder_to_compress}\" -o \"{task_archive_path}\""
         await run_command(compress_cmd, status_file)
 
-        # 3. Upload using rclone
-        rclone_config_path = create_rclone_config(task_id, service, params)
-        
-        # Ensure the remote path exists
-        remote_full_path = f"remote:{upload_path}"
-        
-        upload_cmd = (
-            f"rclone copyto --config \"{rclone_config_path}\" \"{task_archive_path}\" \"{remote_full_path}/{task_id}.zst\" "
-            f"-P --log-file=\"{status_file}\" --log-level=INFO"
-        )
-        await run_command(upload_cmd, status_file)
+        # 3. Upload
+        if service == "gofile":
+            with open(status_file, "a") as f:
+                f.write("Uploading to gofile.io...\n")
+            
+            gofile_client = Gofile(token=params.get("gofile_token"))
+            upload_result = gofile_client.upload_file(task_archive_path)
+            
+            with open(status_file, "a") as f:
+                f.write(f"Gofile.io upload successful!\n")
+                f.write(f"Download link: {upload_result['downloadPage']}\n")
+        else:
+            rclone_config_path = create_rclone_config(task_id, service, params)
+            remote_full_path = f"remote:{upload_path}"
+            upload_cmd = (
+                f"rclone copyto --config \"{rclone_config_path}\" \"{task_archive_path}\" \"{remote_full_path}/{task_id}.zst\" "
+                f"-P --log-file=\"{status_file}\" --log-level=INFO"
+            )
+            await run_command(upload_cmd, status_file)
         
         with open(status_file, "a") as f:
             f.write("\nJob completed successfully!\n")
@@ -121,23 +133,31 @@ async def process_download_job(task_id: str, url: str, service: str, upload_path
             f.write(f"An error occurred: {str(e)}\n")
     finally:
         # Clean up temporary rclone config
-        rclone_config_path = Path(f"/tmp/rclone_configs/{task_id}.conf")
-        if rclone_config_path.exists():
-            rclone_config_path.unlink()
+        if service != "gofile":
+            rclone_config_path = Path(f"/tmp/rclone_configs/{task_id}.conf")
+            if rclone_config_path.exists():
+                rclone_config_path.unlink()
 
 
 # --- API Endpoints ---
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
     """Serves the main HTML page."""
+    if PRIVATE_MODE:
+        return HTMLResponse(status_code=503, content="<h1>Service Unavailable</h1><p>Please access through your designated login page.</p>")
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/login", response_class=HTMLResponse)
+async def get_login(request: Request):
+    """Serves the main HTML page."""
+    return templates.TemplateResponse("index.html", {"request": request})
+    
 @app.post("/download")
 async def create_download_job(
     request: Request,
     url: str = Form(...),
     upload_service: str = Form(...),
-    upload_path: str = Form(...),
+    upload_path: str = Form(None),
     # WebDAV
     webdav_url: str = Form(None),
     webdav_user: str = Form(None),
@@ -151,6 +171,8 @@ async def create_download_job(
     # B2
     b2_account_id: str = Form(None),
     b2_application_key: str = Form(None),
+    # Gofile
+    gofile_token: str = Form(None),
 ):
     """
     Accepts a download job, validates input, and starts it in the background.
@@ -160,8 +182,10 @@ async def create_download_job(
     params = await request.form()
     
     # Simple validation
-    if not url or not upload_service or not upload_path:
-        raise HTTPException(status_code=400, detail="URL, Upload Service, and Upload Path are required.")
+    if not url or not upload_service:
+        raise HTTPException(status_code=400, detail="URL and Upload Service are required.")
+    if upload_service != "gofile" and not upload_path:
+        raise HTTPException(status_code=400, detail="Upload Path is required for this service.")
 
     # Run the job in the background
     asyncio.create_task(process_download_job(task_id, url, upload_service, upload_path, params))

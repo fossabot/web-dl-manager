@@ -3,3 +3,8 @@ uvicorn[standard]
 jinja2
 python-multipart
 gallery-dl
+aiohttp
+aiofiles
+itsdangerous
+gofile-api
+

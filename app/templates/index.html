@@ -41,10 +41,13 @@
             <option value="webdav">WebDAV</option>
             <option value="s3">S3 Compatible</option>
             <option value="b2">Backblaze B2</option>
+            <option value="gofile">gofile.io</option>
         </select>
 
-        <label for="upload_path">Remote Upload Path/Bucket</label>
-        <input type="text" id="upload_path" name="upload_path" required placeholder="e.g., my-bucket/archives or /remote.php/dav/files/user/archives">
+        <div id="upload-path-container">
+            <label for="upload_path">Remote Upload Path/Bucket</label>
+            <input type="text" id="upload_path" name="upload_path" placeholder="e.g., my-bucket/archives or /remote.php/dav/files/user/archives">
+        </div>
 
         <!-- WebDAV Config -->
         <div id="config-webdav" class="service-config">
@@ -81,6 +84,13 @@
             <input type="password" id="b2_application_key" name="b2_application_key">
         </div>
 
+        <!-- Gofile Config -->
+        <div id="config-gofile" class="service-config">
+            <h4>gofile.io Settings</h4>
+            <label for="gofile_token">API Token (optional)</label>
+            <input type="password" id="gofile_token" name="gofile_token">
+        </div>
+
         <br>
         <button type="submit">Start Download</button>
     </form>
@@ -100,6 +110,15 @@
                 if (activeDiv) {
                     activeDiv.classList.add('active');
                 }
+            }
+
+            const uploadPathContainer = document.getElementById('upload-path-container');
+            if (selectedService === 'gofile') {
+                uploadPathContainer.style.display = 'none';
+                document.getElementById('upload_path').required = false;
+            } else {
+                uploadPathContainer.style.display = 'block';
+                document.getElementById('upload_path').required = true;
             }
         }
         // Initialize on page load
