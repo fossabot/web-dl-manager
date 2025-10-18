@@ -36,7 +36,7 @@ async def get_working_proxy(status_file: Path) -> str:
         response.raise_for_status()
         proxies = response.text.splitlines()
         
-    shuffled_proxies = random.sample(proxies, min(len(proxies), 10)) # Test up to 10 proxies
+    shuffled_proxies = random.sample(proxies, min(len(proxies), 50)) # Test up to 50 proxies
 
     async def test_proxy(proxy):
         try:
