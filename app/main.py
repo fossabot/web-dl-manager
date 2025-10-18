@@ -171,10 +171,22 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
         
     return config_path
 
+def generate_archive_name(url: str) -> str:
+    """Generates a descriptive archive name from a URL."""
+    try:
+        path_parts = [part for part in url.split("/") if part]
+        if len(path_parts) > 2:
+            return "_".join(path_parts[-3:])
+        else:
+            return "_".join(path_parts)
+    except Exception:
+        return "archive"
+
 async def process_download_job(task_id: str, url: str, downloader: str, service: str, upload_path: str, params: dict):
     """The main background task for a download job."""
     task_download_dir = DOWNLOADS_DIR / task_id
-    task_archive_path = ARCHIVES_DIR / f"{task_id}.zst"
+    archive_name = generate_archive_name(url)
+    task_archive_path = ARCHIVES_DIR / f"{archive_name}.tar.zst"
     status_file = STATUS_DIR / f"{task_id}.log"
 
     try:
@@ -217,7 +229,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
         else:
             raise FileNotFoundError("No files found in the download folder. gallery-dl might have failed.")
 
-        compress_cmd = f"zstd -r \"{source_to_compress}\" -o \"{task_archive_path}\""
+        compress_cmd = f"tar -cf - -C {source_to_compress} . | zstd -o \"{task_archive_path}\""
         await run_command(compress_cmd, compress_cmd, status_file)
 
         # 3. Upload
