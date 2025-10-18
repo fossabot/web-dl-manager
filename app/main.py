@@ -9,6 +9,8 @@ from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.session import SessionMiddleware
+from typing import Optional
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
@@ -16,6 +18,11 @@ DOWNLOADS_DIR = Path("/data/downloads")
 ARCHIVES_DIR = Path("/data/archives")
 STATUS_DIR = Path("/data/status")
 PRIVATE_MODE = os.getenv("PRIVATE_MODE", "false").lower() == "true"
+
+# --- User Authentication ---
+APP_USERNAME = os.getenv("APP_USERNAME", "Jyf0214")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+AVATAR_URL = os.getenv("AVATAR_URL", "https://github.com/Jyf0214.png")
 
 # Create directories if they don't exist
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
@@ -166,6 +173,7 @@ def get_lang(request: Request):
 
 # --- FastAPI App Initialization ---
 app = FastAPI(title="Gallery-DL Web UI")
+app.add_middleware(SessionMiddleware, secret_key="some-random-string")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # --- Global State ---
@@ -416,14 +424,27 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
     lang = get_lang(request)
-    if PRIVATE_MODE:
-        return templates.TemplateResponse("service_unavailable.html", {"request": request, "lang": lang}, status_code=503)
-    return templates.TemplateResponse("index.html", {"request": request, "lang": lang})
+    user = request.session.get("user")
+    if PRIVATE_MODE and not user:
+        return RedirectResponse(url="/login", status_code=302)
+    return templates.TemplateResponse("index.html", {"request": request, "lang": lang, "user": user, "avatar_url": AVATAR_URL})
 
 @app.get("/login", response_class=HTMLResponse)
-async def get_login(request: Request):
+async def get_login_form(request: Request):
     lang = get_lang(request)
-    return templates.TemplateResponse("index.html", {"request": request, "lang": lang})
+    return templates.TemplateResponse("login.html", {"request": request, "lang": lang})
+
+@app.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    if username == APP_USERNAME and (not APP_PASSWORD or password == APP_PASSWORD):
+        request.session["user"] = username
+        return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=302)
 
 @app.get("/set_language/{lang_code}")
 async def set_language(lang_code: str, response: Response):

@@ -16,6 +16,13 @@
             <div class="col-lg-8">
                 <div class="card shadow-sm">
                     <div class="card-body">
+                        {% if user %}
+                        <div class="d-flex justify-content-end align-items-center mb-3">
+                            <img src="{{ avatar_url }}" alt="Avatar" class="rounded-circle" width="32" height="32">
+                            <span class="ms-2">{{ user }}</span>
+                            <a href="/logout" class="ms-3 btn btn-sm btn-outline-secondary">Logout</a>
+                        </div>
+                        {% endif %}
                         <div class="d-flex justify-content-end mb-3">
                             <button class="btn btn-sm btn-outline-primary me-2" onclick="setLanguage('en')">English</button>
                             <button class="btn btn-sm btn-outline-primary" onclick="setLanguage('zh')">中文</button>
