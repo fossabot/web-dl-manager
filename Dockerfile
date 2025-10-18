@@ -41,6 +41,9 @@ COPY --chown=1000:1000 ./app /app
 COPY --chown=1000:1000 ./entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# 6. Set PYTHONPATH
+ENV PYTHONPATH /usr/local/lib/python3.11/site-packages
+
 # 6. Switch to the non-root user
 USER 1000
 
