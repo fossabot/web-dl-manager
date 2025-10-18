@@ -7,9 +7,9 @@ aiohttp
 aiofiles
 itsdangerous
 httpx
-beautifulsoup4==4.11.1
-Pillow==9.1.0
-requests==2.27.1
-yt_dlp==2022.4.8
+beautifulsoup4
+Pillow
+requests
+yt_dlp
 git+https://github.com/AlphaSlayer1964/kemono-dl.git
 
