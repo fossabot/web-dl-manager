@@ -420,7 +420,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 rclone_config_path.unlink()
 
 
-app.mount("/blog", StaticFiles(directory="/app/static_site"), name="blog")
+app.mount("/assets", StaticFiles(directory="/app/static_site/assets"), name="assets")
 
 # --- API Endpoints ---
 
