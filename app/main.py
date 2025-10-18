@@ -140,7 +140,11 @@ async def process_download_job(task_id: str, url: str, service: str, upload_path
         with open(status_file, "w") as f:
             f.write(f"Starting job {task_id} for URL: {url}\n")
         
-        gallery_dl_cmd = f"gallery-dl --verbose -D \"{task_download_dir}\" \"{url}\""
+        gallery_dl_cmd = f"gallery-dl --verbose -D \"{task_download_dir}\""
+        if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
+            gallery_dl_cmd += f" --deviantart-client-id {params['deviantart_client_id']} --deviantart-client-secret {params['deviantart_client_secret']}"
+        gallery_dl_cmd += f" \"{url}\""
+
         await run_command(gallery_dl_cmd, status_file)
 
         # 2. Compress the downloaded folder
@@ -216,6 +220,9 @@ async def create_download_job(
     b2_application_key: str = Form(None),
     # Gofile
     gofile_token: str = Form(None),
+    # DeviantArt
+    deviantart_client_id: str = Form(None),
+    deviantart_client_secret: str = Form(None),
 ):
     """
     Accepts a download job, validates input, and starts it in the background.
