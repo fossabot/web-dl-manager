@@ -20,6 +20,8 @@ RUN mkdir -p /data/downloads /data/archives /data/status && chown -R 1000:1000 /
 
 # 4. Install Python dependencies
 COPY --chown=1000:1000 ./app/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir git+https://github.com/AlphaSlayer1964/kemono-dl.git
+RUN pip install --no-cache-dir git+https://github.com/AlphaSlayer1964/kemono-dl.git
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 5. Copy the application code and entrypoint script
