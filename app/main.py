@@ -22,6 +22,148 @@ os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 os.makedirs(ARCHIVES_DIR, exist_ok=True)
 os.makedirs(STATUS_DIR, exist_ok=True)
 
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+
+# --- Translations ---
+LANGUAGES = {
+    "en": {
+        "app_title": "Gallery-DL & Kemono-DL Web",
+        "intro_text": "This is a self-hostable web application that provides a user-friendly interface for two powerful command-line downloaders: `gallery-dl` and `kemono-dl`. It allows you to download image galleries and artist creations, compress them into `.tar.zst` archives, and automatically upload them to your configured storage backend.",
+        "url_label": "URL",
+        "url_placeholder": "e.g., https://www.deviantart.com/username/gallery/all or https://kemono.cr/patreon/user/47335841/post/141289985",
+        "downloader_label": "Downloader",
+        "downloader_gallery_dl": "gallery-dl (Default)",
+        "downloader_kemono_dl": "kemono-dl (kemono.party, coomer.party)",
+        "kemono_warning_title": "Warning:",
+        "kemono_warning_text": "The content on kemono.party and coomer.party is primarily adult-oriented. Please ensure you are of legal age and are not violating any local laws by accessing this content.",
+        "advanced_options_title": "Advanced Options",
+        "deviantart_credentials_title": "DeviantArt Credentials (Optional)",
+        "deviantart_credentials_text": "Provide your own DeviantArt API credentials to avoid rate limits.",
+        "how_to_get_them": "How to get them?",
+        "client_id_label": "Client ID",
+        "client_secret_label": "Client Secret",
+        "proxy_text": "Use a proxy to bypass IP blocks (e.g., from CloudFront).",
+        "proxy_label": "Proxy URL",
+        "proxy_placeholder": "e.g., http://user:pass@host:port",
+        "auto_proxy_label": "Auto-select proxy from public list",
+        "disclaimer_title": "Disclaimer:",
+        "disclaimer_text": "This feature uses publicly available proxies from a third-party source. The use of public proxies comes with inherent security and privacy risks. Your traffic may be monitored, and your data may be intercepted by the proxy operator. Use this feature at your own risk. We are not responsible for any damages or data loss that may occur from using this feature.",
+        "upload_config_title": "Upload Configuration",
+        "upload_service_label": "Upload Service",
+        "select_service_option": "-- Select a Service --",
+        "webdav_option": "WebDAV",
+        "s3_option": "S3 Compatible",
+        "b2_option": "Backblaze B2",
+        "gofile_option": "gofile.io",
+        "remote_upload_path_label": "Remote Upload Path/Bucket",
+        "remote_upload_path_placeholder": "e.g., my-bucket/archives",
+        "webdav_settings_title": "WebDAV Settings",
+        "webdav_url_label": "WebDAV URL",
+        "webdav_url_placeholder": "e.g., https://your-server.com/remote.php/dav/files/username",
+        "webdav_username_label": "WebDAV Username",
+        "webdav_password_label": "WebDAV Password",
+        "s3_settings_title": "S3 Settings",
+        "s3_provider_label": "S3 Provider",
+        "s3_provider_placeholder": "AWS",
+        "access_key_id_label": "Access Key ID",
+        "secret_access_key_label": "Secret Access Key",
+        "region_label": "Region",
+        "region_placeholder": "us-east-1",
+        "endpoint_url_label": "Endpoint URL (optional)",
+        "endpoint_url_placeholder": "e.g., https://s3.custom.com",
+        "b2_settings_title": "Backblaze B2 Settings",
+        "account_id_label": "Account ID or Application Key ID",
+        "application_key_label": "Application Key",
+        "gofile_settings_title": "gofile.io Settings",
+        "api_token_label": "API Token (optional)",
+        "start_download_button": "Start Download",
+        "powered_by": "Powered by gallery-dl, FastAPI, rclone, and zstd.",
+        "job_status_title": "Job Status",
+        "task_id_label": "Task ID:",
+        "auto_refresh_label": "Auto-refresh",
+        "copy_button": "Copy",
+        "copied_button": "Copied!",
+        "start_new_job_button": "Start New Job",
+        "service_unavailable_title": "Service Unavailable",
+        "service_unavailable_message": "Please access through your designated login page.",
+        "url_and_service_required": "URL and Upload Service are required.",
+        "upload_path_required": "Upload Path is required for this service.",
+        "job_not_found": "Job not found.",
+    },
+    "zh": {
+        "app_title": "Gallery-DL & Kemono-DL 网页版",
+        "intro_text": "这是一个可自托管的 Web 应用程序，它为两个强大的命令行下载器：`gallery-dl` 和 `kemono-dl` 提供了一个用户友好的界面。它允许您下载图片画廊和创作者作品，将其压缩为 `.tar.zst` 存档，并自动上传到您配置的存储后端。",
+        "url_label": "网址",
+        "url_placeholder": "例如：https://www.deviantart.com/username/gallery/all 或 https://kemono.cr/patreon/user/47335841/post/141289985",
+        "downloader_label": "下载器",
+        "downloader_gallery_dl": "gallery-dl (默认)",
+        "downloader_kemono_dl": "kemono-dl (kemono.party, coomer.party)",
+        "kemono_warning_title": "警告:",
+        "kemono_warning_text": "kemono.party 和 coomer.party 上的内容主要面向成人。请确保您已达到法定年龄，并且访问此内容不违反任何当地法律。",
+        "advanced_options_title": "高级选项",
+        "deviantart_credentials_title": "DeviantArt 凭证 (可选)",
+        "deviantart_credentials_text": "提供您自己的 DeviantArt API 凭证以避免速率限制。",
+        "how_to_get_them": "如何获取？",
+        "client_id_label": "客户端 ID",
+        "client_secret_label": "客户端密钥",
+        "proxy_text": "使用代理绕过 IP 封锁（例如来自 CloudFront）。",
+        "proxy_label": "代理 URL",
+        "proxy_placeholder": "例如：http://user:pass@host:port",
+        "auto_proxy_label": "从公共列表自动选择代理",
+        "disclaimer_title": "免责声明:",
+        "disclaimer_text": "此功能使用来自第三方的公共代理。使用公共代理存在固有的安全和隐私风险。您的流量可能被监控，您的数据可能被代理运营商拦截。使用此功能风险自负。我们不对可能发生的任何损害或数据丢失负责。",
+        "upload_config_title": "上传配置",
+        "upload_service_label": "上传服务",
+        "select_service_option": "-- 选择一个服务 --",
+        "webdav_option": "WebDAV",
+        "s3_option": "S3 兼容",
+        "b2_option": "Backblaze B2",
+        "gofile_option": "gofile.io",
+        "remote_upload_path_label": "远程上传路径/存储桶",
+        "remote_upload_path_placeholder": "例如：my-bucket/archives",
+        "webdav_settings_title": "WebDAV 设置",
+        "webdav_url_label": "WebDAV URL",
+        "webdav_url_placeholder": "例如：https://your-server.com/remote.php/dav/files/username",
+        "webdav_username_label": "WebDAV 用户名",
+        "webdav_password_label": "WebDAV 密码",
+        "s3_settings_title": "S3 设置",
+        "s3_provider_label": "S3 提供商",
+        "s3_provider_placeholder": "AWS",
+        "access_key_id_label": "访问密钥 ID",
+        "secret_access_key_label": "秘密访问密钥",
+        "region_label": "区域",
+        "region_placeholder": "us-east-1",
+        "endpoint_url_label": "端点 URL (可选)",
+        "endpoint_url_placeholder": "例如：https://s3.custom.com",
+        "b2_settings_title": "Backblaze B2 设置",
+        "account_id_label": "账户 ID 或应用程序密钥 ID",
+        "application_key_label": "应用程序密钥",
+        "gofile_settings_title": "gofile.io 设置",
+        "api_token_label": "API 令牌 (可选)",
+        "start_download_button": "开始下载",
+        "powered_by": "由 gallery-dl, FastAPI, rclone 和 zstd 提供支持。",
+        "job_status_title": "任务状态",
+        "task_id_label": "任务 ID:",
+        "auto_refresh_label": "自动刷新",
+        "copy_button": "复制",
+        "copied_button": "已复制!",
+        "start_new_job_button": "开始新任务",
+        "service_unavailable_title": "服务不可用",
+        "service_unavailable_message": "请通过您指定的登录页面访问。",
+        "url_and_service_required": "网址和上传服务是必需的。",
+        "upload_path_required": "此服务需要上传路径。",
+        "job_not_found": "任务未找到。",
+    }
+}
+
+def get_lang(request: Request):
+    lang_code = request.cookies.get("lang", "en")
+    if lang_code not in LANGUAGES:
+        lang_code = "en"
+    return LANGUAGES[lang_code]
+
 # --- FastAPI App Initialization ---
 app = FastAPI(title="Gallery-DL Web UI")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -283,15 +425,20 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 # --- API Endpoints ---
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
-    """Serves the main HTML page."""
+    lang = get_lang(request)
     if PRIVATE_MODE:
-        return HTMLResponse(status_code=503, content="<h1>Service Unavailable</h1><p>Please access through your designated login page.</p>")
-    return templates.TemplateResponse("index.html", {"request": request})
+        return templates.TemplateResponse("service_unavailable.html", {"request": request, "lang": lang}, status_code=503)
+    return templates.TemplateResponse("index.html", {"request": request, "lang": lang})
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login(request: Request):
-    """Serves the main HTML page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    lang = get_lang(request)
+    return templates.TemplateResponse("index.html", {"request": request, "lang": lang})
+
+@app.get("/set_language/{lang_code}")
+async def set_language(lang_code: str, response: Response):
+    response.set_cookie(key="lang", value=lang_code, httponly=True, expires=31536000) # 1 year
+    return RedirectResponse(url="/", status_code=302)
     
 @app.post("/download")
 async def create_download_job(
@@ -348,17 +495,17 @@ async def create_download_job(
 
 @app.get("/status/{task_id}", response_class=HTMLResponse)
 async def get_status(request: Request, task_id: str):
-    """Displays the status log for a given task."""
+    lang = get_lang(request)
     status_file = STATUS_DIR / f"{task_id}.log"
     if not status_file.exists():
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail=lang["job_not_found"])
     
     with open(status_file, "r") as f:
         content = f.read()
         
     return templates.TemplateResponse(
         "status.html", 
-        {"request": request, "task_id": task_id, "log_content": content}
+        {"request": request, "task_id": task_id, "log_content": content, "lang": lang}
     )
 
 @app.get("/status/{task_id}/raw")

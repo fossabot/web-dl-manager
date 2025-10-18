@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gallery-DL Web</title>
+    <title>{{ lang.app_title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f0f2f5; }
@@ -16,59 +16,65 @@
             <div class="col-lg-8">
                 <div class="card shadow-sm">
                     <div class="card-body">
-                        <h1 class="card-title text-center mb-4">Gallery-DL Downloader</h1>
-                        <p class="text-center text-muted mb-4">Enter a gallery URL to download, compress, and upload to your preferred storage.</p>
+                        <div class="d-flex justify-content-end mb-3">
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="setLanguage('en')">English</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="setLanguage('zh')">中文</button>
+                        </div>
+                        <h1 class="card-title text-center mb-4">{{ lang.app_title }}</h1>
+                        <p class="text-center text-muted mb-4">{{ lang.intro_text }}</p>
 
                         <form action="/download" method="post" id="download-form">
                             <div class="mb-3">
-                                <label for="downloader" class="form-label">Downloader</label>
+                                <label for="downloader" class="form-label">{{ lang.downloader_label }}</label>
                                 <select class="form-select" id="downloader" name="downloader">
-                                    <option value="gallery-dl" selected>gallery-dl (Default)</option>
-                                    <option value="kemono-dl">kemono-dl (kemono.party, coomer.party)</option>
+                                    <option value="gallery-dl" selected>{{ lang.downloader_gallery_dl }}</option>
+                                    <option value="kemono-dl">{{ lang.downloader_kemono_dl }}</option>
                                 </select>
                             </div>
 
                             <div id="kemono-warning" class="alert alert-danger" style="display: none;">
-                                <strong>Warning:</strong> The content on kemono.party and coomer.party is primarily adult-oriented. Please ensure you are of legal age and are not violating any local laws by accessing this content.
+                                <strong>{{ lang.kemono_warning_title }}</strong> {{ lang.kemono_warning_text }}
                             </div>
 
                             <div class="mb-3">
-                                <label for="url" class="form-label">URL</label>
-                                <input type="url" class="form-control" id="url" name="url" required placeholder="e.g., https://www.deviantart.com/username/gallery/all">
+                                <label for="url" class="form-label">{{ lang.url_label }}</label>
+                                <input type="url" class="form-control" id="url" name="url" required placeholder="{{ lang.url_placeholder }}">
                             </div>
 
                             <div class="accordion" id="accordion-credentials">
                                 <div class="accordion-item">
                                     <h2 class="accordion-header" id="headingOne">
                                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                                            Advanced Options (DeviantArt Credentials)
+                                            {{ lang.advanced_options_title }}
                                         </button>
                                     </h2>
                                     <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordion-credentials">
                                         <div class="accordion-body">
-                                            <p class="text-muted small">Provide your own DeviantArt API credentials to avoid rate limits. <a href="https://gdl-org.github.io/docs/configuration.html#extractor-deviantart-client-id-client-secret" target="_blank">How to get them?</a></p>
+                                            <h5 class="mb-3">{{ lang.deviantart_credentials_title }}</h5>
+                                            <p class="text-muted small">{{ lang.deviantart_credentials_text }} <a href="https://gdl-org.github.io/docs/configuration.html#extractor-deviantart-client-id-client-secret" target="_blank">{{ lang.how_to_get_them }}</a></p>
                                             <div class="mb-3">
-                                                <label for="deviantart_client_id" class="form-label">Client ID</label>
+                                                <label for="deviantart_client_id" class="form-label">{{ lang.client_id_label }}</label>
                                                 <input type="text" class="form-control" id="deviantart_client_id" name="deviantart_client_id">
                                             </div>
                                             <div class="mb-3">
-                                                <label for="deviantart_client_secret" class="form-label">Client Secret</label>
+                                                <label for="deviantart_client_secret" class="form-label">{{ lang.client_secret_label }}</label>
                                                 <input type="password" class="form-control" id="deviantart_client_secret" name="deviantart_client_secret">
                                             </div>
                                             <hr>
-                                            <p class="text-muted small">Use a proxy to bypass IP blocks (e.g., from CloudFront).</p>
+                                            <h5 class="mb-3">{{ lang.proxy_label }}</h5>
+                                            <p class="text-muted small">{{ lang.proxy_text }}</p>
                                             <div class="mb-3">
-                                                <label for="proxy" class="form-label">Proxy URL</label>
-                                                <input type="text" class="form-control" id="proxy" name="proxy" placeholder="e.g., http://user:pass@host:port">
+                                                <label for="proxy" class="form-label">{{ lang.proxy_label }}</label>
+                                                <input type="text" class="form-control" id="proxy" name="proxy" placeholder="{{ lang.proxy_placeholder }}">
                                             </div>
                                             <div class="form-check mb-3">
                                                 <input class="form-check-input" type="checkbox" value="true" id="auto_proxy" name="auto_proxy">
                                                 <label class="form-check-label" for="auto_proxy">
-                                                    Auto-select proxy from public list
+                                                    {{ lang.auto_proxy_label }}
                                                 </label>
                                             </div>
                                             <div class="alert alert-warning small">
-                                                <strong>Disclaimer:</strong> This feature uses publicly available proxies from a third-party source. The use of public proxies comes with inherent security and privacy risks. Your traffic may be monitored, and your data may be intercepted by the proxy operator. Use this feature at your own risk. We are not responsible for any damages or data loss that may occur from using this feature.
+                                                <strong>{{ lang.disclaimer_title }}</strong> {{ lang.disclaimer_text }}
                                             </div>
                                         </div>
                                     </div>
@@ -77,82 +83,82 @@
 
                             <hr class="my-4">
 
-                            <h3 class="h5 mb-3">Upload Configuration</h3>
+                            <h3 class="h5 mb-3">{{ lang.upload_config_title }}</h3>
 
                             <div class="mb-3">
-                                <label for="upload_service" class="form-label">Upload Service</label>
+                                <label for="upload_service" class="form-label">{{ lang.upload_service_label }}</label>
                                 <select class="form-select" id="upload_service" name="upload_service" onchange="showConfig()" required>
-                                    <option value="">-- Select a Service --</option>
-                                    <option value="webdav">WebDAV</option>
-                                    <option value="s3">S3 Compatible</option>
-                                    <option value="b2">Backblaze B2</option>
-                                    <option value="gofile">gofile.io</option>
+                                    <option value="">{{ lang.select_service_option }}</option>
+                                    <option value="webdav">{{ lang.webdav_option }}</option>
+                                    <option value="s3">{{ lang.s3_option }}</option>
+                                    <option value="b2">{{ lang.b2_option }}</option>
+                                    <option value="gofile">{{ lang.gofile_option }}</option>
                                 </select>
                             </div>
 
                             <div id="upload-path-container" class="mb-3">
-                                <label for="upload_path" class="form-label">Remote Upload Path/Bucket</label>
-                                <input type="text" class="form-control" id="upload_path" name="upload_path" placeholder="e.g., my-bucket/archives">
+                                <label for="upload_path" class="form-label">{{ lang.remote_upload_path_label }}</label>
+                                <input type="text" class="form-control" id="upload_path" name="upload_path" placeholder="{{ lang.remote_upload_path_placeholder }}">
                             </div>
 
                             <!-- Service-specific configs -->
                             <div id="service-configs">
                                 <div id="config-webdav" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>WebDAV Settings</h5>
+                                    <h5>{{ lang.webdav_settings_title }}</h5>
                                     <div class="mb-3">
-                                        <label for="webdav_url" class="form-label">WebDAV URL</label>
-                                        <input type="url" class="form-control" id="webdav_url" name="webdav_url" placeholder="e.g., https://your-server.com/remote.php/dav/files/username">
+                                        <label for="webdav_url" class="form-label">{{ lang.webdav_url_label }}</label>
+                                        <input type="url" class="form-control" id="webdav_url" name="webdav_url" placeholder="{{ lang.webdav_url_placeholder }}">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="webdav_user" class="form-label">WebDAV Username</label>
+                                        <label for="webdav_user" class="form-label">{{ lang.webdav_username_label }}</label>
                                         <input type="text" class="form-control" id="webdav_user" name="webdav_user">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="webdav_pass" class="form-label">WebDAV Password</label>
+                                        <label for="webdav_pass" class="form-label">{{ lang.webdav_password_label }}</label>
                                         <input type="password" class="form-control" id="webdav_pass" name="webdav_pass">
                                     </div>
                                 </div>
 
                                 <div id="config-s3" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>S3 Settings</h5>
+                                    <h5>{{ lang.s3_settings_title }}</h5>
                                     <div class="mb-3">
-                                        <label for="s3_provider" class="form-label">S3 Provider</label>
-                                        <input type="text" class="form-control" id="s3_provider" name="s3_provider" placeholder="AWS">
+                                        <label for="s3_provider" class="form-label">{{ lang.s3_provider_label }}</label>
+                                        <input type="text" class="form-control" id="s3_provider" name="s3_provider" placeholder="{{ lang.s3_provider_placeholder }}">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="s3_access_key_id" class="form-label">Access Key ID</label>
+                                        <label for="s3_access_key_id" class="form-label">{{ lang.access_key_id_label }}</label>
                                         <input type="text" class="form-control" id="s3_access_key_id" name="s3_access_key_id">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="s3_secret_access_key" class="form-label">Secret Access Key</label>
+                                        <label for="s3_secret_access_key" class="form-label">{{ lang.secret_access_key_label }}</label>
                                         <input type="password" class="form-control" id="s3_secret_access_key" name="s3_secret_access_key">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="s3_region" class="form-label">Region</label>
-                                        <input type="text" class="form-control" id="s3_region" name="s3_region" placeholder="us-east-1">
+                                        <label for="s3_region" class="form-label">{{ lang.region_label }}</label>
+                                        <input type="text" class="form-control" id="s3_region" name="s3_region" placeholder="{{ lang.region_placeholder }}">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="s3_endpoint" class="form-label">Endpoint URL (optional)</label>
-                                        <input type="url" class="form-control" id="s3_endpoint" name="s3_endpoint" placeholder="e.g., https://s3.custom.com">
+                                        <label for="s3_endpoint" class="form-label">{{ lang.endpoint_url_label }}</label>
+                                        <input type="url" class="form-control" id="s3_endpoint" name="s3_endpoint" placeholder="{{ lang.endpoint_url_placeholder }}">
                                     </div>
                                 </div>
 
                                 <div id="config-b2" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>Backblaze B2 Settings</h5>
+                                    <h5>{{ lang.b2_settings_title }}</h5>
                                     <div class="mb-3">
-                                        <label for="b2_account_id" class="form-label">Account ID or Application Key ID</label>
+                                        <label for="b2_account_id" class="form-label">{{ lang.account_id_label }}</label>
                                         <input type="text" class="form-control" id="b2_account_id" name="b2_account_id">
                                     </div>
                                     <div class="mb-3">
-                                        <label for="b2_application_key" class="form-label">Application Key</label>
+                                        <label for="b2_application_key" class="form-label">{{ lang.application_key_label }}</label>
                                         <input type="password" class="form-control" id="b2_application_key" name="b2_application_key">
                                     </div>
                                 </div>
 
                                 <div id="config-gofile" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>gofile.io Settings</h5>
+                                    <h5>{{ lang.gofile_settings_title }}</h5>
                                     <div class="mb-3">
-                                        <label for="gofile_token" class="form-label">API Token (optional)</label>
+                                        <label for="gofile_token" class="form-label">{{ lang.api_token_label }}</label>
                                         <input type="password" class="form-control" id="gofile_token" name="gofile_token">
                                     </div>
                                 </div>
@@ -161,14 +167,14 @@
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-lg" id="submit-button">
                                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
-                                    Start Download
+                                    {{ lang.start_download_button }}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
                 <div class="text-center mt-3 footer">
-                    <p class="text-muted small">Powered by gallery-dl, FastAPI, rclone, and zstd.</p>
+                    <p class="text-muted small">{{ lang.powered_by }}</p>
                 </div>
             </div>
         </div>
@@ -176,6 +182,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function setLanguage(langCode) {
+            document.cookie = `lang=${langCode}; path=/; max-age=31536000`;
+            location.reload();
+        }
+
         function showConfig() {
             const selectedService = document.getElementById('upload_service').value;
             document.querySelectorAll('.service-config').forEach(div => {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Job Status {{ task_id }}</title>
+    <title>{{ lang.job_status_title }} {{ task_id }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
@@ -26,27 +26,31 @@
             <div class="col-lg-10">
                 <div class="card shadow-sm">
                     <div class="card-body">
-                        <h1 class="card-title mb-4">Job Status</h1>
-                        <p class="text-muted">Task ID: <span class="font-monospace">{{ task_id }}</span></p>
+                        <div class="d-flex justify-content-end mb-3">
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="setLanguage('en')">English</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="setLanguage('zh')">中文</button>
+                        </div>
+                        <h1 class="card-title mb-4">{{ lang.job_status_title }}</h1>
+                        <p class="text-muted">{{ lang.task_id_label }} <span class="font-monospace">{{ task_id }}</span></p>
                         
                         <div class="position-relative">
-                            <pre id="log-container" class="p-3"><code>Loading log...</code></pre>
-                            <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-button" title="Copy to Clipboard">
-                                <i class="bi bi-clipboard"></i> Copy
+                            <pre id="log-container" class="p-3"><code>{{ log_content }}</code></pre>
+                            <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-button" title="{{ lang.copy_button }}">
+                                <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
                             </button>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center mt-3">
-                            <a href="/" class="btn btn-primary">Start New Job</a>
+                            <a href="/" class="btn btn-primary">{{ lang.start_new_job_button }}</a>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="auto-refresh-switch" checked>
-                                <label class="form-check-label" for="auto-refresh-switch">Auto-refresh</label>
+                                <label class="form-check-label" for="auto-refresh-switch">{{ lang.auto_refresh_label }}</label>
                             </div>
                         </div>
                     </div>
                 </div>
                  <div class="text-center mt-3 footer">
-                    <p class="text-muted small">Powered by gallery-dl, FastAPI, rclone, and zstd.</p>
+                    <p class="text-muted small">{{ lang.powered_by }}</p>
                 </div>
             </div>
         </div>
@@ -54,6 +58,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function setLanguage(langCode) {
+            document.cookie = `lang=${langCode}; path=/; max-age=31536000`;
+            location.reload();
+        }
+
         const taskId = "{{ task_id }}";
         const logContainer = document.getElementById('log-container');
         const logContentElement = logContainer.querySelector('code');
@@ -101,7 +110,7 @@
         copyButton.addEventListener('click', () => {
             navigator.clipboard.writeText(logContentElement.textContent).then(() => {
                 const originalText = copyButton.innerHTML;
-                copyButton.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+                copyButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ lang.copied_button }}';
                 setTimeout(() => {
                     copyButton.innerHTML = originalText;
                 }, 2000);

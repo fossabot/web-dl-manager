@@ -1,75 +1,88 @@
-# Gallery-DL Docker 网页应用
+# Gallery-DL & Kemono-DL Web
 
-本项目是一个可自托管的 Web 应用程序。它允许您使用强大的命令行工具 `gallery-dl` 下载图库，将其压缩为 `.zst` 存档，并自动上传到您配置的存储后端。
+This is a self-hostable web application that provides a user-friendly interface for two powerful command-line downloaders: `gallery-dl` and `kemono-dl`. It allows you to download image galleries and artist creations, compress them into `.tar.zst` archives, and automatically upload them to your configured storage backend.
 
-整个应用程序使用 Docker 进行了容器化，并附带一个 GitHub Actions 工作流，用于自动构建镜像并将其发布到 GitHub Container Registry。
+The entire application is containerized using Docker and comes with a GitHub Actions workflow for automated image building and publishing.
 
-## 功能特性
+## Features
 
--   **网页界面:** 提供一个简洁的 UI 来提交和监控下载任务。
--   **`gallery-dl` 驱动:** 支持数百个网站。
--   **自动压缩:** 下载内容会使用 Zstandard (`.zst`) 进行压缩，以实现高效存储。
--   **灵活上传:** 使用 `rclone` 将存档上传到 WebDAV、S3 兼容服务或 Backblaze B2。
--   **容器化:** 易于使用 Docker 进行部署和管理。
--   **CI/CD 就绪:** 包含一个 GitHub Actions 工作流，可自动构建和发布 Docker 镜像。
+-   **Dual Downloader Support:** Seamlessly switch between:
+    -   **`gallery-dl`:** For downloading from hundreds of image gallery sites.
+    -   **`kemono-dl`:** For downloading from `kemono.party` and `coomer.party`.
+-   **Modern Web Interface:** A clean, responsive UI built with Bootstrap 5.
+-   **Advanced Download Options:**
+    -   **DeviantArt Credentials:** Provide your own API keys to avoid rate-limiting.
+    -   **Proxy Support:**
+        -   Manually specify an HTTP proxy.
+        -   **Auto-Proxy:** Automatically fetch and concurrently test proxies from a public list to find a working one, with a retry mechanism.
+-   **Efficient Archiving:** Downloads are packaged into `.tar.zst` archives for efficient storage and transfer.
+-   **Flexible Uploads:** Utilizes `rclone` to upload archives to various cloud storage providers (WebDAV, S3, B2) or `gofile.io`.
+-   **Private & Public Deployments:** Can be run in a public mode or a private mode (activated by an environment variable) for personal use.
+-   **Automatic Cleanup:** Intelligently cleans up download and archive directories only after all active tasks are completed.
+-   **Real-time Logging:** A redesigned status page shows job logs in real-time without page reloads, and includes a copy-to-clipboard feature.
+-   **Containerized & CI/CD Ready:** Easy to deploy with Docker and includes a GitHub Actions workflow for automated builds.
 
-## 工作原理
+## How It Works
 
-1.  您通过网页表单提交一个图库 URL 和您的存储凭据。
-2.  FastAPI 后端启动一个后台任务。
-3.  `gallery-dl` 将内容下载到容器内的一个临时目录中。
-4.  下载的目录被压缩成一个单独的 `.zst` 存档文件。
-5.  `rclone` 将存档上传到您指定的目标（WebDAV、S3 或 B2）。
-6.  您可以通过一个状态页面监控任务进度，该页面会实时显示任务日志。
+1.  You select a downloader (`gallery-dl` or `kemono-dl`) and submit a URL through the web form.
+2.  You can specify advanced options like DeviantArt credentials or proxy settings.
+3.  The FastAPI backend starts a background job.
+4.  The chosen downloader fetches the content into a temporary directory.
+5.  The downloaded files are packed into a `.tar` archive and then compressed with Zstandard (`.tar.zst`). The archive is named based on the URL for easy identification.
+6.  The archive is uploaded to your selected destination (`gofile.io` or an `rclone` backend).
+7.  The entire process can be monitored on a real-time status page.
+8.  Once all concurrent jobs are finished, the server automatically cleans up the temporary download and archive files.
 
-## 如何开始
+## Getting Started
 
-### 1. 先决条件
+### Prerequisites
 
--   您的机器上已安装 Docker。
--   一个 GitHub 账户，用于 Fork 本仓库并使用 GitHub Actions。
+-   Docker installed on your machine.
+-   A GitHub account to fork the repository and use GitHub Actions.
 
-### 2. 安装设置
+### Installation
 
-1.  **Fork 本仓库** 到您自己的 GitHub 账户。
-2.  **GitHub Actions** 将会自动运行，构建 Docker 镜像，并将其推送到您账户的 GitHub Container Registry (`ghcr.io`)。您可以在 Fork 后的仓库的 "Packages" 部分找到已发布的镜像。
+1.  **Fork this repository** to your own GitHub account.
+2.  **GitHub Actions** will automatically run, build the Docker image, and push it to your account's GitHub Container Registry (`ghcr.io`). You can find the published image in the "Packages" section of your forked repository.
 
-### 3. 运行容器
+### Running the Container
 
-要运行此应用，您需要从 `ghcr.io` 拉取镜像并使用 Docker 运行它。您必须将一个本地目录映射到容器内的 `/data` 卷，以便持久化存储任务日志、下载内容和存档文件。
+To run the application, pull the image from `ghcr.io` and run it with Docker. You must map a local directory to the `/data` volume in the container to persist task logs and files.
 
 ```bash
-# 创建一个本地目录用于存储数据
+# Create a local directory for data
 mkdir -p ./gallery-dl-data
 
-# 拉取镜像
-docker pull ghcr.io/Jyf0214/gallery-dl-web:main
+# Pull the image (replace with your GitHub username)
+docker pull ghcr.io/literal:Jyf0214/literal:gallery-dl-web:main
 
-# 运行容器
+# Run the container
 docker run -d \
   -p 8000:8000 \
   -v ./gallery-dl-data:/data \
   --name gallery-dl-web \
-  ghcr.io/Jyf0214/gallery-dl-web:main
+  ghcr.io/literal:Jyf0214/literal:gallery-dl-web:main
 ```
 
-运行命令后，Web 界面将可以通过 `http://localhost:8000` 访问。
+The web interface will be accessible at `http://localhost:8000`.
 
-您宿主机上的 `./gallery-dl-data` 目录将包含三个子目录：
--   `downloads`: 正在进行的下载任务的暂存区。
--   `archives`: 存储压缩后的 `.zst` 文件。
--   `status`: 包含每个任务的日志文件。
+#### Private Mode
 
-## 安全注意事项
+To run the application in private mode (which returns a 503 error on the root path), set the `PRIVATE_MODE` environment variable to `true`:
 
-**重要提示:** 本应用设计为一个个人工具。目前的实现方式是通过在容器内创建临时配置文件来处理凭据（如 WebDAV 密码或 S3 密钥）。
+```bash
+docker run -d \
+  -p 8000:8000 \
+  -v ./gallery-dl-data:/data \
+  -e PRIVATE_MODE=true \
+  --name gallery-dl-web \
+  ghcr.io/literal:Jyf0214/literal:gallery-dl-web:main
+```
 
--   **请勿在没有适当认证和安全加固的情况下将此应用暴露在公共互联网上。**
--   强烈建议在受信任的本地网络中运行，或将其置于带有身份验证的反向代理之后（例如，Authelia、Nginx with basic auth 等）。
--   您输入的凭据会以明文形式从表单传递到服务器，并写入临时文件。如果通过网络访问，请确保使用 HTTPS。
+In private mode, you should access the application via a specific path like `/login`.
 
-## 定制化
+## Disclaimers
 
--   **前端:** HTML 模板位于 `app/templates` 目录中。您可以修改它们来改变外观和感觉。
--   **后端:** 核心逻辑位于 `app/main.py`。您可以扩展它以支持更多的 `rclone` 后端，添加更复杂的逻辑，或实现一个更健壮的任务队列（例如，Celery with Redis）。
--   **Dockerfile:** 您可以修改 `Dockerfile` 来包含额外的系统依赖或更改基础镜像。
+-   **Content Warning:** When using the `kemono-dl` downloader, be aware that the content on the target sites is primarily adult-oriented. Please ensure you are of legal age in your jurisdiction and are not violating any local laws by accessing or downloading this content.
+-   **Public Proxies:** The auto-proxy feature uses publicly available proxies. These proxies come with inherent security and privacy risks. Your traffic may be monitored, and your data could be intercepted. Use this feature at your own risk. We are not responsible for any damages or data loss that may occur.
+-   **Security:** This application is intended as a personal tool. Do not expose it to the public internet without proper security measures, such as placing it behind an authenticating reverse proxy.
