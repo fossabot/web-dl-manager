@@ -35,8 +35,6 @@ async def get_working_proxy(status_file: Path) -> str:
         response = await client.get(proxy_list_url)
         response.raise_for_status()
         proxies = response.text.splitlines()
-        
-    shuffled_proxies = random.sample(proxies, min(len(proxies), 50)) # Test up to 50 proxies
 
     async def test_proxy(proxy):
         try:
@@ -47,18 +45,23 @@ async def get_working_proxy(status_file: Path) -> str:
         except Exception:
             return None
 
-    with open(status_file, "a") as f:
-        f.write(f"Concurrently testing {len(shuffled_proxies)} proxies...\n")
+    i = 0
+    while True:
+        i += 1
+        shuffled_proxies = random.sample(proxies, min(len(proxies), 3000))
+        with open(status_file, "a") as f:
+            f.write(f"Attempt {i}: Concurrently testing {len(shuffled_proxies)} proxies...\n")
 
-    tasks = [test_proxy(p) for p in shuffled_proxies]
-    for future in asyncio.as_completed(tasks):
-        result = await future
-        if result:
-            with open(status_file, "a") as f:
-                f.write(f"Found working proxy: {result}\n")
-            return result
-
-    raise Exception("Could not find a working proxy.")
+        tasks = [test_proxy(p) for p in shuffled_proxies]
+        for future in asyncio.as_completed(tasks):
+            result = await future
+            if result:
+                with open(status_file, "a") as f:
+                    f.write(f"Found working proxy: {result}\n")
+                return result
+        
+        with open(status_file, "a") as f:
+            f.write(f"No working proxy found in attempt {i}. Retrying with a new batch...\n")
 
 async def run_command(command: str, command_to_log: str, status_file: Path):
     """Runs a shell command asynchronously, logs its progress in real-time, and has a timeout."""
