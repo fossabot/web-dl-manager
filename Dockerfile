@@ -1,6 +1,9 @@
 # Stage 1: Build kemono-dl in a separate environment
 FROM python:3.10-slim as builder
 
+# Install git
+RUN apt-get update && apt-get install -y --no-install-recommends git
+
 # Install kemono-dl and its dependencies
 RUN pip install --no-cache-dir git+https://github.com/AlphaSlayer1964/kemono-dl.git
 
