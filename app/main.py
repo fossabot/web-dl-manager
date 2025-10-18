@@ -420,14 +420,41 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 rclone_config_path.unlink()
 
 
+app.mount("/blog", StaticFiles(directory="/app/static_site"), name="blog")
+
 # --- API Endpoints ---
+
+
 @app.get("/", response_class=HTMLResponse)
-async def get_index(request: Request):
+async def get_blog_index(request: Request):
+    blog_index = Path("/app/static_site/index.html")
+    if blog_index.exists():
+        with open(blog_index, "r") as f:
+            content = f.read()
+        # Inject signin popup
+        content = content.replace("</body>", """
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                setTimeout(function() {
+                    if (!document.cookie.includes("user=")) {
+                        if (confirm("Sign in to access the downloader.")) {
+                            window.location.href = "/login";
+                        }
+                    }
+                }, 3000);
+            });
+        </script>
+        </body>""")
+        return HTMLResponse(content=content)
+    return templates.TemplateResponse("index.html", {"request": request, "lang": get_lang(request)})
+
+@app.get("/downloader", response_class=HTMLResponse)
+async def get_downloader(request: Request):
     lang = get_lang(request)
     user = request.session.get("user")
     if PRIVATE_MODE and not user:
         return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse("index.html", {"request": request, "lang": lang, "user": user, "avatar_url": AVATAR_URL})
+    return templates.TemplateResponse("downloader.html", {"request": request, "lang": lang, "user": user, "avatar_url": AVATAR_URL})
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login_form(request: Request):
@@ -438,7 +465,7 @@ async def get_login_form(request: Request):
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     if username == APP_USERNAME and (not APP_PASSWORD or password == APP_PASSWORD):
         request.session["user"] = username
-        return RedirectResponse(url="/", status_code=303)
+        return RedirectResponse(url="/downloader", status_code=303)
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/logout")
