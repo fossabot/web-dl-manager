@@ -30,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ github.repository,, }}
+          images: ghcr.io/jyf0214/gallery-dl-web
           tags: |
             type=sha,prefix=,format=short,key=version
             type=ref,event=branch
@@ -62,7 +62,7 @@ jobs:
 
       - name: Run Docker container
         run: |
-          docker run -d --name gallery-dl-app -p 8000:8000 ghcr.io/${{ github.repository,, }}:${{ needs.build_and_push.outputs.sha_tag }}
+          docker run -d --name gallery-dl-app -p 8000:8000 ghcr.io/jyf0214/gallery-dl-web:${{ needs.build_and_push.outputs.sha_tag }}
 
       - name: Run cloudflared tunnel
         run: |
