@@ -42,7 +42,7 @@
 # 创建一个本地目录用于存储数据
 mkdir -p ./gallery-dl-data
 
-# 拉取镜像 (请将 <YOUR_GITHUB_USERNAME> 和 <REPOSITORY_NAME> 替换为您的 GitHub 用户名和仓库名)
+# 拉取镜像
 docker pull ghcr.io/Jyf0214/gallery-dl-web:main
 
 # 运行容器
