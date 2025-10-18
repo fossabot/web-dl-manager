@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery-DL Web</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background-color: #f8f9fa; }
+        h1 { color: #007bff; }
+        form { background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input[type="text"], input[type="password"], input[type="url"], select {
+            width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+        .service-config { display: none; border-left: 3px solid #007bff; padding-left: 1rem; margin-left: 0.5rem; }
+        .service-config.active { display: block; }
+        .footer { margin-top: 2rem; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+
+    <h1>Gallery-DL Downloader</h1>
+    <p>Enter a gallery URL to download, compress, and upload to your preferred storage.</p>
+
+    <form action="/download" method="post">
+        
+        <label for="url">Gallery URL</label>
+        <input type="url" id="url" name="url" required placeholder="e.g., https://www.deviantart.com/username/gallery/all">
+
+        <hr>
+
+        <h3>Upload Configuration</h3>
+
+        <label for="upload_service">Upload Service</label>
+        <select id="upload_service" name="upload_service" onchange="showConfig()" required>
+            <option value="">-- Select a Service --</option>
+            <option value="webdav">WebDAV</option>
+            <option value="s3">S3 Compatible</option>
+            <option value="b2">Backblaze B2</option>
+        </select>
+
+        <label for="upload_path">Remote Upload Path/Bucket</label>
+        <input type="text" id="upload_path" name="upload_path" required placeholder="e.g., my-bucket/archives or /remote.php/dav/files/user/archives">
+
+        <!-- WebDAV Config -->
+        <div id="config-webdav" class="service-config">
+            <h4>WebDAV Settings</h4>
+            <label for="webdav_url">WebDAV URL</label>
+            <input type="url" id="webdav_url" name="webdav_url" placeholder="e.g., https://your-server.com/remote.php/dav/files/username">
+            <label for="webdav_user">WebDAV Username</label>
+            <input type="text" id="webdav_user" name="webdav_user">
+            <label for="webdav_pass">WebDAV Password</label>
+            <input type="password" id="webdav_pass" name="webdav_pass">
+        </div>
+
+        <!-- S3 Config -->
+        <div id="config-s3" class="service-config">
+            <h4>S3 Settings</h4>
+            <label for="s3_provider">S3 Provider (e.g., AWS, Cloudflare, Minio)</label>
+            <input type="text" id="s3_provider" name="s3_provider" placeholder="AWS">
+            <label for="s3_access_key_id">Access Key ID</label>
+            <input type="text" id="s3_access_key_id" name="s3_access_key_id">
+            <label for="s3_secret_access_key">Secret Access Key</label>
+            <input type="password" id="s3_secret_access_key" name="s3_secret_access_key">
+            <label for="s3_region">Region</label>
+            <input type="text" id="s3_region" name="s3_region" placeholder="us-east-1">
+            <label for="s3_endpoint">Endpoint URL (optional, for non-AWS providers)</label>
+            <input type="url" id="s3_endpoint" name="s3_endpoint" placeholder="e.g., https://s3.custom.com">
+        </div>
+
+        <!-- B2 Config -->
+        <div id="config-b2" class="service-config">
+            <h4>Backblaze B2 Settings</h4>
+            <label for="b2_account_id">Account ID or Application Key ID</label>
+            <input type="text" id="b2_account_id" name="b2_account_id">
+            <label for="b2_application_key">Application Key</label>
+            <input type="password" id="b2_application_key" name="b2_application_key">
+        </div>
+
+        <br>
+        <button type="submit">Start Download</button>
+    </form>
+
+    <div class="footer">
+        <p>Powered by gallery-dl, FastAPI, rclone, and zstd.</p>
+    </div>
+
+    <script>
+        function showConfig() {
+            const selectedService = document.getElementById('upload_service').value;
+            document.querySelectorAll('.service-config').forEach(div => {
+                div.classList.remove('active');
+            });
+            if (selectedService) {
+                const activeDiv = document.getElementById('config-' + selectedService);
+                if (activeDiv) {
+                    activeDiv.classList.add('active');
+                }
+            }
+        }
+        // Initialize on page load
+        showConfig();
+    </script>
+
+</body>
+</html>
