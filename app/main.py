@@ -4,13 +4,15 @@ import asyncio
 import httpx
 import random
 import shutil
+import json
+import signal
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
@@ -227,16 +229,24 @@ async def get_working_proxy(status_file: Path) -> str:
         with open(status_file, "a") as f:
             f.write(f"No working proxy found in attempt {i}. Retrying with a new batch...\n")
 
-async def run_command(command: str, command_to_log: str, status_file: Path):
-    """Runs a shell command asynchronously, logs its progress in real-time, and has a timeout."""
+async def run_command(command: str, command_to_log: str, status_file: Path, task_id: str):
+    """Runs a shell command asynchronously, logs its progress, and stores its PGID."""
     with open(status_file, "a") as f:
         f.write(f"Executing command: {command_to_log}\n")
 
     process = await asyncio.create_subprocess_shell(
         command,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        stderr=asyncio.subprocess.PIPE,
+        preexec_fn=os.setsid  # Create a new process group
     )
+
+    try:
+        pgid = os.getpgid(process.pid)
+        update_task_status(task_id, {"pgid": pgid})
+    except ProcessLookupError:
+        # Process might have finished very quickly
+        pass
 
     async def log_stream(stream, log_prefix):
         while True:
@@ -252,6 +262,9 @@ async def run_command(command: str, command_to_log: str, status_file: Path):
     )
     await process.wait()
 
+    # Clear the pgid when the command is finished
+    update_task_status(task_id, {"pgid": None})
+
     if process.returncode != 0:
         with open(status_file, "a") as f:
             f.write(f"\n--- COMMAND FAILED (Exit Code: {process.returncode}) ---\n")
@@ -260,39 +273,64 @@ async def run_command(command: str, command_to_log: str, status_file: Path):
         with open(status_file, "a") as f:
             f.write("\nCommand finished successfully.\n")
 
-async def upload_to_gofile(file_path: Path, status_file: Path) -> str:
-    """Uploads a file to gofile.io and returns the download link."""
-    with open(status_file, "a") as f:
-        f.write("Uploading to gofile.io...\n")
-
-    async with httpx.AsyncClient() as client:
-        # 1. Get the best server
-        response = await client.get("https://api.gofile.io/servers")
-        response.raise_for_status()
-        response_json = response.json()
+async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Optional[str] = None) -> str:
+    """Uploads a file to gofile.io, trying with a token first and falling back to public."""
+    
+    async def _attempt_upload(use_token: bool):
+        upload_type = "authenticated" if use_token and api_token else "public"
         with open(status_file, "a") as f:
-            f.write(f"Gofile API Response: {response_json}\n")
-        servers = response_json["data"]["servers"]
-        server = random.choice(servers)["name"]
-        upload_url = f"https://{server}.gofile.io/uploadFile"
+            f.write(f"Uploading to gofile.io ({upload_type})...\n")
 
-        # 2. Upload the file
-        with open(file_path, "rb") as f:
-            files = {"file": (file_path.name, f, "application/octet-stream")}
-            response = await client.post(upload_url, files=files)
-        response.raise_for_status()
-        upload_result = response.json()
+        async with httpx.AsyncClient(timeout=300) as client:
+            try:
+                # 1. Get server
+                servers_res = await client.get("https://api.gofile.io/servers")
+                servers_res.raise_for_status()
+                server = servers_res.json()["data"]["servers"][0]["name"]
+                upload_url = f"https://{server}.gofile.io/uploadFile"
 
-        if upload_result["status"] != "ok":
-            raise Exception(f"Gofile.io upload failed: {upload_result}")
+                # 2. Prepare upload
+                form_data = {}
+                if use_token and api_token:
+                    form_data["token"] = api_token
 
-        download_link = upload_result["data"]["downloadPage"]
-        with open(status_file, "a") as f:
-            f.write(f"Gofile.io upload successful!\n")
-            f.write(f"Download link: {download_link}\n")
-            f.write(f"gofile.io URL: {download_link}\n")
-        
-        return download_link
+                # 3. Upload
+                with open(file_path, "rb") as f_upload:
+                    files = {"file": (file_path.name, f_upload, "application/octet-stream")}
+                    response = await client.post(upload_url, data=form_data, files=files)
+                
+                response.raise_for_status()
+                upload_result = response.json()
+
+                if upload_result["status"] == "ok":
+                    download_link = upload_result["data"]["downloadPage"]
+                    with open(status_file, "a") as f:
+                        f.write(f"Gofile.io upload successful! Link: {download_link}\n")
+                    return download_link
+                else:
+                    with open(status_file, "a") as f:
+                        f.write(f"Gofile.io upload failed ({upload_type}): {upload_result}\n")
+                    return None
+            except Exception as e:
+                with open(status_file, "a") as f:
+                    f.write(f"Exception during gofile.io upload ({upload_type}): {e}\n")
+                return None
+
+    # --- Main logic ---
+    download_link = None
+    if api_token:
+        download_link = await _attempt_upload(use_token=True)
+
+    if not download_link:
+        if api_token:
+            with open(status_file, "a") as f:
+                f.write("Authenticated upload failed. Falling back to public upload.\n")
+        download_link = await _attempt_upload(use_token=False)
+
+    if not download_link:
+        raise Exception("Gofile.io upload failed completely.")
+
+    return download_link
 
 def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     """Creates a temporary rclone config file."""
@@ -337,6 +375,26 @@ def generate_archive_name(url: str) -> str:
     except Exception:
         return "archive"
 
+def get_task_status_path(task_id: str) -> Path:
+    """Returns the path to the JSON status file for a given task."""
+    return STATUS_DIR / f"{task_id}.json"
+
+def update_task_status(task_id: str, updates: Dict[str, Any]):
+    """Updates the JSON status file for a given task."""
+    status_path = get_task_status_path(task_id)
+    status_data = {}
+    if status_path.exists():
+        with open(status_path, "r") as f:
+            try:
+                status_data = json.load(f)
+            except json.JSONDecodeError:
+                pass  # Overwrite if file is corrupted
+    
+    status_data.update(updates)
+    
+    with open(status_path, "w") as f:
+        json.dump(status_data, f, indent=4)
+
 async def process_download_job(task_id: str, url: str, downloader: str, service: str, upload_path: str, params: dict):
     """The main background task for a download job."""
     task_download_dir = DOWNLOADS_DIR / task_id
@@ -344,8 +402,12 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     task_archive_path = ARCHIVES_DIR / f"{archive_name}.tar.zst"
     status_file = STATUS_DIR / f"{task_id}.log"
 
+    command_log = "" # Define command_log here to ensure it's always available
+
     try:
-        # 1. Download using gallery-dl
+        # 1. Initial status update
+        update_task_status(task_id, {"status": "running", "url": url, "downloader": downloader})
+        
         with open(status_file, "w") as f:
             f.write(f"Starting job {task_id} for URL: {url}\n")
 
@@ -357,7 +419,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 
         if downloader == "kemono-dl":
             command = f"kemono-dl {url} --path {task_download_dir}"
-            command_log = command # No secrets in kemono-dl command yet
+            command_log = command
         else: # Default to gallery-dl
             command = f"gallery-dl --verbose -D {task_download_dir}"
             if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
@@ -368,28 +430,33 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 
             command_log = f"gallery-dl --verbose -D {task_download_dir}"
             if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
-                command_log += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret=****"
+                command_log += " -o extractor.deviantart.client-id=**** -o extractor.deviantart.client-secret=****"
             if proxy:
                 command_log += f" --proxy {proxy}"
             command_log += f" {url}"
+        
+        update_task_status(task_id, {"command": command_log})
+        await run_command(command, command_log, status_file, task_id)
 
-        await run_command(command, command_log, status_file)
-
-        # 2. Compress the downloaded folder
+        # 2. Compress
+        update_task_status(task_id, {"status": "compressing"})
         downloaded_folders = [d for d in task_download_dir.iterdir() if d.is_dir()]
         if downloaded_folders:
             source_to_compress = downloaded_folders[0]
         elif any(task_download_dir.iterdir()):
             source_to_compress = task_download_dir
         else:
-            raise FileNotFoundError("No files found in the download folder. gallery-dl might have failed.")
-
-        compress_cmd = f"tar -cf - -C {source_to_compress} . | zstd -o \"{task_archive_path}\""
-        await run_command(compress_cmd, compress_cmd, status_file)
+            raise FileNotFoundError("No files found to compress.")
+        
+        compress_cmd = f"tar -cf - -C \"{source_to_compress}\" . | zstd -o \"{task_archive_path}\""
+        await run_command(compress_cmd, compress_cmd, status_file, task_id)
 
         # 3. Upload
+        update_task_status(task_id, {"status": "uploading"})
         if service == "gofile":
-            await upload_to_gofile(task_archive_path, status_file)
+            gofile_token = params.get("gofile_token")
+            download_link = await upload_to_gofile(task_archive_path, status_file, api_token=gofile_token)
+            update_task_status(task_id, {"status": "completed", "gofile_link": download_link})
         else:
             rclone_config_path = create_rclone_config(task_id, service, params)
             remote_full_path = f"remote:{upload_path}"
@@ -397,15 +464,17 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 f"rclone copyto --config \"{rclone_config_path}\" \"{task_archive_path}\" \"{remote_full_path}/{task_id}.zst\" "
                 f"-P --log-file=\"{status_file}\" --log-level=INFO"
             )
-            await run_command(upload_cmd, upload_cmd, status_file)
+            await run_command(upload_cmd, upload_cmd, status_file, task_id)
+            update_task_status(task_id, {"status": "completed"})
         
         with open(status_file, "a") as f:
             f.write("\nJob completed successfully!\n")
 
     except Exception as e:
+        error_message = f"An error occurred: {str(e)}"
         with open(status_file, "a") as f:
-            f.write(f"\n--- JOB FAILED ---\n")
-            f.write(f"An error occurred: {str(e)}\n")
+            f.write(f"\n--- JOB FAILED ---\n{error_message}\n")
+        update_task_status(task_id, {"status": "failed", "error": error_message})
     finally:
         # Decrement active tasks counter and cleanup if it's the last task
         async with task_lock:
@@ -511,15 +580,20 @@ async def create_download_job(
     Accepts a download job, validates input, and starts it in the background.
     """
     task_id = str(uuid.uuid4())
-    
     params = await request.form()
+
+    # Store all initial parameters for potential retry
+    update_task_status(task_id, {
+        "id": task_id,
+        "status": "queued",
+        "original_params": dict(params)
+    })
 
     # Increment active tasks counter
     async with task_lock:
         global active_tasks
         active_tasks += 1
 
-    
     # Simple validation
     if not url or not upload_service:
         raise HTTPException(status_code=400, detail="URL and Upload Service are required.")
@@ -527,9 +601,16 @@ async def create_download_job(
         raise HTTPException(status_code=400, detail="Upload Path is required for this service.")
 
     # Run the job in the background
-    asyncio.create_task(process_download_job(task_id, url, downloader, upload_service, upload_path, params))
+    asyncio.create_task(process_download_job(
+        task_id=task_id,
+        url=url,
+        downloader=downloader,
+        service=upload_service,
+        upload_path=upload_path,
+        params=params
+    ))
     
-    return RedirectResponse(f"/status/{task_id}", status_code=303)
+    return RedirectResponse("/tasks", status_code=303)
 
 
 @app.get("/tasks", response_class=HTMLResponse)
@@ -539,8 +620,118 @@ async def get_tasks(request: Request):
     if PRIVATE_MODE and not user:
         return RedirectResponse(url="/login", status_code=302)
 
-    tasks = [f.stem for f in STATUS_DIR.glob("*.log")]
+    tasks = []
+    # Sort by modification time, newest first
+    for status_file in sorted(STATUS_DIR.glob("*.json"), key=os.path.getmtime, reverse=True):
+        task_id = status_file.stem
+        try:
+            with open(status_file, "r") as f:
+                task_data = json.load(f)
+                task_data["id"] = task_id
+                tasks.append(task_data)
+        except (json.JSONDecodeError, IOError):
+            tasks.append({"id": task_id, "status": "unknown", "url": "N/A"})
+
     return templates.TemplateResponse("tasks.html", {"request": request, "lang": lang, "tasks": tasks})
+
+@app.post("/retry/{task_id}")
+async def retry_task(task_id: str):
+    """Retries a failed task by starting a new job with the original parameters."""
+    status_path = get_task_status_path(task_id)
+    if not status_path.exists():
+        raise HTTPException(status_code=404, detail="Task to retry not found.")
+
+    with open(status_path, "r") as f:
+        try:
+            task_data = json.load(f)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail="Could not read original task data.")
+            
+    original_params = task_data.get("original_params")
+    if not original_params:
+        raise HTTPException(status_code=400, detail="Cannot retry task: original parameters not found.")
+
+    # Create a new task ID for the retry
+    new_task_id = str(uuid.uuid4())
+
+    # Update status for the new task
+    update_task_status(new_task_id, {
+        "id": new_task_id,
+        "status": "queued",
+        "original_params": original_params,
+        "retry_of": task_id
+    })
+
+    # Increment active tasks counter
+    async with task_lock:
+        global active_tasks
+        active_tasks += 1
+
+    # Start the job with the original parameters
+    asyncio.create_task(process_download_job(
+        task_id=new_task_id,
+        url=original_params.get("url"),
+        downloader=original_params.get("downloader"),
+        service=original_params.get("upload_service"),
+        upload_path=original_params.get("upload_path"),
+        params=original_params
+    ))
+
+    return RedirectResponse("/tasks", status_code=303)
+
+
+@app.post("/pause/{task_id}")
+async def pause_task(task_id: str):
+    """Pauses a running task by sending SIGSTOP."""
+    status_path = get_task_status_path(task_id)
+    if not status_path.exists():
+        raise HTTPException(status_code=404, detail="Task not found.")
+
+    with open(status_path, "r") as f:
+        task_data = json.load(f)
+
+    pgid = task_data.get("pgid")
+    if not pgid:
+        raise HTTPException(status_code=400, detail="Task is not running or cannot be paused.")
+
+    try:
+        os.killpg(pgid, signal.SIGSTOP)
+        previous_status = task_data.get("status", "running")
+        update_task_status(task_id, {"status": "paused", "previous_status": previous_status})
+    except ProcessLookupError:
+        update_task_status(task_id, {"pgid": None}) # Clean up pgid
+        raise HTTPException(status_code=404, detail="Process not found. It may have already finished.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to pause task: {e}")
+
+    return RedirectResponse("/tasks", status_code=303)
+
+
+@app.post("/resume/{task_id}")
+async def resume_task(task_id: str):
+    """Resumes a paused task by sending SIGCONT."""
+    status_path = get_task_status_path(task_id)
+    if not status_path.exists():
+        raise HTTPException(status_code=404, detail="Task not found.")
+
+    with open(status_path, "r") as f:
+        task_data = json.load(f)
+
+    pgid = task_data.get("pgid")
+    if not pgid:
+        raise HTTPException(status_code=400, detail="Task is not paused or cannot be resumed.")
+
+    try:
+        os.killpg(pgid, signal.SIGCONT)
+        previous_status = task_data.get("previous_status", "running")
+        update_task_status(task_id, {"status": previous_status, "previous_status": None})
+    except ProcessLookupError:
+        update_task_status(task_id, {"pgid": None})
+        raise HTTPException(status_code=404, detail="Process not found. It may have already finished.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resume task: {e}")
+
+    return RedirectResponse("/tasks", status_code=303)
 
 
 @app.get("/status/{task_id}", response_class=HTMLResponse)
