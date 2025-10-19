@@ -87,6 +87,7 @@ LANGUAGES = {
         "application_key_label": "Application Key",
         "gofile_settings_title": "gofile.io Settings",
         "api_token_label": "API Token (optional)",
+        "gofile_folder_id_label": "Folder ID (optional)",
         "start_download_button": "Start Download",
         "powered_by": "Powered by gallery-dl, FastAPI, rclone, and zstd.",
         "job_status_title": "Job Status",
@@ -151,6 +152,7 @@ LANGUAGES = {
         "application_key_label": "应用程序密钥",
         "gofile_settings_title": "gofile.io 设置",
         "api_token_label": "API 令牌 (可选)",
+        "gofile_folder_id_label": "文件夹 ID (可选)",
         "start_download_button": "开始下载",
         "powered_by": "由 gallery-dl, FastAPI, rclone 和 zstd 提供支持。",
         "job_status_title": "任务状态",
@@ -273,7 +275,7 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
         with open(status_file, "a") as f:
             f.write("\nCommand finished successfully.\n")
 
-async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Optional[str] = None) -> str:
+async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Optional[str] = None, folder_id: Optional[str] = None) -> str:
     """Uploads a file to gofile.io, trying with a token first and falling back to public."""
     
     async def _attempt_upload(use_token: bool):
@@ -293,6 +295,8 @@ async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Option
                 form_data = {}
                 if use_token and api_token:
                     form_data["token"] = api_token
+                    if folder_id:
+                        form_data["folderId"] = folder_id
 
                 # 3. Upload
                 with open(file_path, "rb") as f_upload:
@@ -455,7 +459,13 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
         update_task_status(task_id, {"status": "uploading"})
         if service == "gofile":
             gofile_token = params.get("gofile_token")
-            download_link = await upload_to_gofile(task_archive_path, status_file, api_token=gofile_token)
+            gofile_folder_id = params.get("gofile_folder_id")
+            download_link = await upload_to_gofile(
+                task_archive_path,
+                status_file,
+                api_token=gofile_token,
+                folder_id=gofile_folder_id
+            )
             update_task_status(task_id, {"status": "completed", "gofile_link": download_link})
         else:
             rclone_config_path = create_rclone_config(task_id, service, params)
@@ -570,6 +580,7 @@ async def create_download_job(
     b2_application_key: str = Form(None),
     # Gofile
     gofile_token: str = Form(None),
+    gofile_folder_id: str = Form(None),
     # DeviantArt
     deviantart_client_id: str = Form(None),
     deviantart_client_secret: str = Form(None),
