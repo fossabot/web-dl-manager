@@ -560,18 +560,18 @@ async def get_blog_index(request: Request):
         content = content.replace("</body>", """
         <!-- Login Prompt Modal -->
         <div class="modal fade" id="loginPromptModal" tabindex="-1" aria-labelledby="loginPromptModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="loginPromptModalLabel">Login Required</h5>
+                        <h5 class="modal-title" id="loginPromptModalLabel">登录提示</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <p>Sign in to access the downloader functionality and participate in blog comments.</p>
+                    <div class="modal-body text-center">
+                        <p>登录后即可使用下载功能和参与博客评论。</p>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <a href="/login" class="btn btn-primary">Sign In</a>
+                    <div class="modal-footer d-flex justify-content-center">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">关闭</button>
+                        <a href="/login" class="btn btn-primary">登录</a>
                     </div>
                 </div>
             </div>
