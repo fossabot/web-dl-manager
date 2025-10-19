@@ -552,48 +552,9 @@ async def robots_txt():
 
 @app.get("/", response_class=HTMLResponse)
 async def get_blog_index(request: Request):
-    blog_index = Path("/app/static_site/index.html")
-    if blog_index.exists():
-        with open(blog_index, "r") as f:
-            content = f.read()
-        # Inject modal login prompt (web format instead of browser popup)
-        content = content.replace("</body>", """
-        <!-- Login Prompt Modal -->
-        <div class="modal fade" id="loginPromptModal" tabindex="-1" aria-labelledby="loginPromptModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="loginPromptModalLabel">登录提示</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <p>登录后即可使用下载功能和参与博客评论。</p>
-                    </div>
-                    <div class="modal-footer d-flex justify-content-center">
-                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">关闭</button>
-                        <a href="/login" class="btn btn-primary">登录</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-        <script>
-            document.addEventListener("DOMContentLoaded", function() {
-                setTimeout(function() {
-                    // Check if user is not logged in (no session)
-                    if (!document.cookie.includes("user=")) {
-                        // Show the modal
-                        const modalElement = document.getElementById('loginPromptModal');
-                        const modal = new bootstrap.Modal(modalElement);
-                        modal.show();
-                    }
-                }, 3000);
-            });
-        </script>
-        </body>""")
-        return HTMLResponse(content=content)
-    return templates.TemplateResponse("index.html", {"request": request, "lang": get_lang(request)})
+    lang = get_lang(request)
+    user = request.session.get("user")
+    return templates.TemplateResponse("index.html", {"request": request, "lang": lang, "user": user})
 
 @app.get("/downloader", response_class=HTMLResponse)
 async def get_downloader(request: Request):
