@@ -276,46 +276,27 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
             f.write("\nCommand finished successfully.\n")
 
 async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Optional[str] = None, folder_id: Optional[str] = None) -> str:
-    """Uploads a file to gofile.io, with server-side error handling and retries."""
-    
+    """Uploads a file to gofile.io, using the correct endpoint for auth vs public."""
+
     async def _attempt_upload(use_token: bool):
         upload_type = "authenticated" if use_token and api_token else "public"
         with open(status_file, "a") as f:
             f.write(f"Attempting {upload_type} upload...\n")
 
         async with httpx.AsyncClient(timeout=300) as client:
-            # 1. Get and shuffle servers
-            try:
+            if use_token and api_token:
+                # For authenticated uploads, use the generic endpoint.
+                upload_url = "https://upload.gofile.io/uploadFile"
                 with open(status_file, "a") as f:
-                    f.write("Fetching Gofile server list...\n")
-                servers_res = await client.get("https://api.gofile.io/servers")
-                servers_res.raise_for_status()
-                servers = servers_res.json()["data"]["servers"]
-                random.shuffle(servers) # Shuffle to distribute load
-            except Exception as e:
-                with open(status_file, "a") as f:
-                    f.write(f"FATAL: Could not fetch Gofile server list: {e}\n")
-                return None
-
-            # 2. Loop through servers and attempt upload
-            for server in servers:
-                server_name = server["name"]
-                upload_url = f"https://{server_name}.gofile.io/uploadFile"
+                    f.write(f"Using generic authenticated endpoint: {upload_url}\n")
                 
-                with open(status_file, "a") as f:
-                    f.write(f"Trying to upload via server: {server_name}...\n")
-
                 try:
-                    # Prepare upload data
-                    form_data = {}
-                    if use_token and api_token:
-                        form_data["token"] = api_token
-                        if folder_id:
-                            form_data["folderId"] = folder_id
+                    form_data = {'token': api_token}
+                    if folder_id:
+                        form_data['folderId'] = folder_id
 
-                    # Upload the file
                     with open(file_path, "rb") as f_upload:
-                        files = {"file": (file_path.name, f_upload, "application/octet-stream")}
+                        files = {'file': (file_path.name, f_upload, "application/octet-stream")}
                         response = await client.post(upload_url, data=form_data, files=files)
                     
                     response.raise_for_status()
@@ -324,31 +305,55 @@ async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Option
                     if upload_result["status"] == "ok":
                         download_link = upload_result["data"]["downloadPage"]
                         with open(status_file, "a") as f:
-                            f.write(f"Gofile.io upload successful on server {server_name}! Link: {download_link}\n")
-                        return download_link # Success, exit the function
+                            f.write(f"Gofile.io authenticated upload successful! Link: {download_link}\n")
+                        return download_link
                     else:
                         with open(status_file, "a") as f:
-                            f.write(f"Gofile API returned an error on server {server_name}: {upload_result}. Won't retry.\n")
-                        return None # API error, fail fast
-
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code >= 500:
-                        with open(status_file, "a") as f:
-                            f.write(f"Server error {e.response.status_code} on {server_name}. Trying next server...\n")
-                        continue # Try next server
-                    else:
-                        with open(status_file, "a") as f:
-                            f.write(f"Client error {e.response.status_code} on {server_name}. Won't retry. Error: {e}\n")
-                        return None # Fail fast
+                            f.write(f"Gofile API returned an error on authenticated upload: {upload_result}\n")
+                        return None
                 except Exception as e:
                     with open(status_file, "a") as f:
-                        f.write(f"An exception occurred during upload to {server_name}: {e}. Trying next server...\n")
-                    continue # Try next server
+                        f.write(f"An exception occurred during authenticated upload: {e}\n")
+                    return None
+            else:
+                # For public uploads, use the server-switching logic.
+                try:
+                    with open(status_file, "a") as f:
+                        f.write("Fetching Gofile server list for public upload...\n")
+                    servers_res = await client.get("https://api.gofile.io/servers")
+                    servers_res.raise_for_status()
+                    servers = servers_res.json()["data"]["servers"]
+                    random.shuffle(servers)
+                except Exception as e:
+                    with open(status_file, "a") as f:
+                        f.write(f"FATAL: Could not fetch Gofile server list: {e}\n")
+                    return None
 
-        # If the loop completes without a successful upload
-        with open(status_file, "a") as f:
-            f.write("All Gofile servers failed for this upload type.\n")
-        return None
+                for server in servers:
+                    server_name = server["name"]
+                    upload_url = f"https://{server_name}.gofile.io/uploadFile"
+                    with open(status_file, "a") as f:
+                        f.write(f"Trying public upload via server: {server_name}...\n")
+                    try:
+                        with open(file_path, "rb") as f_upload:
+                            files = {"file": (file_path.name, f_upload, "application/octet-stream")}
+                            response = await client.post(upload_url, files=files)
+                        response.raise_for_status()
+                        upload_result = response.json()
+
+                        if upload_result["status"] == "ok":
+                            download_link = upload_result["data"]["downloadPage"]
+                            with open(status_file, "a") as f:
+                                f.write(f"Gofile.io public upload successful on server {server_name}! Link: {download_link}\n")
+                            return download_link
+                    except Exception as e:
+                        with open(status_file, "a") as f:
+                            f.write(f"An exception occurred during public upload to {server_name}: {e}. Trying next server...\n")
+                        continue
+                
+                with open(status_file, "a") as f:
+                    f.write("All Gofile servers failed for public upload.\n")
+                return None
 
     # --- Main logic ---
     download_link = None
