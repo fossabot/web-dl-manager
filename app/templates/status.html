@@ -55,6 +55,7 @@
                         </div>
                         <h1 class="card-title mb-4">{{ lang.job_status_title }}</h1>
                         <p class="text-muted">{{ lang.task_id_label }} <span class="font-monospace">{{ task_id }}</span></p>
+                        <p class="text-muted">总行数： <span id="line-count" class="font-monospace">0</span></p>
                         
                         <div class="position-relative">
                             <pre id="log-container" class="p-3"><code>{{ log_content }}</code></pre>
@@ -86,6 +87,8 @@
         const logContainer = document.getElementById('log-container');
         const logContentElement = logContainer.querySelector('code');
         const copyButton = document.getElementById('copy-button');
+        const lineCountElement = document.getElementById('line-count');
+        let lineCount = 0;
         
         const socket = new WebSocket(`ws://${window.location.host}/ws/status/${taskId}`);
 
@@ -102,8 +105,10 @@
                     lineElement.className = 'log-line';
                     lineElement.textContent = line;
                     logContentElement.appendChild(lineElement);
+                    lineCount++;
                 }
             });
+            lineCountElement.textContent = lineCount;
             logContainer.scrollTop = logContainer.scrollHeight;
         };
 
