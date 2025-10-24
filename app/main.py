@@ -826,10 +826,14 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         with open(status_file, "r") as f:
             # Send the whole file content first
             await websocket.send_text(f.read())
+            
+            # Go to the end of the file
+            f.seek(0, 2)
+            
             while True:
                 line = f.readline()
                 if not line:
-                    await asyncio.sleep(0.1) # a little sleep to not hog the cpu
+                    await asyncio.sleep(0.5) # Sleep to prevent high CPU usage
                     continue
                 await websocket.send_text(line)
     except WebSocketDisconnect:
