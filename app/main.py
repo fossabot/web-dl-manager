@@ -105,6 +105,11 @@ LANGUAGES = {
         "url_and_service_required": "URL and Upload Service are required.",
         "upload_path_required": "Upload Path is required for this service.",
         "job_not_found": "Job not found.",
+        "cloudflare_tunnel_title": "Cloudflare Tunnel",
+        "cloudflared_token_label": "Cloudflared Token",
+        "start_tunnel_button": "Start Tunnel",
+        "stop_tunnel_button": "Stop Tunnel",
+        "tunnel_status_title": "Tunnel Status",
     },
     "zh": {
         "app_title": "Gallery-DL & Kemono-DL 网页版",
@@ -173,6 +178,11 @@ LANGUAGES = {
         "url_and_service_required": "网址和上传服务是必需的。",
         "upload_path_required": "此服务需要上传路径。",
         "job_not_found": "任务未找到。",
+        "cloudflare_tunnel_title": "Cloudflare 隧道",
+        "cloudflared_token_label": "Cloudflared 令牌",
+        "start_tunnel_button": "启动隧道",
+        "stop_tunnel_button": "停止隧道",
+        "tunnel_status_title": "隧道状态",
     }
 }
 
@@ -190,6 +200,78 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # --- Global State ---
 active_tasks = 0
 task_lock = asyncio.Lock()
+
+# --- Cloudflared Tunnel Management ---
+from pydantic import BaseModel
+
+tunnel_process: Optional[asyncio.subprocess.Process] = None
+tunnel_log = ""
+tunnel_lock = asyncio.Lock()
+
+class TunnelRequest(BaseModel):
+    token: str
+
+async def read_tunnel_stream(stream, log_prefix):
+    global tunnel_log
+    while True:
+        line = await stream.readline()
+        if not line:
+            break
+        async with tunnel_lock:
+            tunnel_log += f"{log_prefix}: {line.decode()}"
+
+@app.post("/tunnel/start")
+async def start_tunnel(request: TunnelRequest):
+    global tunnel_process, tunnel_log
+    async with tunnel_lock:
+        if tunnel_process and tunnel_process.returncode is None:
+            return {"message": "Tunnel is already running."}
+
+        token = request.token
+        if not token:
+            raise HTTPException(status_code=400, detail="Token is required.")
+
+        tunnel_log = "Starting tunnel...\n"
+        command = f"cloudflared tunnel --no-autoupdate run --token {token}"
+
+        try:
+            tunnel_process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                preexec_fn=os.setsid
+            )
+            asyncio.create_task(read_tunnel_stream(tunnel_process.stdout, "STDOUT"))
+            asyncio.create_task(read_tunnel_stream(tunnel_process.stderr, "STDERR"))
+            return {"message": "Tunnel started successfully."}
+        except Exception as e:
+            tunnel_log += f"Failed to start tunnel: {e}\n"
+            return {"message": f"Failed to start tunnel: {e}"}
+
+@app.post("/tunnel/stop")
+async def stop_tunnel():
+    global tunnel_process, tunnel_log
+    async with tunnel_lock:
+        if not tunnel_process or tunnel_process.returncode is not None:
+            return {"message": "Tunnel is not running."}
+
+        tunnel_log += "Stopping tunnel...\n"
+        try:
+            os.killpg(os.getpgid(tunnel_process.pid), signal.SIGTERM)
+            await tunnel_process.wait()
+            tunnel_log += "Tunnel stopped.\n"
+            return {"message": "Tunnel stopped successfully."}
+        except Exception as e:
+            tunnel_log += f"Failed to stop tunnel: {e}\n"
+            return {"message": f"Failed to stop tunnel: {e}"}
+
+@app.get("/tunnel/status")
+async def tunnel_status():
+    global tunnel_process, tunnel_log
+    async with tunnel_lock:
+        running = tunnel_process and tunnel_process.returncode is None
+        return {"running": running, "log": tunnel_log}
+
 
 # --- Helper Functions ---
 async def cleanup_directories():

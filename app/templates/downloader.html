@@ -192,6 +192,23 @@
                         </form>
                     </div>
                 </div>
+
+                <div class="card shadow-sm mt-4">
+                    <div class="card-body">
+                        <h2 class="card-title">{{ lang.cloudflare_tunnel_title }}</h2>
+                        <div class="mb-3">
+                            <label for="cloudflared-token" class="form-label">{{ lang.cloudflared_token_label }}</label>
+                            <input type="password" class="form-control" id="cloudflared-token" name="cloudflared_token">
+                        </div>
+                        <button class="btn btn-success" onclick="startTunnel()">{{ lang.start_tunnel_button }}</button>
+                        <button class="btn btn-danger" onclick="stopTunnel()">{{ lang.stop_tunnel_button }}</button>
+                        <div class="mt-3">
+                            <h5>{{ lang.tunnel_status_title }}</h5>
+                            <pre id="tunnel-log" class="bg-light p-2 rounded" style="min-height: 100px;"></pre>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="text-center mt-3 footer">
                     <p class="text-muted small">{{ lang.powered_by }}</p>
                 </div>
@@ -263,6 +280,56 @@
                 proxyInput.disabled = false;
             }
         });
+
+        let tunnelStatusInterval;
+
+        function startTunnel() {
+            const token = document.getElementById('cloudflared-token').value;
+            if (!token) {
+                alert('Please enter a Cloudflared token.');
+                return;
+            }
+            fetch('/tunnel/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token: token }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                checkTunnelStatus();
+            });
+        }
+
+        function stopTunnel() {
+            fetch('/tunnel/stop', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                checkTunnelStatus();
+            });
+        }
+
+        function checkTunnelStatus() {
+            fetch('/tunnel/status')
+            .then(response => response.json())
+            .then(data => {
+                const logElement = document.getElementById('tunnel-log');
+                if (data.running) {
+                    logElement.textContent = 'Status: Running\n\n' + data.log;
+                } else {
+                    logElement.textContent = 'Status: Not Running\n\n' + data.log;
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkTunnelStatus(); // Initial check
+            tunnelStatusInterval = setInterval(checkTunnelStatus, 5000); // Poll every 5 seconds
+        });
+
     </script>
 </body>
 </html>
