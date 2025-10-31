@@ -220,16 +220,15 @@ async def read_tunnel_stream(stream, log_prefix):
         async with tunnel_lock:
             tunnel_log += f"{log_prefix}: {line.decode()}"
 
-@app.post("/tunnel/start")
-async def start_tunnel(request: TunnelRequest):
+async def launch_tunnel(token: str):
     global tunnel_process, tunnel_log
     async with tunnel_lock:
         if tunnel_process and tunnel_process.returncode is None:
             return {"message": "Tunnel is already running."}
 
-        token = request.token
         if not token:
-            raise HTTPException(status_code=400, detail="Token is required.")
+            tunnel_log += "Token is empty. Cannot start tunnel.\n"
+            return {"message": "Token is empty."}
 
         tunnel_log = "Starting tunnel...\n"
         command = f"cloudflared tunnel --no-autoupdate run --token {token}"
@@ -243,10 +242,22 @@ async def start_tunnel(request: TunnelRequest):
             )
             asyncio.create_task(read_tunnel_stream(tunnel_process.stdout, "STDOUT"))
             asyncio.create_task(read_tunnel_stream(tunnel_process.stderr, "STDERR"))
+            tunnel_log += "Tunnel process started.\n"
             return {"message": "Tunnel started successfully."}
         except Exception as e:
             tunnel_log += f"Failed to start tunnel: {e}\n"
             return {"message": f"Failed to start tunnel: {e}"}
+
+@app.on_event("startup")
+async def startup_event():
+    cloudflared_token = os.getenv("CLOUDFLARED_TOKEN")
+    if cloudflared_token:
+        print("Found CLOUDFLARED_TOKEN, attempting to start tunnel automatically.")
+        await launch_tunnel(cloudflared_token)
+
+@app.post("/tunnel/start")
+async def start_tunnel(request: TunnelRequest):
+    return await launch_tunnel(request.token)
 
 @app.post("/tunnel/stop")
 async def stop_tunnel():
