@@ -54,6 +54,9 @@ LANGUAGES = {
         "how_to_get_them": "How to get them?",
         "client_id_label": "Client ID",
         "client_secret_label": "Client Secret",
+        "rate_limit_title": "Rate Limit",
+        "rate_limit_text": "Limit download speed (e.g., 500K, 2M).",
+        "rate_limit_label": "Rate Limit",
         "proxy_text": "Use a proxy to bypass IP blocks (e.g., from CloudFront).",
         "proxy_label": "Proxy URL",
         "proxy_placeholder": "e.g., http://user:pass@host:port",
@@ -119,6 +122,9 @@ LANGUAGES = {
         "how_to_get_them": "如何获取？",
         "client_id_label": "客户端 ID",
         "client_secret_label": "客户端密钥",
+        "rate_limit_title": "速度限制",
+        "rate_limit_text": "限制下载速度 (例如, 500K, 2M).",
+        "rate_limit_label": "速度限制",
         "proxy_text": "使用代理绕过 IP 封锁（例如来自 CloudFront）。",
         "proxy_label": "代理 URL",
         "proxy_placeholder": "例如：http://user:pass@host:port",
@@ -475,6 +481,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 command += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret={params['deviantart_client_secret']}"
             if proxy:
                 command += f" --proxy {proxy}"
+            if params.get("rate_limit"):
+                command += f" --limit-rate {params['rate_limit']}"
             command += f" {url}"
 
             command_log = f"gallery-dl --verbose -D {task_download_dir}"
@@ -482,6 +490,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 command_log += " -o extractor.deviantart.client-id=**** -o extractor.deviantart.client-secret=****"
             if proxy:
                 command_log += f" --proxy {proxy}"
+            if params.get("rate_limit"):
+                command_log += f" --limit-rate {params['rate_limit']}"
             command_log += f" {url}"
         
         update_task_status(task_id, {"command": command_log})
@@ -634,6 +644,7 @@ async def create_download_job(
     # DeviantArt
     deviantart_client_id: str = Form(None),
     deviantart_client_secret: str = Form(None),
+    rate_limit: str = Form(None),
     proxy: str = Form(None),
     auto_proxy: bool = Form(False),
 ):
