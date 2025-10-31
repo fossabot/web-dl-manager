@@ -13,12 +13,16 @@ FROM python:3.11-slim
 # 1. Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    wget \
     unzip \
     ca-certificates \
     zstd \
     git \
     && curl https://rclone.org/install.sh | bash \
-    && apt-get purge -y --auto-remove curl \
+    && wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+    && dpkg -i cloudflared-linux-amd64.deb \
+    && rm cloudflared-linux-amd64.deb \
+    && apt-get purge -y --auto-remove curl wget \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Create a non-root user
