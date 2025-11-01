@@ -21,7 +21,7 @@ The entire application is containerized using Docker and comes with a GitHub Act
         -   Manually specify an HTTP proxy.
         -   **Auto-Proxy:** Automatically fetch and concurrently test proxies from a public list to find a working one, with a retry mechanism.
 -   **Efficient Archiving:** Downloads are packaged into `.tar.zst` archives for efficient storage and transfer.
--   **Flexible Uploads:** Utilizes `rclone` to upload archives to various cloud storage providers (WebDAV, S3, B2) or `gofile.io`. **For `openlist` service, both compressed and uncompressed uploads are handled directly by `openlist.py` for seamless integration.**
+-   **Flexible Uploads:** Utilizes `rclone` to upload archives to various cloud storage providers (WebDAV, S3, B2) or `gofile.io`. **For `openlist` service, both compressed and uncompressed uploads are handled directly by `openlist.py` for seamless integration. When uploading to a directory containing "terabox", an additional `task_id` subdirectory will not be created.**
 -   **Real-time Logging:** A redesigned status page shows job logs in real-time without page reloads, and includes a copy-to-clipboard feature.
 -   **Containerized & CI/CD Ready:** Easy to deploy with Docker and includes a GitHub Actions workflow for automated builds.
 
