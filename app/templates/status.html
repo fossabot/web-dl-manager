@@ -19,6 +19,7 @@
             overflow-y: auto;
             white-space: pre-wrap; /* Preserve whitespace and wrap text */
             word-wrap: break-word; /* Break long words */
+            counter-reset: line;
         }
         #tunnel-log-container {
             height: 30vh; /* Smaller height for tunnel logs */
@@ -29,6 +30,25 @@
         }
         .log-header:hover {
             color: #007bff;
+        }
+        .log-line {
+            display: block;
+            counter-increment: line;
+            padding-left: 4em;
+            position: relative;
+        }
+        .log-line::before {
+            content: counter(line);
+            position: absolute;
+            left: 0;
+            width: 3em;
+            text-align: right;
+            color: #888;
+            padding-right: 1em;
+            user-select: none;
+        }
+        .log-line.selected {
+            background-color: #343a40;
         }
     </style>
 </head>
@@ -114,19 +134,30 @@
         const increaseFontSizeButton = document.getElementById('increase-font-size');
         let intervalId;
 
+        function renderLog(logElement, logContent) {
+            logElement.innerHTML = ''; // Clear previous content
+            const lines = logContent.split('\n');
+            lines.forEach(line => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'log-line';
+                lineDiv.textContent = line;
+                logElement.appendChild(lineDiv);
+            });
+        }
+
         async function fetchLogs() {
             try {
                 const response = await fetch(`/status/${taskId}/json`);
                 if (response.ok) {
                     const data = await response.json();
-                    downloadLogContentElement.textContent = data.log;
+                    renderLog(downloadLogContentElement, data.log);
                     downloadLogContainer.scrollTop = downloadLogContainer.scrollHeight;
 
                     // Fetch tunnel status separately
                     const tunnelResponse = await fetch('/tunnel/status');
                     if (tunnelResponse.ok) {
                         const tunnelData = await tunnelResponse.json();
-                        tunnelLogContentElement.textContent = tunnelData.log;
+                        renderLog(tunnelLogContentElement, tunnelData.log);
                         tunnelLogContainer.scrollTop = tunnelLogContainer.scrollHeight;
                     } else {
                         console.error('Failed to fetch tunnel log:', tunnelResponse.statusText);
@@ -188,6 +219,22 @@
 
         setupCopyButton(copyDownloadLogButton, downloadLogContentElement);
         setupCopyButton(copyTunnelLogButton, tunnelLogContentElement);
+
+        function handleLineClick(event) {
+            const target = event.target;
+            if (target.classList.contains('log-line')) {
+                // Remove 'selected' from other lines in the same container
+                const container = target.parentElement;
+                container.querySelectorAll('.log-line.selected').forEach(line => {
+                    line.classList.remove('selected');
+                });
+                // Add 'selected' to the clicked line
+                target.classList.add('selected');
+            }
+        }
+
+        downloadLogContentElement.addEventListener('click', handleLineClick);
+        tunnelLogContentElement.addEventListener('click', handleLineClick);
 
         // Initial fetch and start auto-refresh
         fetchLogs();
