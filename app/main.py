@@ -7,14 +7,13 @@ import shutil
 import json
 import signal
 import subprocess
-import gofilepy # <-- Added import for the new library
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 
 # --- Configuration ---
@@ -335,57 +334,95 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
         with open(status_file, "a") as f:
             f.write("\nCommand finished successfully.\n")
 
-# --- REPLACED Gofile Upload Function ---
 async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Optional[str] = None, folder_id: Optional[str] = None) -> str:
-    """Uploads a file to gofile.io using the gofilepy-api library."""
-    
-    with open(status_file, "a") as f:
-        f.write("Attempting upload using gofilepy-api library...\n")
-    
+    """
+    Uploads a file to gofile.io, using the correct server-specific endpoint for both authenticated and public uploads.
+    """
+
+    async def _attempt_upload(use_token: bool, servers: List[Dict]):
+        """Internal helper to attempt an upload by iterating through available servers."""
+        upload_type = "authenticated" if use_token and api_token else "public"
+        with open(status_file, "a", encoding="utf-8") as f:
+            f.write(f"Attempting {upload_type} upload...\n")
+
+        for server in servers:
+            server_name = server["name"]
+            upload_url = f"https://{server_name}.gofile.io/uploadFile"
+            
+            with open(status_file, "a", encoding="utf-8") as f:
+                f.write(f"Trying {upload_type} upload via server: {server_name}...\n")
+
+            try:
+                async with httpx.AsyncClient(timeout=300) as client:
+                    form_data = {}
+                    if use_token and api_token:
+                        form_data['token'] = api_token
+                        if folder_id:
+                            form_data['folderId'] = folder_id
+                    
+                    with open(file_path, "rb") as f_upload:
+                        files = {'file': (file_path.name, f_upload, "application/octet-stream")}
+                        response = await client.post(upload_url, data=form_data or None, files=files)
+                    
+                    response.raise_for_status()
+                    upload_result = response.json()
+
+                    if upload_result.get("status") == "ok":
+                        download_link = upload_result["data"]["downloadPage"]
+                        with open(status_file, "a", encoding="utf-8") as f:
+                            f.write(f"Gofile.io {upload_type} upload successful on server {server_name}! Link: {download_link}\n")
+                        return download_link
+                    else:
+                        with open(status_file, "a", encoding="utf-8") as f:
+                            f.write(f"Gofile API returned an error on {upload_type} upload to {server_name}: {upload_result}. Trying next server...\n")
+                        continue
+            except Exception as e:
+                with open(status_file, "a", encoding="utf-8") as f:
+                    f.write(f"An exception occurred during {upload_type} upload to {server_name}: {e}. Trying next server...\n")
+                continue
+        
+        with open(status_file, "a", encoding="utf-8") as f:
+            f.write(f"All Gofile servers failed for {upload_type} upload.\n")
+        return None
+
+    # --- Main logic ---
+
+    # 1. Fetch the server list first, as it's required for ALL upload types.
+    servers = []
     try:
-        # Instantiate the client
-        g = gofilepy.Gofile()
-
-        # Set token if provided for authenticated upload
-        if api_token:
-            with open(status_file, "a") as f:
-                f.write("Using API token for authenticated upload.\n")
-            g.set_token(api_token)
-
-        # Log which folder is being used
-        if folder_id:
-            with open(status_file, "a") as f:
-                f.write(f"Uploading to folder ID: {folder_id}\n")
-
-        # Define the synchronous upload function to be run in a separate thread
-        def _sync_upload():
-            return g.upload(
-                file=str(file_path), 
-                folder_id=folder_id
-            )
-
-        # Run the synchronous library call in a non-blocking way
-        upload_result = await asyncio.to_thread(_sync_upload)
-
-        # Check the result and extract the download link
-        if upload_result and upload_result.get('downloadPage'):
-            download_link = upload_result['downloadPage']
-            with open(status_file, "a") as f:
-                f.write(f"Gofile.io upload successful! Link: {download_link}\n")
-            return download_link
-        else:
-            error_details = str(upload_result)
-            with open(status_file, "a") as f:
-                f.write(f"Gofile API returned an error: {error_details}\n")
-            raise Exception(f"Gofile upload failed. API response: {error_details}")
-
+        with open(status_file, "a", encoding="utf-8") as f:
+            f.write("Fetching Gofile server list...\n")
+        async with httpx.AsyncClient(timeout=60) as client:
+            servers_res = await client.get("https://api.gofile.io/servers")
+            servers_res.raise_for_status()
+            servers_data = servers_res.json()
+            if servers_data.get("status") != "ok":
+                 raise Exception(f"Gofile API did not return 'ok' for server list: {servers_data}")
+            servers = servers_data["data"]["servers"]
+            random.shuffle(servers)
     except Exception as e:
-        # Catch exceptions from the library (e.g., connection errors) or our own raised exception
-        error_message = f"An exception occurred during gofilepy upload: {e}"
-        with open(status_file, "a") as f:
+        error_message = f"FATAL: Could not fetch Gofile server list: {e}"
+        with open(status_file, "a", encoding="utf-8") as f:
             f.write(f"{error_message}\n")
-        # Re-raise the exception so the main job processor knows it failed.
         raise Exception(error_message)
+
+    # 2. Attempt authenticated upload if a token is provided.
+    download_link = None
+    if api_token:
+        download_link = await _attempt_upload(use_token=True, servers=servers)
+
+    # 3. If authenticated upload failed or was skipped, attempt public upload as a fallback.
+    if not download_link:
+        if api_token:
+            with open(status_file, "a", encoding="utf-8") as f:
+                f.write("Authenticated upload failed. Falling back to public upload.\n")
+        download_link = await _attempt_upload(use_token=False, servers=servers)
+
+    # 4. If all attempts have failed, raise a final exception.
+    if not download_link:
+        raise Exception("Gofile.io upload failed completely after trying all available servers and fallback options.")
+
+    return download_link
 
 
 def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
