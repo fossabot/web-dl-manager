@@ -34,6 +34,11 @@ else
     mkdir -p $STATIC_SITE_DIR
 fi
 
+# List the contents of the static site directory for debugging
+echo "--- STATIC SITE CONTENTS ---"
+ls -R $STATIC_SITE_DIR
+echo "--------------------------"
+
 echo "--- INSTALLED PACKAGES ---"
 pip list
 echo "--- PYTHONPATH ---"
