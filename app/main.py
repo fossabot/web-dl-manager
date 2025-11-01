@@ -653,7 +653,11 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 rclone_config_path.unlink()
 
 
-app.mount("/assets", StaticFiles(directory="/app/static_site/assets"), name="assets")
+
+# Mount static assets if the directory exists
+assets_dir = "/app/static_site/assets"
+if os.path.isdir(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # --- API Endpoints ---
 
