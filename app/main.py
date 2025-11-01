@@ -541,18 +541,53 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
         with open(status_file, "a") as f:
             f.write("\nUncompressed upload is not supported for gofile.io.\n")
         return
+    elif service == "openlist":
+        try:
+            openlist_url = params.get("openlist_url")
+            openlist_user = params.get("openlist_user")
+            openlist_pass = params.get("openlist_pass")
+
+            if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
+                raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
+
+            with open(status_file, "a") as f:
+                f.write(f"\n--- Starting Openlist Uncompressed Upload ---\n")
+
+            token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
+            openlist.create_directory(openlist_url, token, upload_path, status_file)
+            
+            task_download_dir = DOWNLOADS_DIR / task_id
+            for item in task_download_dir.rglob("*"):
+                if item.is_file():
+                    relative_path = item.relative_to(task_download_dir)
+                    remote_file_dir = Path(upload_path) / Path(task_id) / relative_path.parent
+                    # Ensure the remote directory exists for the file
+                    openlist.create_directory(openlist_url, token, str(remote_file_dir), status_file)
+                    openlist.upload_file(openlist_url, token, item, str(remote_file_dir), status_file)
+            
+            with open(status_file, "a") as f:
+                f.write("\nOpenlist uncompressed upload completed successfully.\n")
+
+        except openlist.OpenlistError as e:
+            error_message = f"Openlist uncompressed upload failed: {e}"\
+            with open(status_file, "a") as f:\
+                f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")\
+            raise OpenlistError(error_message)
+        return
 
     task_download_dir = DOWNLOADS_DIR / task_id
     rclone_config_path = create_rclone_config(task_id, service, params)
     remote_full_path = f"remote:{upload_path}/{task_id}"
-    upload_cmd = (
-        f"rclone copy --config \"{rclone_config_path}\" \"{task_download_dir}\" \"{remote_full_path}\" "
-        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 50"
-    )
-    if params.get("upload_rate_limit"):
-        upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
+    
+    config_arg = f"--config \"{rclone_config_path}\"" if rclone_config_path else ""
+    
+    upload_cmd = (\
+        f"rclone copy {config_arg} \"{task_download_dir}\" \"{remote_full_path}\" "\
+        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 50"\
+    )\
+    if params.get("upload_rate_limit"):\
+        upload_cmd += f" --bwlimit {params['upload_rate_limit']}"\
     upload_cmd += " 2>/dev/null"
-    await run_command(upload_cmd, upload_cmd, status_file, task_id)
 
 async def compress_in_chunks(task_id: str, source_dir: Path, archive_name_base: str, max_size: int, status_file: Path) -> list[Path]:
     """Compresses files in chunks of a given size."""
@@ -713,8 +748,11 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 else:
                     rclone_config_path = create_rclone_config(task_id, service, params)
                     remote_full_path = f"remote:{upload_path}"
+                    
+                    config_arg = f"--config \"{rclone_config_path}\"" if rclone_config_path else ""
+                    
                     upload_cmd = (
-                        f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
+                        f"rclone copyto {config_arg} \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
                         f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 50"
                     )
                     if params.get("upload_rate_limit"):
