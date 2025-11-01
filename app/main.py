@@ -812,7 +812,7 @@ async def create_download_job(
     upload_rate_limit: str = Form("1M"),
     proxy: str = Form(None),
     auto_proxy: bool = Form(False),
-    enable_compression: bool = Form(True),
+    enable_compression: Optional[str] = Form(None),
     split_compression: bool = Form(False),
     split_size: int = Form(1000),
 ):
@@ -840,6 +840,9 @@ async def create_download_job(
     if upload_service != "gofile" and not upload_path:
         raise HTTPException(status_code=400, detail="Upload Path is required for this service.")
 
+    # Convert enable_compression to boolean
+    is_compression_enabled = enable_compression == "true"
+
     # Run the job in the background
     asyncio.create_task(process_download_job(
         task_id=task_id,
@@ -848,7 +851,7 @@ async def create_download_job(
         service=upload_service,
         upload_path=upload_path,
         params=params,
-        enable_compression=enable_compression,
+        enable_compression=is_compression_enabled,
         split_compression=split_compression,
         split_size=split_size
     ))
@@ -918,7 +921,7 @@ async def retry_task(task_id: str):
         service=original_params.get("upload_service"),
         upload_path=original_params.get("upload_path"),
         params=original_params,
-        enable_compression=original_params.get("enable_compression", "true").lower() == "true"
+        enable_compression=original_params.get("enable_compression") == "true",
     ))
 
     return RedirectResponse("/tasks", status_code=303)

@@ -97,7 +97,7 @@
                                             </div>
                                             <hr>
                                             <div class="form-check mb-3">
-                                                <input class="form-check-input" type="checkbox" value="true" id="enable_compression" name="enable_compression" checked>
+                                                <input class="form-check-input" type="checkbox" id="enable_compression" name="enable_compression" checked>
                                                 <label class="form-check-label" for="enable_compression">
                                                     {{ lang.enable_compression_label }}
                                                 </label>
@@ -357,7 +357,20 @@
             });
         }
 
+        const enableCompressionCheckbox = document.getElementById('enable_compression');
+
+        enableCompressionCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                this.value = "true";
+            } else {
+                this.removeAttribute('value');
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
+            if (enableCompressionCheckbox.checked) {
+                enableCompressionCheckbox.value = "true";
+            }
             checkTunnelStatus(); // Initial check
             tunnelStatusInterval = setInterval(checkTunnelStatus, 5000); // Poll every 5 seconds
         });
