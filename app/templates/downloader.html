@@ -129,6 +129,7 @@
                                     <option value="s3">{{ lang.s3_option }}</option>
                                     <option value="b2">{{ lang.b2_option }}</option>
                                     <option value="gofile">{{ lang.gofile_option }}</option>
+                                    <option value="openlist">Openlist</option>
                                 </select>
                             </div>
 
@@ -201,6 +202,22 @@
         <label for="gofile-folder-id" class="form-label">{{ lang.gofile_folder_id_label }}</label>
         <input type="text" class="form-control" id="gofile-folder-id" name="gofile_folder_id" placeholder="e.g., ad957716-3899-498a-bebc-716f616f9b16">
     </div>
+                                </div>
+
+                                <div id="config-openlist" class="service-config card card-body mb-3" style="display:none;">
+                                    <h5>Openlist Settings</h5>
+                                    <div class="mb-3">
+                                        <label for="openlist_url" class="form-label">Openlist URL</label>
+                                        <input type="url" class="form-control" id="openlist_url" name="openlist_url" placeholder="e.g., http://your-alist-server.com">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="openlist_user" class="form-label">Username</label>
+                                        <input type="text" class="form-control" id="openlist_user" name="openlist_user">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="openlist_pass" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="openlist_pass" name="openlist_pass">
+                                    </div>
                                 </div>
                             </div>
 

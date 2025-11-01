@@ -15,6 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
+import openlist
+from openlist import OpenlistError
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
@@ -463,7 +465,7 @@ async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Option
 
 def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     """Creates a temporary rclone config file."""
-    if service == "gofile":
+    if service == "gofile" or service == "openlist":
         return None
 
     config_dir = Path("/tmp/rclone_configs")
@@ -682,6 +684,32 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                         folder_id=gofile_folder_id
                     )
                     update_task_status(task_id, {"status": "completed", "gofile_link": download_link})
+                elif service == "openlist":
+                    try:
+                        openlist_url = params.get("openlist_url")
+                        openlist_user = params.get("openlist_user")
+                        openlist_pass = params.get("openlist_pass")
+
+                        if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
+                            raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
+
+                        with open(status_file, "a") as f:
+                            f.write(f"\n--- Starting Openlist Upload ---\n")
+                        
+                        token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
+                        openlist.create_directory(openlist_url, token, upload_path, status_file)
+                        
+                        for archive_path in archive_paths:
+                            openlist.upload_file(openlist_url, token, archive_path, upload_path, status_file)
+                        
+                        update_task_status(task_id, {"status": "completed"})
+
+                    except openlist.OpenlistError as e:
+                        error_message = f"Openlist upload failed: {e}"
+                        with open(status_file, "a") as f:
+                            f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
+                        update_task_status(task_id, {"status": "failed", "error": error_message})
+
                 else:
                     rclone_config_path = create_rclone_config(task_id, service, params)
                     remote_full_path = f"remote:{upload_path}"
@@ -826,6 +854,10 @@ async def create_download_job(
     # B2
     b2_account_id: str = Form(None),
     b2_application_key: str = Form(None),
+    # Openlist
+    openlist_url: str = Form(None),
+    openlist_user: str = Form(None),
+    openlist_pass: str = Form(None),
     # Gofile
     gofile_token: str = Form(None),
     gofile_folder_id: str = Form(None),
