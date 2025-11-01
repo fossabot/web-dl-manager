@@ -216,8 +216,11 @@ async def read_tunnel_stream(stream, log_prefix):
         line = await stream.readline()
         if not line:
             break
-        async with tunnel_lock:
-            tunnel_log += f"{log_prefix}: {line.decode()}"
+        decoded_line = line.decode()
+        # Filter out uvicorn access logs
+        if "uvicorn.access" not in decoded_line:
+            async with tunnel_lock:
+                tunnel_log += f"{log_prefix}: {decoded_line}"
 
 async def launch_tunnel(token: str):
     global tunnel_process, tunnel_log
@@ -297,12 +300,12 @@ async def get_working_proxy(status_file: Path) -> str:
 async def run_command(command: str, command_to_log: str, status_file: Path, task_id: str):
     """Runs a shell command asynchronously, logs its progress, and stores its PGID."""
     with open(status_file, "a") as f:
-        f.write(f"Executing command: {command_to_log}\n")
+        f.write(f"Executing command: {command_to_log}\n\n")
 
     process = await asyncio.create_subprocess_shell(
         command,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
         preexec_fn=os.setsid  # Create a new process group
     )
 
@@ -310,10 +313,23 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
         pgid = os.getpgid(process.pid)
         update_task_status(task_id, {"pgid": pgid})
     except ProcessLookupError:
-        # Process might have finished very quickly
-        pass
+        pass # Process might have finished very quickly
 
-    await process.wait()
+    async def stream_to_file(stream, file):
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            file.write(line.decode())
+            file.flush()
+
+    with open(status_file, "a") as f:
+        # Create tasks to stream stdout and stderr
+        stdout_task = asyncio.create_task(stream_to_file(process.stdout, f))
+        stderr_task = asyncio.create_task(stream_to_file(process.stderr, f))
+
+        # Wait for the process to complete and for the streams to be fully read
+        await asyncio.gather(process.wait(), stdout_task, stderr_task)
 
     # Clear the pgid when the command is finished
     update_task_status(task_id, {"pgid": None})
@@ -893,6 +909,28 @@ async def get_status(request: Request, task_id: str):
         "status.html", 
         {"request": request, "task_id": task_id, "log_content": content, "lang": lang}
     )
+
+@app.get("/status/{task_id}/json")
+async def get_status_json(task_id: str):
+    """Returns the status and log file content in JSON format."""
+    status_path = get_task_status_path(task_id)
+    log_path = STATUS_DIR / f"{task_id}.log"
+    
+    status_data = {}
+    if status_path.exists():
+        with open(status_path, "r") as f:
+            try:
+                status_data = json.load(f)
+            except json.JSONDecodeError:
+                status_data = {"status": "error", "error": "Invalid status file"}
+
+    log_content = ""
+    if log_path.exists():
+        with open(log_path, "r") as f:
+            log_content = f.read()
+            
+    return {"status": status_data, "log": log_content}
+
 
 @app.get("/status/{task_id}/raw")
 async def get_status_raw(task_id: str):

@@ -9,7 +9,7 @@
     <style>
         body { background-color: #f0f2f5; }
         .card { margin-top: 50px; }
-        #log-container {
+        #log-container, #tunnel-log-container {
             background-color: #212529;
             color: #f8f9fa;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
@@ -17,6 +17,18 @@
             border-radius: 0.375rem;
             height: 60vh;
             overflow-y: auto;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            word-wrap: break-word; /* Break long words */
+        }
+        #tunnel-log-container {
+            height: 30vh; /* Smaller height for tunnel logs */
+        }
+        .log-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .log-header:hover {
+            color: #007bff;
         }
     </style>
 </head>
@@ -33,11 +45,32 @@
                         <h1 class="card-title mb-4">{{ lang.job_status_title }}</h1>
                         <p class="text-muted">{{ lang.task_id_label }} <span class="font-monospace">{{ task_id }}</span></p>
                         
-                        <div class="position-relative">
-                            <pre id="log-container" class="p-3"><code>{{ log_content }}</code></pre>
-                            <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-button" title="{{ lang.copy_button }}">
-                                <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
-                            </button>
+                        <div class="mb-3">
+                            <h5 class="log-header" data-bs-toggle="collapse" data-bs-target="#downloadLogCollapse" aria-expanded="true" aria-controls="downloadLogCollapse">
+                                <i class="bi bi-caret-down-fill"></i> Download Log
+                            </h5>
+                            <div class="collapse show" id="downloadLogCollapse">
+                                <div class="position-relative">
+                                    <pre id="log-container" class="p-3"><code></code></pre>
+                                    <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-download-log-button" title="{{ lang.copy_button }}">
+                                        <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h5 class="log-header" data-bs-toggle="collapse" data-bs-target="#tunnelLogCollapse" aria-expanded="false" aria-controls="tunnelLogCollapse">
+                                <i class="bi bi-caret-right-fill"></i> {{ lang.cloudflare_tunnel_title }} Log
+                            </h5>
+                            <div class="collapse" id="tunnelLogCollapse">
+                                <div class="position-relative">
+                                    <pre id="tunnel-log-container" class="p-3"><code></code></pre>
+                                    <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-tunnel-log-button" title="{{ lang.copy_button }}">
+                                        <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center mt-3">
@@ -64,31 +97,45 @@
         }
 
         const taskId = "{{ task_id }}";
-        const logContainer = document.getElementById('log-container');
-        const logContentElement = logContainer.querySelector('code');
-        const copyButton = document.getElementById('copy-button');
+        const downloadLogContainer = document.getElementById('log-container');
+        const downloadLogContentElement = downloadLogContainer.querySelector('code');
+        const tunnelLogContainer = document.getElementById('tunnel-log-container');
+        const tunnelLogContentElement = tunnelLogContainer.querySelector('code');
+
+        const copyDownloadLogButton = document.getElementById('copy-download-log-button');
+        const copyTunnelLogButton = document.getElementById('copy-tunnel-log-button');
         const autoRefreshSwitch = document.getElementById('auto-refresh-switch');
         let intervalId;
 
-        async function fetchLog() {
+        async function fetchLogs() {
             try {
-                const response = await fetch(`/status/${taskId}/raw`);
+                const response = await fetch(`/status/${taskId}/json`);
                 if (response.ok) {
-                    const text = await response.text();
-                    logContentElement.textContent = text;
-                    // Scroll to the bottom
-                    logContainer.scrollTop = logContainer.scrollHeight;
+                    const data = await response.json();
+                    downloadLogContentElement.textContent = data.log;
+                    downloadLogContainer.scrollTop = downloadLogContainer.scrollHeight;
+
+                    // Fetch tunnel status separately
+                    const tunnelResponse = await fetch('/tunnel/status');
+                    if (tunnelResponse.ok) {
+                        const tunnelData = await tunnelResponse.json();
+                        tunnelLogContentElement.textContent = tunnelData.log;
+                        tunnelLogContainer.scrollTop = tunnelLogContainer.scrollHeight;
+                    } else {
+                        console.error('Failed to fetch tunnel log:', tunnelResponse.statusText);
+                    }
+
                 } else {
-                    console.error('Failed to fetch log:', response.statusText);
+                    console.error('Failed to fetch logs:', response.statusText);
                 }
             } catch (error) {
-                console.error('Error fetching log:', error);
+                console.error('Error fetching logs:', error);
             }
         }
 
         function startAutoRefresh() {
             if (!intervalId) {
-                intervalId = setInterval(fetchLog, 5000);
+                intervalId = setInterval(fetchLogs, 5000);
             }
         }
 
@@ -107,21 +154,40 @@
             }
         });
 
-        copyButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(logContentElement.textContent).then(() => {
-                const originalText = copyButton.innerHTML;
-                copyButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ lang.copied_button }}';
-                setTimeout(() => {
-                    copyButton.innerHTML = originalText;
-                }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy text: ', err);
+        function setupCopyButton(button, contentElement) {
+            button.addEventListener('click', () => {
+                navigator.clipboard.writeText(contentElement.textContent).then(() => {
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '<i class="bi bi-check-lg"></i> {{ lang.copied_button }}';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                });
             });
-        });
+        }
+
+        setupCopyButton(copyDownloadLogButton, downloadLogContentElement);
+        setupCopyButton(copyTunnelLogButton, tunnelLogContentElement);
 
         // Initial fetch and start auto-refresh
-        fetchLog();
+        fetchLogs();
         startAutoRefresh();
+
+        // Handle collapse icon change
+        document.querySelectorAll('.log-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const icon = header.querySelector('i');
+                if (icon.classList.contains('bi-caret-down-fill')) {
+                    icon.classList.remove('bi-caret-down-fill');
+                    icon.classList.add('bi-caret-right-fill');
+                } else {
+                    icon.classList.remove('bi-caret-right-fill');
+                    icon.classList.add('bi-caret-down-fill');
+                }
+            });
+        });
     </script>
 </body>
 </html>
