@@ -111,6 +111,18 @@ LANGUAGES = {
         "enable_compression_label": "Enable Compression",
         "split_compression_label": "Split Compression",
         "split_size_label": "Split Size (MB)",
+        "all_tasks_title": "All Tasks",
+        "no_tasks_found": "No tasks found.",
+        "task_url_label": "URL:",
+        "task_command_label": "Command:",
+        "task_error_label": "Error:",
+        "task_gofile_link_label": "Gofile Link:",
+        "pause_button": "Pause",
+        "resume_button": "Resume",
+        "retry_button": "Retry",
+        "view_log_button": "View Log",
+        "delete_button": "Delete",
+        "delete_task_confirm": "Are you sure you want to delete this task?",
     },
     "zh": {
         "app_title": "Gallery-DL & Kemono-DL 网页版",
@@ -188,6 +200,18 @@ LANGUAGES = {
         "enable_compression_label": "启用压缩",
         "split_compression_label": "分卷压缩",
         "split_size_label": "分卷大小 (MB)",
+        "all_tasks_title": "所有任务",
+        "no_tasks_found": "未找到任何任务。",
+        "task_url_label": "网址:",
+        "task_command_label": "命令:",
+        "task_error_label": "错误:",
+        "task_gofile_link_label": "Gofile 链接:",
+        "pause_button": "暂停",
+        "resume_button": "继续",
+        "retry_button": "重试",
+        "view_log_button": "查看日志",
+        "delete_button": "删除",
+        "delete_task_confirm": "您确定要删除此任务吗？",
     }
 }
 
@@ -521,7 +545,7 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
     remote_full_path = f"remote:{upload_path}/{task_id}"
     upload_cmd = (
         f"rclone copy --config \"{rclone_config_path}\" \"{task_download_dir}\" \"{remote_full_path}\" "
-        f"-P --log-file=\"{status_file}\" --log-level=ERROR"
+        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 3"
     )
     if params.get("upload_rate_limit"):
         upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
@@ -663,7 +687,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     remote_full_path = f"remote:{upload_path}"
                     upload_cmd = (
                         f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
-                        f"-P --log-file=\"{status_file}\" --log-level=ERROR"
+                        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 3"
                     )
                     if params.get("upload_rate_limit"):
                         upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
