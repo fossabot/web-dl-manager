@@ -657,9 +657,14 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 # Mount all directories in the static site root
 static_site_dir = Path("/app/static_site")
 if static_site_dir.is_dir():
+    # First, mount subdirectories (e.g., /css, /js)
     for item in static_site_dir.iterdir():
         if item.is_dir():
             app.mount(f"/{item.name}", StaticFiles(directory=item), name=item.name)
+            
+    # Then, mount the root of the static site itself as a fallback for files like /404.html
+    # This should be mounted last to ensure specific directory mounts take precedence
+    app.mount("/", StaticFiles(directory=static_site_dir), name="static_site_root")
 
 
 
