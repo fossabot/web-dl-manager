@@ -616,7 +616,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 async def startup_event():
     cloudflared_token = os.getenv("CLOUDFLARED_TOKEN")
     if cloudflared_token:
-        print("Found CLOUDFLARED_TOKEN, attempting to start tunnel automatically.")
+        # The following print statement is commented out to prevent startup logs.
+        # print("Found CLOUDFLARED_TOKEN, attempting to start tunnel automatically.")
         await launch_tunnel(cloudflared_token)
 
 @app.post("/tunnel/start")
