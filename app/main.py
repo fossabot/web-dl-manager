@@ -545,7 +545,7 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
     remote_full_path = f"remote:{upload_path}/{task_id}"
     upload_cmd = (
         f"rclone copy --config \"{rclone_config_path}\" \"{task_download_dir}\" \"{remote_full_path}\" "
-        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 3"
+        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 50"
     )
     if params.get("upload_rate_limit"):
         upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
@@ -687,7 +687,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     remote_full_path = f"remote:{upload_path}"
                     upload_cmd = (
                         f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
-                        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 3"
+                        f"-P --log-file=\"{status_file}\" --log-level=ERROR --retries 50"
                     )
                     if params.get("upload_rate_limit"):
                         upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
