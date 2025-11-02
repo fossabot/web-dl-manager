@@ -56,7 +56,6 @@ start_uvicorn() {
     # Ensure we are in the /app/app directory to find main:app
     (cd /app/app && uvicorn main:app --host 0.0.0.0 --port 8000 --no-access-log) &
     echo $! > $PID_FILE
-    wait $(cat $PID_FILE)
 }
 
 # Graceful shutdown and restart
@@ -64,22 +63,27 @@ handle_signal() {
     echo "Signal received, attempting graceful shutdown..."
     if [ -f "$PID_FILE" ]; then
         kill -TERM "$(cat $PID_FILE)" &> /dev/null || true
-        # Wait for the process to terminate
-        while kill -0 "$(cat $PID_FILE)" &> /dev/null; do
-            sleep 1
-        done
         rm -f "$PID_FILE"
     fi
-    # The loop will handle the restart, no need to exit here
+    # The watchdog loop will handle the restart
 }
 
 # Trap signals
 trap 'handle_signal' SIGTERM SIGHUP
 
-# --- Main Loop ---
-# This loop ensures that if the app is stopped (e.g., by the updater), it will restart.
+# --- Main Loop (Watchdog) ---
+start_uvicorn
+
 while true; do
-    start_uvicorn
-    echo "Uvicorn process ended. Restarting in 5 seconds..."
-    sleep 5
+    sleep 60
+    if [ -f "$PID_FILE" ]; then
+        # Check if the process with the given PID is running
+        if ! kill -0 "$(cat $PID_FILE)" &> /dev/null; then
+            echo "Uvicorn process seems to have died. Restarting..."
+            start_uvicorn
+        fi
+    else
+        echo "PID file not found. Assuming process is dead. Restarting..."
+        start_uvicorn
+    fi
 done
