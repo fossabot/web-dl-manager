@@ -30,7 +30,12 @@
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>{{ lang.all_tasks_title }}</h1>
-            <a href="/downloader" class="btn btn-primary">{{ lang.start_new_job_button }}</a>
+            <div class="d-flex align-items-center">
+                <span id="current-version" class="me-2"></span>
+                <button id="update-button" class="btn btn-success btn-sm me-2">更新</button>
+                <button id="changelog-button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#changelogModal">更新日志</button>
+                <a href="/downloader" class="btn btn-primary ms-3">{{ lang.start_new_job_button }}</a>
+            </div>
         </div>
 
         {% if not tasks %}
@@ -100,16 +105,95 @@
             {% endfor %}
         {% endif %}
     </div>
+
+    <!-- Changelog Modal -->
+    <div class="modal fade" id="changelogModal" tabindex="-1" aria-labelledby="changelogModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changelogModalLabel">更新日志</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="changelog-content">
+                    <!-- Changelog content will be loaded here -->
+                    加载中...
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Auto-refresh the page every 30 seconds if there are active tasks
         document.addEventListener("DOMContentLoaded", function() {
+            // Auto-refresh the page every 30 seconds if there are active tasks
             const hasActiveTasks = {{ tasks | selectattr('status', 'in', ['running', 'queued', 'compressing', 'uploading']) | list | length > 0 }};
             if (hasActiveTasks) {
                 setTimeout(() => {
                     window.location.reload();
                 }, 30000);
             }
+
+            // Fetch and display current version
+            fetch('/version')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('current-version').innerText = `当前版本: ${data.version}`;
+                })
+                .catch(error => console.error('Error fetching version:', error));
+
+            // Handle update button click
+            document.getElementById('update-button').addEventListener('click', function() {
+                if (confirm('确定要更新应用程序吗？更新后应用将重启。')) {
+                    this.disabled = true;
+                    this.innerText = '更新中...';
+                    fetch('/update', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        if (data.status === 'success') {
+                            // Give some time for the server to restart
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 5000);
+                        } else {
+                            this.disabled = false;
+                            this.innerText = '更新';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error during update:', error);
+                        alert('更新失败: ' + error.message);
+                        this.disabled = false;
+                        this.innerText = '更新';
+                    });
+                }
+            });
+
+            // Fetch and display changelog when modal is shown
+            const changelogModal = document.getElementById('changelogModal');
+            changelogModal.addEventListener('show.bs.modal', function () {
+                fetch('/changelog')
+                    .then(response => response.text())
+                    .then(data => {
+                        const changelogContent = document.getElementById('changelog-content');
+                        // Convert markdown to HTML (simple approach, can be improved with a library)
+                        changelogContent.innerHTML = marked.parse(data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching changelog:', error);
+                        document.getElementById('changelog-content').innerText = '无法加载更新日志。';
+                    });
+            });
         });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
 </html>

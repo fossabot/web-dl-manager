@@ -9,14 +9,16 @@ import signal
 import subprocess
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.background import BackgroundTasks
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 import openlist
 from openlist import OpenlistError
+import updater
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent
@@ -841,6 +843,33 @@ async def tunnel_status():
     async with tunnel_lock:
         running = tunnel_process and tunnel_process.returncode is None
         return {"running": running, "log": tunnel_log}
+
+@app.post("/update")
+async def update_app(background_tasks: BackgroundTasks):
+    """Triggers the application update process."""
+    result = updater.run_update()
+    if result.get("status") == "success":
+        # Schedule the restart to happen after this request is finished
+        background_tasks.add_task(updater.restart_application)
+    return JSONResponse(content=result)
+
+@app.get("/version")
+async def get_version():
+    """Returns the current version (commit SHA) of the application."""
+    version_file = BASE_DIR.parent / ".version_info"
+    version = "N/A"
+    if version_file.exists():
+        version = version_file.read_text().strip()[:7]
+    return {"version": version}
+
+@app.get("/changelog")
+async def get_changelog():
+    """Returns the content of the changelog file."""
+    changelog_file = BASE_DIR.parent / "CHANGELOG.md"
+    content = "Changelog not found."
+    if changelog_file.exists():
+        content = changelog_file.read_text()
+    return Response(content=content, media_type="text/plain")
 
 @app.get("/", response_class=HTMLResponse)
 async def get_blog_index(request: Request):
