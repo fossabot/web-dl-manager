@@ -75,7 +75,7 @@ def update_changelog(old_sha: str, new_sha: str):
             log("No new commits found for changelog.")
             return
 
-    log_entries = [f"- {c['commit']['message'].splitlines()[0]} ({c['sha'][:7]})") for c in commits]
+        log_entries = [f"- {c['commit']['message'].splitlines()[0]} ({c['sha'][:7]})" for c in commits]
     logs = "\n".join(log_entries)
     
     today = datetime.now().strftime("%Y-%m-%d")
