@@ -66,12 +66,45 @@ def create_directory(base_url: str, token: str, remote_dir: str, status_file: Pa
         _log(status_file, f"Request to create remote directory failed: {e}")
         raise OpenlistError(f"Directory creation request failed: {e}")
 
+def list_files(base_url: str, token: str, remote_dir: str, status_file: Path = None) -> list:
+    """
+    Lists files in a remote directory.
+    """
+    _log(status_file, f"Listing files in remote directory: {remote_dir}")
+    url = base_url.rstrip('/') + '/api/fs/list'
+    headers = {'Authorization': token, 'Content-Type': 'application/json'}
+    data = {'path': remote_dir, 'per_page': 0} # per_page=0 to get all items
+    try:
+        resp = requests.post(url, json=data, headers=headers, timeout=30)
+        resp.raise_for_status()
+        resp_json = resp.json()
+        if resp_json.get('code') == 200:
+            content = resp_json.get('data', {}).get('content', [])
+            return [item['name'] for item in content] if content else []
+        else:
+            message = resp_json.get('message', 'Unknown error')
+            _log(status_file, f"Failed to list files: {message}")
+            raise OpenlistError(f"Failed to list files: {message}")
+    except requests.RequestException as e:
+        _log(status_file, f"Request to list files failed: {e}")
+        raise OpenlistError(f"File listing request failed: {e}")
+
 def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, status_file: Path = None) -> str:
     """
     Uploads a file using the /api/fs/put endpoint with retries.
     """
     filename = os.path.basename(local_file)
     full_path = f"{remote_dir.rstrip('/')}/{filename}"
+
+    # Check if file exists
+    try:
+        remote_files = list_files(base_url, token, remote_dir, status_file)
+        if filename in remote_files:
+            _log(status_file, f"File '{filename}' already exists in '{remote_dir}', skipping upload.")
+            return full_path
+    except OpenlistError as e:
+        _log(status_file, f"Could not verify file existence, proceeding with upload anyway: {e}")
+
     _log(status_file, f"Starting upload of '{filename}' to '{full_path}'...")
     
     url = base_url.rstrip('/') + '/api/fs/put'

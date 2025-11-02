@@ -349,19 +349,38 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
 
     async def stream_to_file(stream, file):
         while True:
-            line = await stream.readline()
-            if not line:
+            try:
+                line = await stream.readline()
+                if not line:
+                    break
+                file.write(line.decode(errors='ignore')) # Ignore decoding errors
+                file.flush()
+            except Exception:
+                # This can happen if the process is killed
                 break
-            file.write(line.decode())
-            file.flush()
 
     with open(status_file, "a") as f:
-        # Create tasks to stream stdout and stderr
         stdout_task = asyncio.create_task(stream_to_file(process.stdout, f))
         stderr_task = asyncio.create_task(stream_to_file(process.stderr, f))
 
-        # Wait for the process to complete and for the streams to be fully read
-        await asyncio.gather(process.wait(), stdout_task, stderr_task)
+        try:
+            # Wait for the process to complete with a timeout
+            await asyncio.wait_for(process.wait(), timeout=7200) # 2-hour timeout
+        except asyncio.TimeoutError:
+            with open(status_file, "a") as f:
+                f.write("\n--- COMMAND TIMED OUT (2 hours) ---\n")
+            # Kill the entire process group
+            try:
+                if pgid:
+                    os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass # Process group might already be gone
+            raise RuntimeError("Command timed out after 2 hours.")
+        finally:
+            # Ensure streaming tasks are cancelled
+            stdout_task.cancel()
+            stderr_task.cancel()
+            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
 
     # Clear the pgid when the command is finished
     update_task_status(task_id, {"pgid": None})
@@ -608,42 +627,63 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
     await run_command(upload_cmd, upload_cmd, status_file, task_id)
 
 async def compress_in_chunks(task_id: str, source_dir: Path, archive_name_base: str, max_size: int, status_file: Path) -> list[Path]:
-    """Compresses files in chunks of a given size."""
+    """Compresses files in chunks of a given size in a memory-efficient way."""
     archive_paths = []
     files_to_compress = []
     current_size = 0
     chunk_number = 1
+    temp_file_list_path = None
 
-    for item in source_dir.rglob("*"):
-        if item.is_file():
-            file_size = item.stat().st_size
-            if current_size + file_size > max_size and files_to_compress:
-                # Compress the current chunk
-                archive_path = ARCHIVES_DIR / f"{archive_name_base}_{chunk_number}.tar.zst"
-                with open(status_file, "a") as f:
-                    f.write(f"\nCompressing chunk {chunk_number} to {archive_path.name}...\n")
-                files_str = " ".join([f"\"{f.relative_to(source_dir)}\"" for f in files_to_compress])
-                compress_cmd = f"tar -cf - -C \"{source_dir}\" {files_str} | zstd -o \"{archive_path}\""
-                await run_command(compress_cmd, compress_cmd, status_file, task_id)
-                archive_paths.append(archive_path)
-                
-                # Start a new chunk
-                files_to_compress = []
-                current_size = 0
-                chunk_number += 1
-            
-            files_to_compress.append(item)
-            current_size += file_size
-
-    # Compress the last remaining chunk
-    if files_to_compress:
-        archive_path = ARCHIVES_DIR / f"{archive_name_base}_{chunk_number}.tar.zst"
+    # Helper to perform the compression
+    async def _compress_chunk(chunk_num, file_list_path):
+        archive_path = ARCHIVES_DIR / f"{archive_name_base}_{chunk_num}.tar.zst"
         with open(status_file, "a") as f:
-            f.write(f"\nCompressing chunk {chunk_number} to {archive_path.name}...\n")
-        files_str = " ".join([f"\"{f.relative_to(source_dir)}\"" for f in files_to_compress])
-        compress_cmd = f"tar -cf - -C \"{source_dir}\" {files_str} | zstd -o \"{archive_path}\""
+            f.write(f"\nCompressing chunk {chunk_num} to {archive_path.name}...\n")
+        
+        compress_cmd = f"tar -cf - -C \"{source_dir}\" --files-from=\"{file_list_path}\" | zstd -o \"{archive_path}\""
         await run_command(compress_cmd, compress_cmd, status_file, task_id)
         archive_paths.append(archive_path)
+        # Clean up the temp file list
+        if os.path.exists(file_list_path):
+            os.remove(file_list_path)
+
+    try:
+        for item in source_dir.rglob("*"):
+            if item.is_file():
+                file_size = item.stat().st_size
+                
+                # If a new chunk needs to be started
+                if current_size + file_size > max_size and files_to_compress:
+                    # Write the current list of files to a temporary file
+                    temp_file_list_path = STATUS_DIR / f"{task_id}_chunk_{chunk_number}.txt"
+                    with open(temp_file_list_path, 'w', encoding='utf-8') as f:
+                        for file_path in files_to_compress:
+                            f.write(f"{file_path.relative_to(source_dir)}\n")
+                    
+                    # Compress the chunk
+                    await _compress_chunk(chunk_number, temp_file_list_path)
+                    
+                    # Reset for the next chunk
+                    files_to_compress = []
+                    current_size = 0
+                    chunk_number += 1
+                
+                files_to_compress.append(item)
+                current_size += file_size
+
+        # Compress the last remaining chunk
+        if files_to_compress:
+            temp_file_list_path = STATUS_DIR / f"{task_id}_chunk_{chunk_number}.txt"
+            with open(temp_file_list_path, 'w', encoding='utf-8') as f:
+                for file_path in files_to_compress:
+                    f.write(f"{file_path.relative_to(source_dir)}\n")
+            
+            await _compress_chunk(chunk_number, temp_file_list_path)
+
+    finally:
+        # Final cleanup of any stray temp file
+        if temp_file_list_path and os.path.exists(temp_file_list_path):
+            os.remove(temp_file_list_path)
 
     return archive_paths
 
