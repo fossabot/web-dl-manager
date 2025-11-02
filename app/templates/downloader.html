@@ -5,254 +5,274 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ lang.app_title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f0f2f5; }
-        .card { margin-top: 50px; }
+        body {
+            background-color: #f8f9fa;
+        }
+        .main-container {
+            max-width: 960px;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .navbar-brand {
+            font-weight: 600;
+        }
+        .card {
+            border: none;
+            border-radius: 0.75rem;
+        }
+        .accordion-button:not(.collapsed) {
+            background-color: #e9ecef;
+            color: #212529;
+        }
+        .form-text {
+            font-size: 0.875em;
+        }
+        .service-config {
+            border-left: 3px solid #0d6efd;
+            padding-left: 1rem;
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        {% if user %}
-                        <div class="d-flex justify-content-end align-items-center mb-3">
-                            <a href="/tasks" class="btn btn-sm btn-outline-primary me-3">All Tasks</a>
-                            <img src="{{ avatar_url }}" alt="Avatar" class="rounded-circle" width="32" height="32">
-                            <span class="ms-2">{{ user }}</span>
-                            <a href="/logout" class="ms-3 btn btn-sm btn-outline-secondary">Logout</a>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container-fluid main-container">
+            <a class="navbar-brand" href="/downloader">{{ lang.app_title }}</a>
+            <div class="d-flex align-items-center">
+                <a href="/tasks" class="btn btn-outline-primary me-3"><i class="bi bi-list-task"></i> {{ lang.all_tasks_title }}</a>
+                <div class="dropdown me-3">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-translate"></i>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="languageDropdown">
+                        <li><a class="dropdown-item" href="#" onclick="setLanguage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="setLanguage('zh')">中文</a></li>
+                    </ul>
+                </div>
+                {% if user %}
+                <div class="dropdown">
+                    <a href="#" class="d-block link-dark text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="{{ avatar_url }}" alt="Avatar" class="rounded-circle" width="32" height="32">
+                    </a>
+                    <ul class="dropdown-menu text-small dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><span class="dropdown-item-text">Signed in as <strong>{{ user }}</strong></span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/logout">Logout</a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-container">
+        <form action="/download" method="post" id="download-form">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3 text-center">{{ lang.intro_text }}</h1>
+                    
+                    <div class="accordion" id="formAccordion">
+
+                        <!-- Step 1: Basic Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                    <strong>Step 1: {{ lang.downloader_label }} & {{ lang.url_label }}</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label for="downloader" class="form-label">{{ lang.downloader_label }}</label>
+                                        <select class="form-select" id="downloader" name="downloader">
+                                            <option value="gallery-dl" selected>{{ lang.downloader_gallery_dl }}</option>
+                                            <option value="kemono-dl">{{ lang.downloader_kemono_dl }}</option>
+                                        </select>
+                                    </div>
+                                    <div id="kemono-warning" class="alert alert-warning" style="display: none;">
+                                        <strong>{{ lang.kemono_warning_title }}</strong> {{ lang.kemono_warning_text }}
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="url" class="form-label">{{ lang.url_label }}</label>
+                                        <input type="url" class="form-control" id="url" name="url" required placeholder="{{ lang.url_placeholder }}">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        {% endif %}
-                        <div class="d-flex justify-content-end mb-3">
-                            <button class="btn btn-sm btn-outline-primary me-2" onclick="setLanguage('en')">English</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="setLanguage('zh')">中文</button>
+
+                        <!-- Step 2: Upload Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    <strong>Step 2: {{ lang.upload_config_title }}</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label for="upload_service" class="form-label">{{ lang.upload_service_label }}</label>
+                                        <select class="form-select" id="upload_service" name="upload_service" onchange="showConfig()" required>
+                                            <option value="" selected>{{ lang.select_service_option }}</option>
+                                            <option value="webdav">{{ lang.webdav_option }}</option>
+                                            <option value="s3">{{ lang.s3_option }}</option>
+                                            <option value="b2">{{ lang.b2_option }}</option>
+                                            <option value="gofile">{{ lang.gofile_option }}</option>
+                                            <option value="openlist">Openlist</option>
+                                        </select>
+                                    </div>
+                                    <div id="upload-path-container" class="mb-3" style="display: none;">
+                                        <label for="upload_path" class="form-label">{{ lang.remote_upload_path_label }}</label>
+                                        <input type="text" class="form-control" id="upload_path" name="upload_path" placeholder="{{ lang.remote_upload_path_placeholder }}">
+                                    </div>
+                                    
+                                    <!-- Service-specific configs will be injected here -->
+                                    <div id="service-configs"></div>
+                                </div>
+                            </div>
                         </div>
-                        <h1 class="card-title text-center mb-4">{{ lang.app_title }}</h1>
-                        <p class="text-center text-muted mb-4">{{ lang.intro_text }}</p>
 
-                        <form action="/download" method="post" id="download-form">
-                            <div class="mb-3">
-                                <label for="downloader" class="form-label">{{ lang.downloader_label }}</label>
-                                <select class="form-select" id="downloader" name="downloader">
-                                    <option value="gallery-dl" selected>{{ lang.downloader_gallery_dl }}</option>
-                                    <option value="kemono-dl">{{ lang.downloader_kemono_dl }}</option>
-                                </select>
-                            </div>
-
-                            <div id="kemono-warning" class="alert alert-danger" style="display: none;">
-                                <strong>{{ lang.kemono_warning_title }}</strong> {{ lang.kemono_warning_text }}
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="url" class="form-label">{{ lang.url_label }}</label>
-                                <input type="url" class="form-control" id="url" name="url" required placeholder="{{ lang.url_placeholder }}">
-                            </div>
-
-                            <div class="accordion" id="accordion-credentials">
-                                <div class="accordion-item">
-                                    <h2 class="accordion-header" id="headingOne">
-                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                                            {{ lang.advanced_options_title }}
-                                        </button>
-                                    </h2>
-                                    <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordion-credentials">
-                                        <div class="accordion-body">
-                                            <h5 class="mb-3">{{ lang.deviantart_credentials_title }}</h5>
-                                            <p class="text-muted small">{{ lang.deviantart_credentials_text }} <a href="https://gdl-org.github.io/docs/configuration.html#extractor-deviantart-client-id-client-secret" target="_blank">{{ lang.how_to_get_them }}</a></p>
-                                            <div class="mb-3">
-                                                <label for="deviantart_client_id" class="form-label">{{ lang.client_id_label }}</label>
-                                                <input type="text" class="form-control" id="deviantart_client_id" name="deviantart_client_id">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="deviantart_client_secret" class="form-label">{{ lang.client_secret_label }}</label>
-                                                <input type="password" class="form-control" id="deviantart_client_secret" name="deviantart_client_secret">
-                                            </div>
-                                            <hr>
-                                            <h5 class="mb-3">{{ lang.rate_limit_title }}</h5>
-                                            <p class="text-muted small">{{ lang.rate_limit_text }}</p>
-                                            <div class="mb-3">
-                                                <label for="rate_limit" class="form-label">{{ lang.rate_limit_label }}</label>
-                                                <input type="text" class="form-control" id="rate_limit" name="rate_limit" placeholder="e.g., 500K, 2M" value="2M">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="upload_rate_limit" class="form-label">{{ lang.upload_rate_limit_text }}</label>
-                                                <input type="text" class="form-control" id="upload_rate_limit" name="upload_rate_limit" placeholder="e.g., 500K, 2M" value="1M">
-                                            </div>
-                                            <hr>
-                                            <h5 class="mb-3">{{ lang.proxy_label }}</h5>
-                                            <p class="text-muted small">{{ lang.proxy_text }}</p>
-                                            <div class="mb-3">
-                                                <label for="proxy" class="form-label">{{ lang.proxy_label }}</label>
-                                                <input type="text" class="form-control" id="proxy" name="proxy" placeholder="{{ lang.proxy_placeholder }}">
-                                            </div>
-                                            <div class="form-check mb-3">
-                                                <input class="form-check-input" type="checkbox" value="true" id="auto_proxy" name="auto_proxy">
-                                                <label class="form-check-label" for="auto_proxy">
-                                                    {{ lang.auto_proxy_label }}
-                                                </label>
-                                            </div>
-                                            <div class="alert alert-warning small">
-                                                <strong>{{ lang.disclaimer_title }}</strong> {{ lang.disclaimer_text }}
-                                            </div>
-                                            <hr>
-                                            <div class="form-check mb-3">
-                                                <input class="form-check-input" type="checkbox" id="enable_compression" name="enable_compression" checked>
-                                                <label class="form-check-label" for="enable_compression">
-                                                    {{ lang.enable_compression_label }}
-                                                </label>
-                                            </div>
-                                            <div class="form-check mb-3">
-                                                <input class="form-check-input" type="checkbox" value="true" id="split_compression" name="split_compression">
-                                                <label class="form-check-label" for="split_compression">
-                                                    {{ lang.split_compression_label }}
-                                                </label>
-                                            </div>
-                                            <div id="split-size-container" class="mb-3" style="display: none;">
-                                                <label for="split_size" class="form-label">{{ lang.split_size_label }}</label>
-                                                <input type="number" class="form-control" id="split_size" name="split_size" value="1000" min="1">
-                                            </div>
+                        <!-- Step 3: Advanced Options -->
+                        <div class="accordion-item" id="advanced-options-accordion">
+                            <h2 class="accordion-header" id="headingThree">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                    <strong>Step 3: {{ lang.advanced_options_title }}</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree">
+                                <div class="accordion-body">
+                                    <!-- DeviantArt -->
+                                    <h5>{{ lang.deviantart_credentials_title }}</h5>
+                                    <p class="form-text">{{ lang.deviantart_credentials_text }} <a href="https://gdl-org.github.io/docs/configuration.html#extractor-deviantart-client-id-client-secret" target="_blank">{{ lang.how_to_get_them }}</a></p>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="deviantart_client_id" class="form-label">{{ lang.client_id_label }}</label>
+                                            <input type="text" class="form-control" id="deviantart_client_id" name="deviantart_client_id">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="deviantart_client_secret" class="form-label">{{ lang.client_secret_label }}</label>
+                                            <input type="password" class="form-control" id="deviantart_client_secret" name="deviantart_client_secret">
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <hr class="my-4">
-
-                            <h3 class="h5 mb-3">{{ lang.upload_config_title }}</h3>
-
-                            <div class="mb-3">
-                                <label for="upload_service" class="form-label">{{ lang.upload_service_label }}</label>
-                                <select class="form-select" id="upload_service" name="upload_service" onchange="showConfig()" required>
-                                    <option value="">{{ lang.select_service_option }}</option>
-                                    <option value="webdav">{{ lang.webdav_option }}</option>
-                                    <option value="s3">{{ lang.s3_option }}</option>
-                                    <option value="b2">{{ lang.b2_option }}</option>
-                                    <option value="gofile">{{ lang.gofile_option }}</option>
-                                    <option value="openlist">Openlist</option>
-                                </select>
-                            </div>
-
-                            <div id="upload-path-container" class="mb-3">
-                                <label for="upload_path" class="form-label">{{ lang.remote_upload_path_label }}</label>
-                                <input type="text" class="form-control" id="upload_path" name="upload_path" placeholder="{{ lang.remote_upload_path_placeholder }}">
-                            </div>
-
-                            <!-- Service-specific configs -->
-                            <div id="service-configs">
-                                <div id="config-webdav" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>{{ lang.webdav_settings_title }}</h5>
-                                    <div class="mb-3">
-                                        <label for="webdav_url" class="form-label">{{ lang.webdav_url_label }}</label>
-                                        <input type="url" class="form-control" id="webdav_url" name="webdav_url" placeholder="{{ lang.webdav_url_placeholder }}">
+                                    <hr class="my-4">
+                                    <!-- Rate Limit -->
+                                    <h5>{{ lang.rate_limit_title }}</h5>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="rate_limit" class="form-label">{{ lang.rate_limit_text }}</label>
+                                            <input type="text" class="form-control" id="rate_limit" name="rate_limit" placeholder="e.g., 500K, 2M" value="2M">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="upload_rate_limit" class="form-label">{{ lang.upload_rate_limit_text }}</label>
+                                            <input type="text" class="form-control" id="upload_rate_limit" name="upload_rate_limit" placeholder="e.g., 500K, 2M" value="1M">
+                                        </div>
                                     </div>
+                                    <hr class="my-4">
+                                    <!-- Proxy -->
+                                    <h5>{{ lang.proxy_label }}</h5>
                                     <div class="mb-3">
-                                        <label for="webdav_user" class="form-label">{{ lang.webdav_username_label }}</label>
-                                        <input type="text" class="form-control" id="webdav_user" name="webdav_user">
+                                        <label for="proxy" class="form-label">{{ lang.proxy_text }}</label>
+                                        <input type="text" class="form-control" id="proxy" name="proxy" placeholder="{{ lang.proxy_placeholder }}">
                                     </div>
-                                    <div class="mb-3">
-                                        <label for="webdav_pass" class="form-label">{{ lang.webdav_password_label }}</label>
-                                        <input type="password" class="form-control" id="webdav_pass" name="webdav_pass">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="true" id="auto_proxy" name="auto_proxy">
+                                        <label class="form-check-label" for="auto_proxy">{{ lang.auto_proxy_label }}</label>
                                     </div>
-                                </div>
-
-                                <div id="config-s3" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>{{ lang.s3_settings_title }}</h5>
-                                    <div class="mb-3">
-                                        <label for="s3_provider" class="form-label">{{ lang.s3_provider_label }}</label>
-                                        <input type="text" class="form-control" id="s3_provider" name="s3_provider" placeholder="{{ lang.s3_provider_placeholder }}">
+                                    <div class="alert alert-secondary small py-2">{{ lang.disclaimer_text }}</div>
+                                    <hr class="my-4">
+                                    <!-- Compression -->
+                                    <h5>Compression</h5>
+                                     <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="enable_compression" name="enable_compression" value="true" checked>
+                                        <label class="form-check-label" for="enable_compression">{{ lang.enable_compression_label }}</label>
                                     </div>
-                                    <div class="mb-3">
-                                        <label for="s3_access_key_id" class="form-label">{{ lang.access_key_id_label }}</label>
-                                        <input type="text" class="form-control" id="s3_access_key_id" name="s3_access_key_id">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" value="true" id="split_compression" name="split_compression">
+                                        <label class="form-check-label" for="split_compression">{{ lang.split_compression_label }}</label>
                                     </div>
-                                    <div class="mb-3">
-                                        <label for="s3_secret_access_key" class="form-label">{{ lang.secret_access_key_label }}</label>
-                                        <input type="password" class="form-control" id="s3_secret_access_key" name="s3_secret_access_key">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="s3_region" class="form-label">{{ lang.region_label }}</label>
-                                        <input type="text" class="form-control" id="s3_region" name="s3_region" placeholder="{{ lang.region_placeholder }}">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="s3_endpoint" class="form-label">{{ lang.endpoint_url_label }}</label>
-                                        <input type="url" class="form-control" id="s3_endpoint" name="s3_endpoint" placeholder="{{ lang.endpoint_url_placeholder }}">
-                                    </div>
-                                </div>
-
-                                <div id="config-b2" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>{{ lang.b2_settings_title }}</h5>
-                                    <div class="mb-3">
-                                        <label for="b2_account_id" class="form-label">{{ lang.account_id_label }}</label>
-                                        <input type="text" class="form-control" id="b2_account_id" name="b2_account_id">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="b2_application_key" class="form-label">{{ lang.application_key_label }}</label>
-                                        <input type="password" class="form-control" id="b2_application_key" name="b2_application_key">
-                                    </div>
-                                </div>
-
-                                <div id="config-gofile" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>{{ lang.gofile_settings_title }}</h5>
-<div class="mb-3">
-        <label for="gofile-token" class="form-label">{{ lang.api_token_label }}</label>
-        <input type="password" class="form-control" id="gofile-token" name="gofile_token">
-    </div>
-    <div class="mb-3">
-        <label for="gofile-folder-id" class="form-label">{{ lang.gofile_folder_id_label }}</label>
-        <input type="text" class="form-control" id="gofile-folder-id" name="gofile_folder_id" placeholder="e.g., ad957716-3899-498a-bebc-716f616f9b16">
-    </div>
-                                </div>
-
-                                <div id="config-openlist" class="service-config card card-body mb-3" style="display:none;">
-                                    <h5>Openlist Settings</h5>
-                                    <div class="mb-3">
-                                        <label for="openlist_url" class="form-label">Openlist URL</label>
-                                        <input type="url" class="form-control" id="openlist_url" name="openlist_url" placeholder="e.g., http://your-alist-server.com">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="openlist_user" class="form-label">Username</label>
-                                        <input type="text" class="form-control" id="openlist_user" name="openlist_user">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="openlist_pass" class="form-label">Password</label>
-                                        <input type="password" class="form-control" id="openlist_pass" name="openlist_pass">
+                                    <div id="split-size-container" class="mb-3" style="display: none;">
+                                        <label for="split_size" class="form-label">{{ lang.split_size_label }}</label>
+                                        <input type="number" class="form-control" id="split_size" name="split_size" value="1000" min="1">
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg" id="submit-button">
-                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
-                                    {{ lang.start_download_button }}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="card shadow-sm mt-4">
-                    <div class="card-body">
-                        <h2 class="card-title">{{ lang.cloudflare_tunnel_title }}</h2>
-                        <div class="mb-3">
-                            <label for="cloudflared-token" class="form-label">{{ lang.cloudflared_token_label }}</label>
-                            <input type="password" class="form-control" id="cloudflared-token" name="cloudflared_token">
-                        </div>
-                        <button class="btn btn-success" onclick="startTunnel()">{{ lang.start_tunnel_button }}</button>
-                        <button class="btn btn-danger" onclick="stopTunnel()">{{ lang.stop_tunnel_button }}</button>
-                        <div class="mt-3">
-                            <h5>{{ lang.tunnel_status_title }}</h5>
-                            <pre id="tunnel-log" class="bg-light p-2 rounded" style="min-height: 100px;"></pre>
                         </div>
                     </div>
-                </div>
 
-                <div class="text-center mt-3 footer">
-                    <p class="text-muted small">{{ lang.powered_by }}</p>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submit-button">
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                            <i class="bi bi-download"></i> {{ lang.start_download_button }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Cloudflare Tunnel Card -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h2 class="h5 card-title">{{ lang.cloudflare_tunnel_title }}</h2>
+                <div class="mb-3">
+                    <label for="cloudflared-token" class="form-label">{{ lang.cloudflared_token_label }}</label>
+                    <input type="password" class="form-control" id="cloudflared-token">
+                </div>
+                <button class="btn btn-outline-success btn-sm" onclick="startTunnel()">{{ lang.start_tunnel_button }}</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="stopTunnel()">{{ lang.stop_tunnel_button }}</button>
+                <div class="mt-3">
+                    <h6 class="card-subtitle mb-2 text-muted">{{ lang.tunnel_status_title }}</h6>
+                    <pre id="tunnel-log" class="bg-light p-2 rounded" style="min-height: 100px; font-size: 0.8em;"></pre>
                 </div>
             </div>
         </div>
+
+        <footer class="text-center mt-4">
+            <p class="text-muted small">{{ lang.powered_by }}</p>
+        </footer>
     </div>
+
+    <!-- Templates for service-specific configs -->
+    <template id="template-webdav">
+        <div class="service-config">
+            <h5>{{ lang.webdav_settings_title }}</h5>
+            <div class="mb-3"><label for="webdav_url" class="form-label">{{ lang.webdav_url_label }}</label><input type="url" class="form-control" id="webdav_url" name="webdav_url" placeholder="{{ lang.webdav_url_placeholder }}"></div>
+            <div class="mb-3"><label for="webdav_user" class="form-label">{{ lang.webdav_username_label }}</label><input type="text" class="form-control" id="webdav_user" name="webdav_user"></div>
+            <div class="mb-3"><label for="webdav_pass" class="form-label">{{ lang.webdav_password_label }}</label><input type="password" class="form-control" id="webdav_pass" name="webdav_pass"></div>
+        </div>
+    </template>
+    <template id="template-s3">
+        <div class="service-config">
+            <h5>{{ lang.s3_settings_title }}</h5>
+            <div class="mb-3"><label for="s3_provider" class="form-label">{{ lang.s3_provider_label }}</label><input type="text" class="form-control" id="s3_provider" name="s3_provider" placeholder="{{ lang.s3_provider_placeholder }}"></div>
+            <div class="mb-3"><label for="s3_access_key_id" class="form-label">{{ lang.access_key_id_label }}</label><input type="text" class="form-control" id="s3_access_key_id" name="s3_access_key_id"></div>
+            <div class="mb-3"><label for="s3_secret_access_key" class="form-label">{{ lang.secret_access_key_label }}</label><input type="password" class="form-control" id="s3_secret_access_key" name="s3_secret_access_key"></div>
+            <div class="mb-3"><label for="s3_region" class="form-label">{{ lang.region_label }}</label><input type="text" class="form-control" id="s3_region" name="s3_region" placeholder="{{ lang.region_placeholder }}"></div>
+            <div class="mb-3"><label for="s3_endpoint" class="form-label">{{ lang.endpoint_url_label }}</label><input type="url" class="form-control" id="s3_endpoint" name="s3_endpoint" placeholder="{{ lang.endpoint_url_placeholder }}"></div>
+        </div>
+    </template>
+    <template id="template-b2">
+        <div class="service-config">
+            <h5>{{ lang.b2_settings_title }}</h5>
+            <div class="mb-3"><label for="b2_account_id" class="form-label">{{ lang.account_id_label }}</label><input type="text" class="form-control" id="b2_account_id" name="b2_account_id"></div>
+            <div class="mb-3"><label for="b2_application_key" class="form-label">{{ lang.application_key_label }}</label><input type="password" class="form-control" id="b2_application_key" name="b2_application_key"></div>
+        </div>
+    </template>
+    <template id="template-gofile">
+        <div class="service-config">
+            <h5>{{ lang.gofile_settings_title }}</h5>
+            <div class="mb-3"><label for="gofile-token" class="form-label">{{ lang.api_token_label }}</label><input type="password" class="form-control" id="gofile-token" name="gofile_token"></div>
+            <div class="mb-3"><label for="gofile-folder-id" class="form-label">{{ lang.gofile_folder_id_label }}</label><input type="text" class="form-control" id="gofile-folder-id" name="gofile_folder_id" placeholder="e.g., ad957716-3899-498a-bebc-716f616f9b16"></div>
+        </div>
+    </template>
+    <template id="template-openlist">
+        <div class="service-config">
+            <h5>Openlist Settings</h5>
+            <div class="mb-3"><label for="openlist_url" class="form-label">Openlist URL</label><input type="url" class="form-control" id="openlist_url" name="openlist_url" placeholder="e.g., http://your-alist-server.com"></div>
+            <div class="mb-3"><label for="openlist_user" class="form-label">Username</label><input type="text" class="form-control" id="openlist_user" name="openlist_user"></div>
+            <div class="mb-3"><label for="openlist_pass" class="form-label">Password</label><input type="password" class="form-control" id="openlist_pass" name="openlist_pass"></div>
+        </div>
+    </template>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -263,13 +283,13 @@
 
         function showConfig() {
             const selectedService = document.getElementById('upload_service').value;
-            document.querySelectorAll('.service-config').forEach(div => {
-                div.style.display = 'none';
-            });
+            const configsContainer = document.getElementById('service-configs');
+            configsContainer.innerHTML = ''; // Clear previous config
+
             if (selectedService) {
-                const activeDiv = document.getElementById('config-' + selectedService);
-                if (activeDiv) {
-                    activeDiv.style.display = 'block';
+                const template = document.getElementById('template-' + selectedService);
+                if (template) {
+                    configsContainer.appendChild(template.content.cloneNode(true));
                 }
             }
 
@@ -292,106 +312,57 @@
 
         const downloaderSelect = document.getElementById('downloader');
         const kemonoWarning = document.getElementById('kemono-warning');
-        const advancedOptions = document.getElementById('accordion-credentials');
+        const advancedOptionsAccordion = document.getElementById('advanced-options-accordion');
 
         downloaderSelect.addEventListener('change', function() {
             if (this.value === 'kemono-dl') {
                 kemonoWarning.style.display = 'block';
-                advancedOptions.style.display = 'none';
+                advancedOptionsAccordion.style.display = 'none';
             } else {
-                kemonoWarning.style.display = 'none';
-                advancedOptions.style.display = 'block';
+                kemonoWarning.style.display = 'block';
+                advancedOptionsAccordion.style.display = 'block';
             }
         });
 
-        // Initialize on page load
-        showConfig();
-
         const autoProxyCheckbox = document.getElementById('auto_proxy');
         const proxyInput = document.getElementById('proxy');
-
         autoProxyCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                proxyInput.disabled = true;
-                proxyInput.value = '';
-            } else {
-                proxyInput.disabled = false;
-            }
+            proxyInput.disabled = this.checked;
+            if (this.checked) proxyInput.value = '';
         });
 
         const splitCompressionCheckbox = document.getElementById('split_compression');
         const splitSizeContainer = document.getElementById('split-size-container');
-
         splitCompressionCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                splitSizeContainer.style.display = 'block';
-            } else {
-                splitSizeContainer.style.display = 'none';
-            }
+            splitSizeContainer.style.display = this.checked ? 'block' : 'none';
         });
 
+        // --- Tunnel Logic ---
         let tunnelStatusInterval;
-
         function startTunnel() {
             const token = document.getElementById('cloudflared-token').value;
-            if (!token) {
-                alert('Please enter a Cloudflared token.');
-                return;
-            }
+            if (!token) { alert('Please enter a Cloudflared token.'); return; }
             fetch('/tunnel/start', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ token: token }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                checkTunnelStatus();
-            });
+            }).then(r => r.json()).then(d => { alert(d.message); checkTunnelStatus(); });
         }
-
         function stopTunnel() {
             fetch('/tunnel/stop', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                checkTunnelStatus();
-            });
+            .then(r => r.json()).then(d => { alert(d.message); checkTunnelStatus(); });
         }
-
         function checkTunnelStatus() {
-            fetch('/tunnel/status')
-            .then(response => response.json())
-            .then(data => {
-                const logElement = document.getElementById('tunnel-log');
-                if (data.running) {
-                    logElement.textContent = 'Status: Running\n\n' + data.log;
-                } else {
-                    logElement.textContent = 'Status: Not Running\n\n' + data.log;
-                }
+            fetch('/tunnel/status').then(r => r.json()).then(data => {
+                const logEl = document.getElementById('tunnel-log');
+                logEl.textContent = (data.running ? 'Status: Running\n\n' : 'Status: Not Running\n\n') + data.log;
             });
         }
-
-        const enableCompressionCheckbox = document.getElementById('enable_compression');
-
-        enableCompressionCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                this.value = "true";
-            } else {
-                this.removeAttribute('value');
-            }
-        });
-
+        
         document.addEventListener('DOMContentLoaded', function() {
-            if (enableCompressionCheckbox.checked) {
-                enableCompressionCheckbox.value = "true";
-            }
-            checkTunnelStatus(); // Initial check
-            tunnelStatusInterval = setInterval(checkTunnelStatus, 5000); // Poll every 5 seconds
+            checkTunnelStatus();
+            tunnelStatusInterval = setInterval(checkTunnelStatus, 5000);
         });
-
     </script>
 </body>
 </html>
