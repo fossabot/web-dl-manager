@@ -100,11 +100,13 @@ def restart_application():
     log("Preparing to restart application...")
     
     idle_check_url = "http://localhost:8000/api/active_tasks"
-    
-    while True:
+    max_retries = 5
+    retry_delay = 10 # seconds
+
+    for attempt in range(max_retries):
         try:
             with httpx.Client() as client:
-                response = client.get(idle_check_url)
+                response = client.get(idle_check_url, timeout=10)
                 response.raise_for_status()
                 data = response.json()
                 active_downloads = data.get("active_downloads", 0)
@@ -112,19 +114,25 @@ def restart_application():
                 if active_downloads == 0:
                     log("No active downloads. Proceeding with restart.")
                     os.kill(1, signal.SIGHUP)
-                    break
+                    return # Exit after sending signal
                 else:
-                    log(f"There are {active_downloads} active downloads. Waiting 5 minutes before checking again.")
-                    time.sleep(300) # Wait for 5 minutes
+                    log(f"There are {active_downloads} active downloads. Aborting restart.")
+                    log("Please wait for downloads to complete and restart manually.")
+                    return # Exit, do not proceed
+
         except httpx.RequestError as e:
-            log(f"Could not connect to the application to check for active tasks: {e}")
-            log("Assuming it's safe to restart. Proceeding with caution.")
-            os.kill(1, signal.SIGHUP)
-            break
+            log(f"Could not connect to the application to check for active tasks (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                log(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                log("Could not connect to the application after multiple retries. Aborting restart.")
+                log("The application might be in a broken state. Please check the logs and restart manually.")
+                return # Exit, do not proceed
         except Exception as e:
             log(f"An unexpected error occurred during idle check: {e}")
             log("Aborting restart due to an unexpected error.")
-            break
+            return # Exit, do not proceed
 
 
 def run_update():

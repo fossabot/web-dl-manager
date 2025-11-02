@@ -365,10 +365,10 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
 
         try:
             # Wait for the process to complete with a timeout
-            await asyncio.wait_for(process.wait(), timeout=7200) # 2-hour timeout
+            await asyncio.wait_for(process.wait(), timeout=86400) # 24-hour timeout
         except asyncio.TimeoutError:
             with open(status_file, "a") as f:
-                f.write("\n--- COMMAND TIMED OUT (2 hours) ---\n")
+                f.write("\n--- COMMAND TIMED OUT (24 hours) ---\n")
             # Kill the entire process group
             try:
                 if pgid:

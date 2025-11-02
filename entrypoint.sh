@@ -61,13 +61,16 @@ start_uvicorn() {
 
 # Graceful shutdown and restart
 handle_signal() {
-    echo "Signal received, attempting graceful shutdown and restart..."
+    echo "Signal received, attempting graceful shutdown..."
     if [ -f "$PID_FILE" ]; then
-        kill -TERM "$(cat $PID_FILE)"
+        kill -TERM "$(cat $PID_FILE)" &> /dev/null || true
+        # Wait for the process to terminate
+        while kill -0 "$(cat $PID_FILE)" &> /dev/null; do
+            sleep 1
+        done
         rm -f "$PID_FILE"
     fi
-    # The loop will handle the restart
-    exit 0
+    # The loop will handle the restart, no need to exit here
 }
 
 # Trap signals
