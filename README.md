@@ -23,6 +23,7 @@ The entire application is containerized using Docker and comes with a GitHub Act
 -   **Efficient Archiving:** Downloads are packaged into `.tar.zst` archives for efficient storage and transfer.
 -   **Flexible Uploads:** Utilizes `rclone` to upload archives to various cloud storage providers (WebDAV, S3, B2) or `gofile.io`. **For `openlist` service, both compressed and uncompressed uploads are handled directly by `openlist.py` for seamless integration. When uploading to a directory containing "terabox", an additional `task_id` subdirectory will not be created.**
 -   **Real-time Logging:** A redesigned status page shows job logs in real-time without page reloads, and includes a copy-to-clipboard feature.
+-   **Server Status Page:** A dedicated page at `/server-status` that provides real-time monitoring of system resources (CPU, memory, disk), application uptime, active tasks, and versions of key dependencies.
 -   **Containerized & CI/CD Ready:** Easy to deploy with Docker and includes a GitHub Actions workflow for automated builds.
 
 ## How It Works
