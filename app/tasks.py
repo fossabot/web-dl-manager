@@ -15,11 +15,7 @@ from .utils import (
     update_task_status,
 )
 
-async def run_ai_simulation_logger(process, status_file: Path):
-    """
-    Writes fake AI-themed log messages to the status file while the process is running.
-    """
-    await process.wait()
+
 
 
 async def run_command(command: str, command_to_log: str, status_file: Path, task_id: str):
@@ -27,12 +23,13 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
     Runs a shell command asynchronously, logs fake AI progress, and stores its PGID.
     The actual command output is discarded to /dev/null.
     """
-    process = await asyncio.create_subprocess_shell(
-        command,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
-        preexec_fn=os.setsid
-    )
+    with open(status_file, "a", encoding="utf-8") as log_file:
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=log_file,
+            stderr=log_file,
+            preexec_fn=os.setsid
+        )
 
     try:
         pgid = os.getpgid(process.pid)
@@ -40,7 +37,6 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
     except ProcessLookupError:
         pass
 
-    await run_ai_simulation_logger(process, status_file)
     await process.wait()
 
     update_task_status(task_id, {"pgid": None})
@@ -116,11 +112,10 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
         
     upload_cmd = (
         f"rclone copy --config \"{rclone_config_path}\" \"{task_download_dir}\" \"{remote_full_path}\" "
-        f"-P --log-level=ERROR --retries 50"
+        f"-P --log-level=INFO --retries 5"
     )
     if params.get("upload_rate_limit"):
         upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
-    upload_cmd += " 2>/dev/null"
     await run_command(upload_cmd, upload_cmd, status_file, task_id)
 
 
@@ -263,11 +258,10 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 remote_full_path = f"remote:{upload_path}"
                 upload_cmd = (
                     f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
-                    f"-P --log-level=ERROR --retries 50"
+                    f"-P --log-level=INFO --retries 5"
                 )
                 if params.get("upload_rate_limit"):
                     upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
-                upload_cmd += " 2>/dev/null"
                 await run_command(upload_cmd, upload_cmd, status_file, task_id)
                 update_task_status(task_id, {"status": "completed"})
 
