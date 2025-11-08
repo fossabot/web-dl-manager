@@ -6,8 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-import openlist
-from app.config import STATUS_DIR
+from . import openlist
+from .config import STATUS_DIR
 
 # --- Helper Functions ---
 

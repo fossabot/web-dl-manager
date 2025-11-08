@@ -13,10 +13,10 @@ from starlette.background import BackgroundTasks
 from typing import Optional
 from pydantic import BaseModel
 
-import updater
-from app.config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
-from app.utils import get_task_status_path, update_task_status
-from app.tasks import process_download_job
+from . import updater
+from .config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
+from .utils import get_task_status_path, update_task_status
+from .tasks import process_download_job
 
 # --- FastAPI App Initialization ---
 app = FastAPI(title="Gallery-DL Web UI")
