@@ -10,3 +10,4 @@ httpx
 starlette
 python-jose
 gofilepy-api
+psutil
