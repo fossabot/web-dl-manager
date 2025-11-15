@@ -69,18 +69,33 @@ jobs:
         run: |
           sleep 5
           docker ps -a
+
+      - name: Display Application Logs
+        run: |
+          echo "--- Application Logs ---"
           docker logs gallery-dl-app
 
-      - name: Run cloudflared tunnel
+      - name: Run cloudflared tunnel and extract URL
+        id: tunnel
         run: |
           cloudflared tunnel --url http://localhost:8000 > cloudflared.log 2>&1 &
-          sleep 10
+          echo "Waiting for Cloudflare Tunnel URL..."
+          for i in {1..15}; do
+            if url=$(grep -o 'https://.*trycloudflare.com' cloudflared.log); then
+              echo "::set-output name=url::$url"
+              echo "Tunnel URL: $url"
+              break
+            fi
+            sleep 2
+          done
+          echo "--- Cloudflared Logs ---"
           cat cloudflared.log
 
       - name: Wait for 5 minutes
         run: sleep 300
 
       - name: Stop container and tunnel
+        if: always()
         run: |
           docker stop gallery-dl-app
           killall cloudflared
