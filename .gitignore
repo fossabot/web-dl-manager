@@ -3,6 +3,24 @@ venv/
 env/
 ENV/
 
+# Python build artifacts
+__pycache__/
+*.pyc
+*.log
+dist/
+build/
+.tmp_build/
+
+# Binary and build related files
+cloudflared
+build_new.py
+build.py
+gallery-dl-web.spec
+requirements-build.txt
+run_binary.py
+
+replace_rules.txt
+
 # Temporary test files
 gofile_test.py
 gofile_auth_test.py
