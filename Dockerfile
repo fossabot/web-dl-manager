@@ -47,7 +47,7 @@ WORKDIR /app
 RUN mkdir -p /app/app /data/downloads /data/archives /data/status && chown -R 1000:1000 /app /data
 
 # Copy the pre-built binary from the builder stage
-COPY --chown=1000:1000 --from=builder /app/dist/gallery-dl-web /app/gallery-dl-web
+COPY --chown=1000:1000 --from=builder /app/dist/web-dl-manager /app/web-dl-manager
 
 # Copy the entrypoint and updater scripts
 COPY --chown=1000:1000 ./entrypoint.sh /entrypoint.sh
