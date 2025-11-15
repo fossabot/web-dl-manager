@@ -77,7 +77,7 @@ async def launch_tunnel(token: str):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup event
-    cloudflared_token = os.getenv("CLOUDFLARED_TOKEN")
+    cloudflared_token = os.getenv("TUNNEL_TOKEN")
     if cloudflared_token:
         await launch_tunnel(cloudflared_token)
     yield
