@@ -90,31 +90,6 @@ docker run -d \
 
 In private mode, you should access the application via a specific path like `/login`.
 
-## Building a Binary
-
-This application can also be built into a standalone binary executable for easy distribution and deployment without Docker:
-
-```bash
-# Make sure you have Python 3.7+ and pip installed
-# Then run the build script:
-chmod +x build.sh
-./build.sh
-
-# Or directly with Python:
-python build.py
-```
-
-The binary will be created in the `dist/` directory. You can then run it directly:
-
-```bash
-# On Linux/macOS
-./dist/web-dl-manager/web-dl-manager
-
-# Or with Python run script
-python run_binary.py --port 8000 --host 0.0.0.0
-```
-
-More detailed build information is available in [BUILDING.md](BUILDING.md).
 
 ## Disclaimers
 
