@@ -61,20 +61,6 @@ jobs:
           curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared.deb
 
-      - name: Run Docker container
-        run: |
-          docker run -d --name gallery-dl-app -p 8000:8000 ghcr.io/jyf0214/gallery-dl-web:${{ needs.build_and_push.outputs.sha_tag }}
-
-      - name: Check container status
-        run: |
-          sleep 5
-          docker ps -a
-
-      - name: Display Application Logs
-        run: |
-          echo "--- Application Logs ---"
-          docker logs gallery-dl-app
-
       - name: Run cloudflared tunnel and extract URL
         id: tunnel
         run: |
@@ -91,11 +77,11 @@ jobs:
           echo "--- Cloudflared Logs ---"
           cat cloudflared.log
 
-      - name: Wait for 5 minutes
-        run: sleep 300
+      - name: Run application in foreground for 5 minutes
+        run: |
+          timeout 300s docker run --name gallery-dl-app -p 8000:8000 ghcr.io/jyf0214/gallery-dl-web:${{ needs.build_and_push.outputs.sha_tag }}
 
-      - name: Stop container and tunnel
+      - name: Stop tunnel
         if: always()
         run: |
-          docker stop gallery-dl-app
           killall cloudflared
