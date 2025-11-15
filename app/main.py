@@ -19,9 +19,20 @@ from utils import get_task_status_path, update_task_status
 from tasks import process_download_job
 
 # --- FastAPI App Initialization ---
+import sys
+
+if getattr(sys, 'frozen', False):
+    # Running in a PyInstaller bundle
+    BASE_DIR = Path(sys._MEIPASS)
+    template_dir = BASE_DIR / "app" / "templates"
+else:
+    # Running as a script
+    from config import BASE_DIR
+    template_dir = BASE_DIR / "templates"
+
 app = FastAPI(title="Gallery-DL Web UI")
 app.add_middleware(SessionMiddleware, secret_key="some-random-string")
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates = Jinja2Templates(directory=str(template_dir))
 
 # --- Cloudflared Tunnel Management ---
 tunnel_process: Optional[asyncio.subprocess.Process] = None
