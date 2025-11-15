@@ -74,8 +74,6 @@ jobs:
             fi
             sleep 2
           done
-          echo "--- Cloudflared Logs ---"
-          cat cloudflared.log
 
       - name: Run application in foreground for 5 minutes
         run: |
