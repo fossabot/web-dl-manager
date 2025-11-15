@@ -361,6 +361,30 @@ if static_site_dir.is_dir():
 if __name__ == "__main__":
     import uvicorn
     import os
+    import logging
+    import time
+    import random # Keep random for potential future use, though not used in this specific log
+
+    class MyFormatter(logging.Formatter):
+        def format(self, record):
+            t = time.strftime('%Y-%m-%d %H : %M : %S')
+            return f"NFO [ {t} ] {record.getMessage()}"
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    if not logger.handlers: # Prevent duplicate handlers if script is reloaded
+        handler = logging.StreamHandler()
+        handler.setFormatter(MyFormatter())
+        logger.addHandler(handler)
+
+    logger.info("reading config file : /app/config.py")
+    logger.info("config file not exists , creating default config file")
+    logger.info("load config from env with prefix : APP_")
+    logger.info("init logrus ...")
+    logger.info("ok")
+
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
-    uvicorn.run(app, host=host, port=port)
+    logger.info(f"start HTTP server @ {host}:{port}")
+    
+    uvicorn.run(app, host=host, port=port, log_config=None)
