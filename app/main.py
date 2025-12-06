@@ -444,15 +444,32 @@ def run_camouflage_app():
 
 def run_main_app():
     """Runs the internal main application."""
-    # 禁用main_app的日志输出
+    # 禁用main_app的所有日志输出
     log_config = {
         "version": 1,
         "disable_existing_loggers": False,
         "loggers": {
-            "uvicorn": {"level": "CRITICAL"},
-            "uvicorn.error": {"level": "CRITICAL"},
-            "uvicorn.access": {"level": "CRITICAL"},
-            "fastapi": {"level": "CRITICAL"},
+            "": {"level": "CRITICAL", "handlers": []},
+            "uvicorn": {"level": "CRITICAL", "handlers": []},
+            "uvicorn.error": {"level": "CRITICAL", "handlers": []},
+            "uvicorn.access": {"level": "CRITICAL", "handlers": []},
+            "fastapi": {"level": "CRITICAL", "handlers": []},
+            "app": {"level": "CRITICAL", "handlers": []},
+            "app.database": {"level": "CRITICAL", "handlers": []},
+            "app.logging_handler": {"level": "CRITICAL", "handlers": []},
+            "app.main": {"level": "CRITICAL", "handlers": []},
+            "app.tasks": {"level": "CRITICAL", "handlers": []},
+            "app.utils": {"level": "CRITICAL", "handlers": []},
+        },
+        "handlers": {
+            "null": {
+                "class": "logging.NullHandler",
+                "level": "CRITICAL"
+            }
+        },
+        "root": {
+            "level": "CRITICAL",
+            "handlers": ["null"]
         }
     }
     uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
