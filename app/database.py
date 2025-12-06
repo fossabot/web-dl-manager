@@ -202,7 +202,8 @@ def init_db():
             conn.commit()
         except (mysql.connector.Error, sqlite3.Error) as err:
             if hasattr(err, 'errno') and err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-                logger.warning(f"Table already exists: {err.msg}")
+                msg = getattr(err, 'msg', str(err))
+                logger.warning(f"Table already exists: {msg}")
             else:
                 logger.error(f"Error creating tables: {err}")
                 raise
