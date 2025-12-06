@@ -444,7 +444,18 @@ def run_camouflage_app():
 
 def run_main_app():
     """Runs the internal main application."""
-    uvicorn.run(main_app, host="127.0.0.1", port=6275)
+    # 禁用main_app的日志输出
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "loggers": {
+            "uvicorn": {"level": "CRITICAL"},
+            "uvicorn.error": {"level": "CRITICAL"},
+            "uvicorn.access": {"level": "CRITICAL"},
+            "fastapi": {"level": "CRITICAL"},
+        }
+    }
+    uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
 
 if __name__ == "__main__" or __name__ == "app.main":
     logging.basicConfig(level=logging.INFO)
