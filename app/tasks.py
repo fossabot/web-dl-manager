@@ -233,11 +233,12 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 command += f" --proxy {proxy}"
                 if params.get("rate_limit"):
                     command += f" --limit-rate {params['rate_limit']}"
-                command += f" {url}"
+            command += f" {url}"
 
             command_log = f"gallery-dl --verbose -D {task_download_dir}"
             if proxy:
                 command_log += f" --proxy {proxy}"
+            command_log += f" {url}"
         
         if debug_enabled:
             logger.debug(f"[WORKFLOW] 执行下载命令: {command_log}")
