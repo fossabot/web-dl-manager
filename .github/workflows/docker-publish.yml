@@ -67,3 +67,4 @@ jobs:
           
           echo "Application is running in the background for preview."
           echo "It will be stopped automatically after the workflow finishes."
+          sleep 300 # Wait for 5 minutes for testing purposes
