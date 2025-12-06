@@ -487,7 +487,7 @@ if __name__ == "__main__" or __name__ == "app.main":
     logger.info("Camouflage service started on http://0.0.0.0:5492")
     
     main_thread.start()
-    logger.info("Main application service started on http://127.0.0.1:6275")
+    # 不输出后台应用启动日志
 
     # Keep the main thread alive to allow daemon threads to run
     try:
