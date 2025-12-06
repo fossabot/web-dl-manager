@@ -89,8 +89,9 @@
                                     <div class="mb-3">
                                         <label for="downloader" class="form-label">{{ lang.downloader_label }}</label>
                                         <select class="form-select" id="downloader" name="downloader">
-                                            <option value="gallery-dl" selected>{{ lang.downloader_gallery_dl }}</option>
-                                            <option value="megadl">{{ lang.downloader_megadl }}</option>
+                                            <option value="gallery-dl">{{ lang.downloader_gallery_dl }}</option>
+                <option value="megadl">{{ lang.downloader_megadl }}</option>
+                                            
                                         </select>
                                     </div>
                                     <div class="mb-3">
@@ -118,7 +119,7 @@
                                             <option value="s3">{{ lang.s3_option }}</option>
                                             <option value="b2">{{ lang.b2_option }}</option>
                                             <option value="gofile">{{ lang.gofile_option }}</option>
-                                            <option value="mega">{{ lang.mega_option }}</option>
+                                            
                                             <option value="openlist">Openlist</option>
                                         </select>
                                     </div>
@@ -321,14 +322,7 @@
                     <div class="mb-3"><label for="openlist_pass" class="form-label">Password</label><input type="password" class="form-control" id="openlist_pass" name="openlist_pass"></div>
                 </div>
             </template>
-            <template id="template-mega">
-                <div class="service-config">
-                    <h5>{{ lang.mega_settings_title }}</h5>
-                    <div class="mb-3"><label for="mega_email" class="form-label">{{ lang.mega_email_label }}</label><input type="email" class="form-control" id="mega_email" name="mega_email" required></div>
-                    <div class="mb-3"><label for="mega_password" class="form-label">{{ lang.mega_password_label }}</label><input type="password" class="form-control" id="mega_password" name="mega_password" required></div>
-                    <div class="mb-3"><label for="mega_2fa" class="form-label">{{ lang.mega_2fa_label }}</label><input type="text" class="form-control" id="mega_2fa" name="mega_2fa" placeholder="{{ lang.mega_2fa_placeholder }}"></div>
-                </div>
-            </template>
+            
         
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -350,7 +344,7 @@
             }
 
             const uploadPathContainer = document.getElementById('upload-path-container');
-            if (selectedService === 'gofile' || selectedService === 'mega') {
+            if (selectedService === 'gofile') {
                 uploadPathContainer.style.display = 'none';
                 document.getElementById('upload_path').required = false;
             } else {

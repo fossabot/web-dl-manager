@@ -194,11 +194,7 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     elif service == "b2":
         config_content += f"account = {params['b2_account_id']}"
         config_content += f"key = {params['b2_application_key']}"
-    elif service == "mega":
-        config_content += f"user = {params['mega_email']}"
-        config_content += f"pass = {params['mega_password']}"
-        if params.get('mega_2fa'):
-            config_content += f"2fa = {params['mega_2fa']}"
+    
 
     with open(config_path, "w") as f:
         f.write(config_content)
