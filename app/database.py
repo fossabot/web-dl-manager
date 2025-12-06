@@ -7,8 +7,9 @@ import logging
 import datetime
 from contextlib import contextmanager
 from urllib.parse import urlparse, parse_qs
+from pathlib import Path
 
-from .config import DATABASE_URL
+from .config import DATABASE_URL, BASE_DIR
 
 # Configure basic logging for this module
 logger = logging.getLogger(__name__)
@@ -25,11 +26,14 @@ db_type = None  # 'mysql' or 'sqlite'
 def init_db_pool():
     global db_pool, db_type
     if db_pool is None:
+        # Check if MySQL is explicitly enabled via environment variable
+        mysql_enabled = os.getenv("mysql", "false").lower() == "true"
+        
         try:
             url = urlparse(DATABASE_URL)
             db_type = url.scheme
             
-            if db_type == 'mysql':
+            if db_type == 'mysql' and mysql_enabled:
                 # Extract connection details from URL
                 db_user = url.username
                 db_password = url.password
@@ -86,11 +90,19 @@ def init_db_pool():
                 db_pool = db_path
                 logger.info(f"Using SQLite database: {db_path}")
             else:
-                raise ValueError(f"Unsupported database type: {db_type}. Only 'mysql' and 'sqlite' are supported.")
+                # If MySQL is not enabled or not configured, use SQLite
+                db_type = 'sqlite'
+                db_pool = BASE_DIR.parent / 'webdl-manager.db'
+                logger.info(f"MySQL not enabled or configured, using SQLite database: {db_pool}")
+                return
                 
         except mysql.connector.Error as err:
             logger.error(f"Error initializing MySQL connection pool: {err}")
-            raise
+            logger.info("Falling back to SQLite database...")
+            # Fallback to SQLite
+            db_type = 'sqlite'
+            db_pool = BASE_DIR.parent / 'webdl-manager.db'
+            logger.info(f"Using SQLite database: {db_pool}")
         except ValueError as e:
             logger.error(f"Invalid DATABASE_URL: {e}")
             raise

