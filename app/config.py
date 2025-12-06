@@ -13,6 +13,11 @@ APP_USERNAME = os.getenv("APP_USERNAME", "Jyf0214")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 AVATAR_URL = os.getenv("AVATAR_URL", "https://github.com/Jyf0214.png")
 
+# --- Database Configuration ---
+# Use a MySQL connection string, e.g., "mysql://user:password@host:port/database"
+# For local development, a SQLite database can be used for simplicity.
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR.parent / 'webdl-manager.db'}")
+
 # Create directories if they don't exist
 try:
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
@@ -54,9 +59,6 @@ LANGUAGES = {
         "proxy_text": "Use a proxy to bypass IP blocks (e.g., from CloudFront).",
         "proxy_label": "Proxy URL",
         "proxy_placeholder": "e.g., http://user:pass@host:port",
-        "auto_proxy_label": "Auto-select proxy from public list",
-        "disclaimer_title": "Disclaimer:",
-        "disclaimer_text": "This feature uses publicly available proxies from a third-party source. The use of public proxies comes with inherent security and privacy risks. Your traffic may be monitored, and your data may be intercepted by the proxy operator. Use this feature at your own risk. We are not responsible for any damages or data loss that may occur from using this feature.",
         "upload_config_title": "Upload Configuration",
         "upload_service_label": "Upload Service",
         "select_service_option": "-- Select a Service --",

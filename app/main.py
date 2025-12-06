@@ -4,7 +4,7 @@ import asyncio
 import json
 import signal
 from pathlib import Path
-from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi import FastAPI, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -12,12 +12,24 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.background import BackgroundTasks
 from typing import Optional
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager # Re-add this import
+from passlib.context import CryptContext
+from app.database import init_db, MySQLUser, mysql_config # New imports
+from app.logging_handler import MySQLLogHandler, cleanup_old_logs
 
 import updater, status
 from config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
 from utils import get_task_status_path, update_task_status
 from tasks import process_download_job
+
+# --- Password Hashing ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
 
 # --- FastAPI App Initialization ---
 import sys
@@ -31,86 +43,76 @@ else:
     from config import BASE_DIR
     template_dir = BASE_DIR / "templates"
 
-# --- Cloudflared Tunnel Management ---
-tunnel_process: Optional[asyncio.subprocess.Process] = None
-tunnel_log = ""
-tunnel_lock = asyncio.Lock()
-
-
-async def launch_tunnel(token: str):
-    global tunnel_process, tunnel_log
-    async with tunnel_lock:
-        if tunnel_process and tunnel_process.returncode is None:
-            tunnel_log += "Tunnel is already running.\n"
-            return
-
-        try:
-            tunnel_log += "Launching Cloudflare tunnel...\n"
-            command = ["cloudflared", "tunnel", "run", "--token", token]
-            
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                preexec_fn=os.setsid
-            )
-            tunnel_process = process
-            tunnel_log += f"Tunnel process started with PID: {process.pid}\n"
-
-            async def log_output(stream, log_prefix):
-                global tunnel_log
-                while True:
-                    line = await stream.readline()
-                    if not line:
-                        break
-                    decoded_line = line.decode('utf-8', 'replace').strip()
-                    async with tunnel_lock:
-                        tunnel_log += f"{log_prefix}: {decoded_line}\n"
-
-            asyncio.create_task(log_output(process.stdout, "stdout"))
-            asyncio.create_task(log_output(process.stderr, "stderr"))
-
-        except Exception as e:
-            async with tunnel_lock:
-                tunnel_log += f"Failed to launch tunnel: {e}\n"
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup event
-    cloudflared_token = os.getenv("TUNNEL_TOKEN")
-    if cloudflared_token:
-        await launch_tunnel(cloudflared_token)
+    init_db()
+    # Configure MySQL logging
+    mysql_handler = MySQLLogHandler()
+    mysql_handler.setLevel(logging.INFO) # Only log INFO and above to DB
+    logging.getLogger().addHandler(mysql_handler) # Add to root logger
+    logging.getLogger().info("MySQL logging configured.")
+
+    # Start periodic log cleanup in the background
+    cleanup_task = asyncio.create_task(periodic_log_cleanup())
+
     yield
     # Shutdown event (if any)
+    cleanup_task.cancel() # Cancel the cleanup task on shutdown
 
-app = FastAPI(title="Web-DL-Manager", lifespan=lifespan)
+async def periodic_log_cleanup():
+    while True:
+        await asyncio.sleep(3600) # Run every hour
+        cleanup_old_logs()
+
+app = FastAPI(title="Web-DL-Manager", lifespan=lifespan, dependencies=[Depends(check_setup_needed)])
 app.add_middleware(SessionMiddleware, secret_key="some-random-string")
 templates = Jinja2Templates(directory=str(template_dir))
 
+# --- Dependency to check if setup is needed ---
+async def check_setup_needed(request: Request):
+    user_count = MySQLUser.count_users()
+    if user_count == 0 and request.url.path not in ["/setup", "/static", "/"]:
+        raise HTTPException(status_code=307, detail="Setup required", headers={"Location": "/setup"})
 
-@app.post("/tunnel/stop")
-async def stop_tunnel():
-    global tunnel_process, tunnel_log
-    async with tunnel_lock:
-        if not tunnel_process or tunnel_process.returncode is not None:
-            return {"message": "Tunnel is not running."}
+# --- Authentication Dependency ---
+async def get_current_user(request: Request):
+    username = request.session.get("user")
+    if username:
+        user = MySQLUser.get_user_by_username(username)
+        if user:
+            return user
+    if PRIVATE_MODE: # Only redirect to login if private mode is enabled
+        raise HTTPException(status_code=307, detail="Not authenticated", headers={"Location": "/login"})
+    return None # For non-private mode, allow anonymous access where appropriate
 
-        tunnel_log += "Stopping tunnel...\n"
-        try:
-            os.killpg(os.getpgid(tunnel_process.pid), signal.SIGTERM)
-            await tunnel_process.wait()
-            tunnel_log += "Tunnel stopped.\n"
-            return {"message": "Tunnel stopped successfully."}
-        except Exception as e:
-            tunnel_log += f"Failed to stop tunnel: {e}\n"
-            return {"message": f"Failed to stop tunnel: {e}"}
+# --- Admin Setup Routes ---
+@app.get("/setup", response_class=HTMLResponse)
+async def get_setup_form(request: Request):
+    user_count = MySQLUser.count_users()
+    if user_count > 0:
+        return RedirectResponse(url="/login", status_code=302)
+    return templates.TemplateResponse("setup.html", {"request": request, "error": None})
 
-@app.get("/tunnel/status")
-async def tunnel_status():
-    global tunnel_process, tunnel_log
-    async with tunnel_lock:
-        running = tunnel_process and tunnel_process.returncode is None
-        return {"running": running, "log": tunnel_log}
+@app.post("/setup", response_class=HTMLResponse)
+async def post_setup_form(request: Request, username: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    user_count = MySQLUser.count_users()
+    if user_count > 0:
+        return RedirectResponse(url="/login", status_code=302)
+
+    if password != confirm_password:
+        return templates.TemplateResponse("setup.html", {"request": request, "error": "Passwords do not match."})
+    
+    if not username or not password:
+        return templates.TemplateResponse("setup.html", {"request": request, "error": "Username and password cannot be empty."})
+
+    hashed_password = get_password_hash(password)
+    if MySQLUser.create_user(username=username, hashed_password=hashed_password, is_admin=True):
+        request.session["user"] = username # Log in the first admin automatically
+        return RedirectResponse(url="/downloader", status_code=303)
+    else:
+        return templates.TemplateResponse("setup.html", {"request": request, "error": "Failed to create user. Username might already exist."})
+
 
 @app.post("/update")
 async def update_app(background_tasks: BackgroundTasks):
@@ -146,15 +148,14 @@ async def get_blog_index(request: Request):
         with open(blog_index, "r", encoding="utf-8") as f:
             content = f.read()
         return HTMLResponse(content=content)
+    # The home page should not be protected by login, so it doesn't need get_current_user
     return templates.TemplateResponse("index.html", {"request": request, "lang": get_lang(request)})
 
 @app.get("/downloader", response_class=HTMLResponse)
-async def get_downloader(request: Request):
+async def get_downloader(request: Request, current_user: MySQLUser = Depends(get_current_user)):
     lang = get_lang(request)
-    user = request.session.get("user")
-    if PRIVATE_MODE and not user:
-        return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse("downloader.html", {"request": request, "lang": lang, "user": user, "avatar_url": AVATAR_URL})
+    # user = request.session.get("user") # Removed, now using current_user from dependency
+    return templates.TemplateResponse("downloader.html", {"request": request, "lang": lang, "user": current_user.username, "avatar_url": AVATAR_URL})
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login_form(request: Request):
@@ -163,10 +164,13 @@ async def get_login_form(request: Request):
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    if username == APP_USERNAME and (not APP_PASSWORD or password == APP_PASSWORD):
-        request.session["user"] = username
-        return RedirectResponse(url="/downloader", status_code=303)
-    return RedirectResponse(url="/login", status_code=303)
+    user = MySQLUser.get_user_by_username(username)
+    if not user or not verify_password(password, user.hashed_password):
+        # Incorrect credentials, redirect back to login
+        return RedirectResponse(url="/login", status_code=303)
+    
+    request.session["user"] = username
+    return RedirectResponse(url="/downloader", status_code=303)
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -188,6 +192,7 @@ async def create_download_job(
     enable_compression: Optional[str] = Form(None),
     split_compression: bool = Form(False),
     split_size: int = Form(1000),
+    current_user: MySQLUser = Depends(get_current_user) # Protect this route
 ):
     task_id = str(uuid.uuid4())
     params = await request.form()
@@ -195,7 +200,8 @@ async def create_download_job(
     update_task_status(task_id, {
         "id": task_id,
         "status": "queued",
-        "original_params": dict(params)
+        "original_params": dict(params),
+        "created_by": current_user.username # Record who created the task
     })
 
     if not url or not upload_service:
@@ -220,27 +226,12 @@ async def create_download_job(
     return RedirectResponse("/tasks", status_code=303)
 
 @app.get("/tasks", response_class=HTMLResponse)
-async def get_tasks(request: Request):
+async def get_tasks(request: Request, current_user: MySQLUser = Depends(get_current_user)):
     lang = get_lang(request)
-    user = request.session.get("user")
-    if PRIVATE_MODE and not user:
-        return RedirectResponse(url="/login", status_code=302)
-
-    tasks = []
-    for status_file in sorted(STATUS_DIR.glob("*.json"), key=os.path.getmtime, reverse=True):
-        task_id = status_file.stem
-        try:
-            with open(status_file, "r") as f:
-                task_data = json.load(f)
-                task_data["id"] = task_id
-                tasks.append(task_data)
-        except (json.JSONDecodeError, IOError):
-            tasks.append({"id": task_id, "status": "unknown", "url": "N/A"})
-
-    return templates.TemplateResponse("tasks.html", {"request": request, "lang": lang, "tasks": tasks})
+    # user = request.session.get("user") # Removed, now using current_user from dependency
 
 @app.post("/retry/{task_id}")
-async def retry_task(task_id: str):
+async def retry_task(task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     status_path = get_task_status_path(task_id)
     if not status_path.exists():
         raise HTTPException(status_code=404, detail="Task to retry not found.")
@@ -257,7 +248,8 @@ async def retry_task(task_id: str):
         "id": new_task_id,
         "status": "queued",
         "original_params": original_params,
-        "retry_of": task_id
+        "retry_of": task_id,
+        "created_by": current_user.username
     })
 
     asyncio.create_task(process_download_job(
@@ -273,7 +265,7 @@ async def retry_task(task_id: str):
     return RedirectResponse("/tasks", status_code=303)
 
 @app.post("/pause/{task_id}")
-async def pause_task(task_id: str):
+async def pause_task(task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     status_path = get_task_status_path(task_id)
     if not status_path.exists(): raise HTTPException(status_code=404, detail="Task not found.")
     with open(status_path, "r") as f: task_data = json.load(f)
@@ -289,7 +281,7 @@ async def pause_task(task_id: str):
     return RedirectResponse("/tasks", status_code=303)
 
 @app.post("/resume/{task_id}")
-async def resume_task(task_id: str):
+async def resume_task(task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     status_path = get_task_status_path(task_id)
     if not status_path.exists(): raise HTTPException(status_code=404, detail="Task not found.")
     with open(status_path, "r") as f: task_data = json.load(f)
@@ -305,7 +297,7 @@ async def resume_task(task_id: str):
     return RedirectResponse("/tasks", status_code=303)
 
 @app.post("/delete/{task_id}")
-async def delete_task(task_id: str):
+async def delete_task(task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     status_path = get_task_status_path(task_id)
     log_path = STATUS_DIR / f"{task_id}.log"
     if not status_path.exists() and not log_path.exists():
@@ -315,16 +307,16 @@ async def delete_task(task_id: str):
     return RedirectResponse("/tasks", status_code=303)
 
 @app.get("/status/{task_id}", response_class=HTMLResponse)
-async def get_status(request: Request, task_id: str):
+async def get_status(request: Request, task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     lang = get_lang(request)
     status_file = STATUS_DIR / f"{task_id}.log"
     if not status_file.exists():
         raise HTTPException(status_code=404, detail=lang["job_not_found"])
     with open(status_file, "r") as f: content = f.read()
-    return templates.TemplateResponse("status.html", {"request": request, "task_id": task_id, "log_content": content, "lang": lang})
+    return templates.TemplateResponse("status.html", {"request": request, "task_id": task_id, "log_content": content, "lang": lang, "user": current_user.username})
 
 @app.get("/status/{task_id}/json")
-async def get_status_json(task_id: str):
+async def get_status_json(task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     status_path = get_task_status_path(task_id)
     log_path = STATUS_DIR / f"{task_id}.log"
     status_data = {}
@@ -338,7 +330,7 @@ async def get_status_json(task_id: str):
     return {"status": status_data, "log": log_content}
 
 @app.get("/status/{task_id}/raw")
-async def get_status_raw(task_id: str):
+async def get_status_raw(task_id: str, current_user: MySQLUser = Depends(get_current_user)):
     status_file = STATUS_DIR / f"{task_id}.log"
     if not status_file.exists():
         raise HTTPException(status_code=404, detail="Job not found.")

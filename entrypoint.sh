@@ -27,14 +27,23 @@ else
 fi
 
 
-# --- Process Management ---
-PID_FILE="/tmp/gallery-dl-web.pid"
+# --- Camouflage Site Server ---
+CAMOUFLAGE_PORT=5492
+if [ -d "$STATIC_SITE_DIR" ] && [ "$(ls -A $STATIC_SITE_DIR)" ]; then
+    echo "Starting camouflage static server on port $CAMOUFLAGE_PORT..."
+    python3 -m http.server $CAMOUFLAGE_PORT --directory "$STATIC_SITE_DIR" &
+else
+    echo "Static site directory is empty or not found. Camouflage server not started."
+fi
 
-# Function to start the pre-built binary
-start_binary() {
-    echo "Starting server from pre-built binary..."
-    # The binary is located at /app/gallery-dl-web, copied during docker build
-    /app/web-dl-manager &
+
+# --- Process Management ---
+PID_FILE="/tmp/web-dl-manager.pid"
+
+# Function to start the Python application
+start_python_app() {
+    echo "Starting server with gunicorn on 127.0.0.1:6275..."
+    gunicorn -w 4 -b 127.0.0.1:6275 app.main:app &
     echo $! > "$PID_FILE"
 }
 
@@ -45,6 +54,8 @@ handle_signal() {
         kill -TERM "$(cat "$PID_FILE")" &> /dev/null || true
         rm -f "$PID_FILE"
     fi
+    # Also kill the camouflage server
+    pkill -f "python3 -m http.server $CAMOUFLAGE_PORT" || true
     exit 0
 }
 
@@ -54,7 +65,7 @@ trap 'handle_signal' SIGTERM SIGHUP
 # --- Main Loop (Watchdog) ---
 # This loop ensures the application restarts if it crashes
 
-start_binary
+start_python_app
 
 while true; do
     sleep 60
@@ -62,10 +73,10 @@ while true; do
         # Check if the process is still running
         if ! kill -0 "$(cat "$PID_FILE")" &> /dev/null; then
             echo "Process seems to have died. Restarting..."
-            start_binary
+            start_python_app
         fi
     else
         echo "PID file not found. Assuming process is dead. Restarting..."
-        start_binary
+        start_python_app
     fi
 done

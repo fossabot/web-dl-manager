@@ -1,43 +1,48 @@
-# Gallery-DL Web - Docker Build
+# Web-DL-Manager - Docker 构建
 
-This project is primarily built and deployed using Docker. The `Dockerfile` handles all necessary build steps, including installing dependencies and setting up the application environment.
+本项目主要使用 Docker 进行构建和部署。`Dockerfile` 文件处理所有必要的构建步骤，包括安装依赖项和设置应用程序环境。
 
-## Building the Docker Image
+## 构建 Docker 镜像
 
-To build the Docker image, navigate to the project root and run:
+要构建 Docker 镜像，请导航到项目根目录并运行：
 
 ```bash
 docker build -t web-dl-manager .
 ```
 
-## Running the Docker Container
+## 运行 Docker 容器
 
-After building the image, you can run the container:
+构建镜像后，您可以运行容器：
 
 ```bash
+# 创建一个本地数据目录
+mkdir -p ./gallery-dl-data
+
+# 运行容器
 docker run -d \
-  -p 8000:8000 \
+  -p 5492:5492 \
+  -p 127.0.0.1:6275:6275 \
   -v ./gallery-dl-data:/data \
   --name web-dl-manager \
   web-dl-manager
 ```
 
-Refer to the `README.md` for more detailed instructions on running the container and configuring environment variables.
+有关运行容器和配置环境变量的更详细说明，请参阅 `README.md` 文件。
 
-## Requirements for Building
+## 构建要求
 
-- Docker
+-   Docker
 
-The `Dockerfile` handles all Python dependencies and system packages.
+`Dockerfile` 文件会处理所有 Python 依赖项和系统软件包。
 
-## What the Build Includes
+## 构建包含的内容
 
-- The main application code
-- All necessary Python and system dependencies
-- Templates and static files
-- Configuration files
+-   主应用程序代码
+-   所有必需的 Python 和系统依赖项
+-   模板和静态文件
+-   配置文件
 
-## Notes
+## 注意事项
 
-- The application runs within a Docker container, providing an isolated and consistent environment.
-- All dependencies are managed within the Docker image.
+-   应用程序在 Docker 容器内运行，提供了一个隔离且一致的环境。
+-   所有依赖项都在 Docker 镜像内部进行管理。

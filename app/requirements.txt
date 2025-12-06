@@ -11,4 +11,5 @@ starlette
 python-jose
 gofilepy-api
 psutil
-pyinstaller
+mysql-connector-python
+passlib[bcrypt]

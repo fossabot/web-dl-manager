@@ -5,6 +5,7 @@ import shutil
 import random
 from pathlib import Path
 
+
 import openlist
 from config import DOWNLOADS_DIR, ARCHIVES_DIR, STATUS_DIR
 from utils import (
@@ -53,56 +54,56 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
 
 async def upload_uncompressed(task_id: str, service: str, upload_path: str, params: dict, status_file: Path):
     """Uploads the uncompressed files to the remote storage."""
-    if service == "gofile":
-        with open(status_file, "a") as f:
-            f.write("\nUncompressed upload is not supported for gofile.io.\n")
-        return
-
-    if service == "openlist":
-        try:
-            openlist_url = params.get("openlist_url")
-            openlist_user = params.get("openlist_user")
-            openlist_pass = params.get("openlist_pass")
-
-            if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
-                raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
-
+        if service == "gofile":
             with open(status_file, "a") as f:
-                f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---\n")
-            
-            token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
-            
-            if "terabox" in upload_path:
-                remote_task_dir = upload_path
-            else:
-                remote_task_dir = f"{upload_path}/{task_id}"
-            openlist.create_directory(openlist_url, token, remote_task_dir, status_file)
-            
-            task_download_dir = DOWNLOADS_DIR / task_id
-            
-            async def upload_dir_contents(local_dir: Path, remote_dir: str):
-                for item in local_dir.iterdir():
-                    remote_item_path = f"{remote_dir}/{item.name}"
-                    if item.is_dir():
-                        openlist.create_directory(openlist_url, token, remote_item_path, status_file)
-                        await upload_dir_contents(item, remote_item_path)
-                    else:
-                        openlist.upload_file(openlist_url, token, item, remote_dir, status_file)
-
-            await upload_dir_contents(task_download_dir, remote_task_dir)
-
-            update_task_status(task_id, {"status": "completed"})
-            with open(status_file, "a") as f:
-                f.write("\nOpenlist upload completed successfully.\n")
-
-        except openlist.OpenlistError as e:
-            error_message = f"Openlist upload failed: {e}"
-            with open(status_file, "a") as f:
-                f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
-            update_task_status(task_id, {"status": "failed", "error": error_message})
-        return
-
-    task_download_dir = DOWNLOADS_DIR / task_id
+                f.write("\nUncompressed upload is not supported for gofile.io.\n")
+            return
+    
+        if service == "openlist":
+            try:
+                openlist_url = params.get("openlist_url")
+                openlist_user = params.get("openlist_user")
+                openlist_pass = params.get("openlist_pass")
+    
+                if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
+                    raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
+    
+                with open(status_file, "a") as f:
+                    f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---\n")
+                
+                token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
+                
+                if "terabox" in upload_path:
+                    remote_task_dir = upload_path
+                else:
+                    remote_task_dir = f"{upload_path}/{task_id}"
+                openlist.create_directory(openlist_url, token, remote_task_dir, status_file)
+                
+                task_download_dir = DOWNLOADS_DIR / task_id
+                
+                async def upload_dir_contents(local_dir: Path, remote_dir: str):
+                    for item in local_dir.iterdir():
+                        remote_item_path = f"{remote_dir}/{item.name}"
+                        if item.is_dir():
+                            openlist.create_directory(openlist_url, token, remote_item_path, status_file)
+                            await upload_dir_contents(item, remote_item_path)
+                        else:
+                            openlist.upload_file(openlist_url, token, item, remote_dir, status_file)
+    
+                await upload_dir_contents(task_download_dir, remote_task_dir)
+    
+                update_task_status(task_id, {"status": "completed"})
+                with open(status_file, "a") as f:
+                    f.write("\nOpenlist upload completed successfully.\n")
+    
+            except openlist.OpenlistError as e:
+                error_message = f"Openlist upload failed: {e}"
+                with open(status_file, "a") as f:
+                    f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
+                update_task_status(task_id, {"status": "failed", "error": error_message})
+            return
+    
+        task_download_dir = DOWNLOADS_DIR / task_id
     rclone_config_path = create_rclone_config(task_id, service, params)
     
     if "terabox" in upload_path:
@@ -241,6 +242,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     gofile_folder_id = "ad957716-3899-498a-bebc-716f616f9b16"
                 download_link = await upload_to_gofile(archive_path, status_file, api_token=gofile_token, folder_id=gofile_folder_id)
                 update_task_status(task_id, {"status": "completed", "gofile_link": download_link})
+
             elif service == "openlist":
                 openlist_url = params.get("openlist_url")
                 openlist_user = params.get("openlist_user")

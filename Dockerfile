@@ -1,29 +1,3 @@
-# Stage 1: Build the application binary
-FROM python:3.11-slim as builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends git binutils
-
-# Clone kemono-dl and install it
-RUN git clone https://github.com/AlphaSlayer1964/kemono-dl.git /app/kemono-dl
-WORKDIR /app/kemono-dl
-RUN pip install .
-WORKDIR /app
-
-# Copy the entire application source
-COPY . .
-
-# Install Python dependencies required for the build
-RUN pip install --no-cache-dir -r app/requirements.txt
-RUN pip install --no-cache-dir pyinstaller
-
-# Run the build script to create the binary
-RUN python build_new.py
-
-
-
-
-# Stage 2: Final production image
 FROM python:3.11-slim
 
 # Install runtime system dependencies
@@ -50,17 +24,12 @@ WORKDIR /app
 # Create necessary directories and set permissions
 RUN mkdir -p /app/app /data/downloads /data/archives /data/status && chown -R 1000:1000 /app /data
 
-# Copy the pre-built binary from the builder stage
-COPY --chown=1000:1000 --from=builder /app/dist/web-dl-manager /app/web-dl-manager
+# Copy all application files
+COPY --chown=1000:1000 . /app
 
-# Copy the entrypoint and updater scripts
-COPY --chown=1000:1000 ./entrypoint.sh /entrypoint.sh
-COPY --chown=1000:1000 ./app/updater.py /app/app/updater.py
-RUN chmod +x /entrypoint.sh
-
-# Install Python dependencies needed for the cron job (updater.py)
-COPY ./app/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /app/app/requirements.txt
+RUN pip install --no-cache-dir gunicorn
 
 # Set up cron job for the updater script
 RUN echo "0 3 * * * /usr/local/bin/python3 /app/app/updater.py >> /data/status/cron_update.log 2>&1" > /etc/cron.d/updater_cron
@@ -71,7 +40,7 @@ RUN crontab /etc/cron.d/updater_cron
 USER 1000
 
 # Expose the application port
-EXPOSE 8000
+EXPOSE 5492
 
 # Define volumes for persistent data
 VOLUME /data/downloads
