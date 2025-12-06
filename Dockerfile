@@ -48,4 +48,4 @@ VOLUME /data/archives
 VOLUME /data/status
 
 # Set the entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
