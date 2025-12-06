@@ -27,6 +27,8 @@ from . import updater, status
 from .config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
 from .utils import get_task_status_path, update_task_status
 from .tasks import process_download_job
+from .tunnel import tunnel_manager
+from .tunnel import tunnel_manager
 
 # --- Password Hashing ---
 def verify_password(plain_password, hashed_password):
@@ -654,6 +656,57 @@ async def get_server_status(current_user: MySQLUser = Depends(get_current_user))
         "network": network_info,
     })
 
+@main_app.get("/tunnel-status")
+async def get_tunnel_status(current_user: MySQLUser = Depends(get_current_user)):
+    """获取隧道状态"""
+    status = tunnel_manager.get_tunnel_status()
+    return JSONResponse(content=status)
+
+@main_app.post("/start-tunnel")
+async def start_tunnel(request: Request, current_user: MySQLUser = Depends(get_current_user)):
+    """启动隧道"""
+    try:
+        data = await request.json()
+        tunnel_type = data.get("type", "cloudflare")
+        token = data.get("token")
+        
+        if not token:
+            # 尝试从数据库获取保存的token
+            saved_token = mysql_config.get_config("tunnel_token")
+            if saved_token:
+                token = saved_token
+            else:
+                return JSONResponse(content={"status": "error", "message": "No tunnel token provided"}, status_code=400)
+        
+        if tunnel_type == "cloudflare":
+            success = tunnel_manager.start_cloudflare_tunnel(token)
+            if success:
+                # 保存token到数据库
+                mysql_config.set_config("tunnel_token", token)
+                return JSONResponse(content={"status": "success", "message": "Cloudflare tunnel started"})
+            else:
+                return JSONResponse(content={"status": "error", "message": "Failed to start Cloudflare tunnel"}, status_code=500)
+        else:
+            return JSONResponse(content={"status": "error", "message": "Unsupported tunnel type"}, status_code=400)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error starting tunnel: {e}")
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@main_app.post("/stop-tunnel")
+async def stop_tunnel(current_user: MySQLUser = Depends(get_current_user)):
+    """停止隧道"""
+    try:
+        success = tunnel_manager.stop_tunnel()
+        if success:
+            return JSONResponse(content={"status": "success", "message": "Tunnel stopped"})
+        else:
+            return JSONResponse(content={"status": "error", "message": "Failed to stop tunnel"}, status_code=500)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error stopping tunnel: {e}")
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
 # --- Static Files Mounting ---
 static_site_dir = Path("/app/static_site")
 # Mount static files for both apps so they can serve common assets if needed
@@ -746,15 +799,30 @@ def load_config_from_db():
         saved_tunnel_token = mysql_config.get_config("tunnel_token")
         if saved_tunnel_token and not os.getenv("TUNNEL_TOKEN"):
             os.environ["TUNNEL_TOKEN"] = saved_tunnel_token
-            logger.info(f"从数据库加载内网穿透token: {saved_tunnel_token[:10]}...")
-        
+            
         # 检查是否有保存的domain
         saved_domain = mysql_config.get_config("login_domain")
         if saved_domain:
-            logger.info(f"从数据库加载登录域名: {saved_domain}")
             
     except Exception as e:
-        logger.error(f"从数据库加载配置失败: {e}")
+        pass
+
+def start_tunnel_if_env():
+    """如果设置了环境变量，则启动隧道"""
+    import subprocess
+    import os
+    
+    tunnel_token = os.getenv("TUNNEL_TOKEN")
+    if tunnel_token:
+        try:
+            # 启动cloudflared隧道，不输出日志
+            subprocess.Popen(
+                ['cloudflared', 'tunnel', '--no-autoupdate', 'run', '--token', tunnel_token],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except Exception:
+            pass  # 如果启动失败，不输出任何信息
 
 if __name__ == "__main__":
     # 设置基本日志
@@ -765,6 +833,9 @@ if __name__ == "__main__":
     
     # 从数据库加载配置
     load_config_from_db()
+    
+    # 如果设置了环境变量，则启动隧道
+    start_tunnel_if_env()
     
     logger.info("Starting services...")
 
