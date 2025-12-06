@@ -17,10 +17,10 @@ from passlib.context import CryptContext
 from app.database import init_db, MySQLUser, mysql_config # New imports
 from app.logging_handler import MySQLLogHandler, cleanup_old_logs
 
-import updater, status
-from config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
-from utils import get_task_status_path, update_task_status
-from tasks import process_download_job
+from app import updater, status
+from app.config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
+from app.utils import get_task_status_path, update_task_status
+from app.tasks import process_download_job
 
 # --- Password Hashing ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

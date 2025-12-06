@@ -7,7 +7,7 @@ import datetime
 from contextlib import contextmanager
 from urllib.parse import urlparse, parse_qs
 
-from config import DATABASE_URL
+from app.config import DATABASE_URL
 
 # Configure basic logging for this module
 logger = logging.getLogger(__name__)
