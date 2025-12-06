@@ -27,6 +27,9 @@ RUN mkdir -p /app/app /data/downloads /data/archives /data/status && chown -R 10
 # Copy all application files
 COPY --chown=1000:1000 . /app
 
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r /app/app/requirements.txt
 RUN pip install --no-cache-dir gunicorn
