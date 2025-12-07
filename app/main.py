@@ -27,8 +27,6 @@ from . import updater, status
 from .config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
 from .utils import get_task_status_path, update_task_status
 from .tasks import process_download_job
-from .tunnel import tunnel_manager
-from .tunnel import tunnel_manager
 
 # --- Password Hashing ---
 def verify_password(plain_password, hashed_password):
@@ -655,57 +653,6 @@ async def get_server_status(current_user: User = Depends(get_current_user)):
         "disk": disk_info,
         "network": network_info,
     })
-
-@main_app.get("/tunnel-status")
-async def get_tunnel_status(current_user: User = Depends(get_current_user)):
-    """获取隧道状态"""
-    status = tunnel_manager.get_tunnel_status()
-    return JSONResponse(content=status)
-
-@main_app.post("/start-tunnel")
-async def start_tunnel(request: Request, current_user: User = Depends(get_current_user)):
-    """启动隧道"""
-    try:
-        data = await request.json()
-        tunnel_type = data.get("type", "cloudflare")
-        token = data.get("token")
-        
-        if not token:
-            # 尝试从数据库获取保存的token
-            saved_token = db_config.get_config("tunnel_token")
-            if saved_token:
-                token = saved_token
-            else:
-                return JSONResponse(content={"status": "error", "message": "No tunnel token provided"}, status_code=400)
-        
-        if tunnel_type == "cloudflare":
-            success = tunnel_manager.start_cloudflare_tunnel(token)
-            if success:
-                # 保存token到数据库
-                db_config.set_config("tunnel_token", token)
-                return JSONResponse(content={"status": "success", "message": "Cloudflare tunnel started"})
-            else:
-                return JSONResponse(content={"status": "error", "message": "Failed to start Cloudflare tunnel"}, status_code=500)
-        else:
-            return JSONResponse(content={"status": "error", "message": "Unsupported tunnel type"}, status_code=400)
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error starting tunnel: {e}")
-        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
-
-@main_app.post("/stop-tunnel")
-async def stop_tunnel(current_user: User = Depends(get_current_user)):
-    """停止隧道"""
-    try:
-        success = tunnel_manager.stop_tunnel()
-        if success:
-            return JSONResponse(content={"status": "success", "message": "Tunnel stopped"})
-        else:
-            return JSONResponse(content={"status": "error", "message": "Failed to stop tunnel"}, status_code=500)
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error stopping tunnel: {e}")
-        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
 # --- Static Files Mounting ---
 static_site_dir = Path("/app/static_site")
