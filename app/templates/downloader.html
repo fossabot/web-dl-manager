@@ -423,7 +423,7 @@
                 document.getElementById('cpu-percent').textContent = cpuPercent;
 
                 // Memory
-                const mem = data.system.memory;
+                const mem = data.memory;
                 document.getElementById('mem-progress').style.width = mem.percent + '%';
                 document.getElementById('mem-progress').setAttribute('aria-valuenow', mem.percent);
                 document.getElementById('mem-used').textContent = formatBytes(mem.used);
@@ -431,7 +431,7 @@
                 document.getElementById('mem-percent').textContent = mem.percent.toFixed(1);
 
                 // Disk
-                const disk = data.system.disk;
+                const disk = data.disk;
                 const diskPercent = disk.percent.toFixed(1);
                 document.getElementById('disk-progress').style.width = diskPercent + '%';
                 document.getElementById('disk-progress').setAttribute('aria-valuenow', diskPercent);

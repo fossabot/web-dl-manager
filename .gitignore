@@ -20,7 +20,7 @@ requirements-build.txt
 run_binary.py
 run_and_test.sh
 replace_rules.txt
-
+webdl-manager.db
 # Temporary test files
 gofile_test.py
 gofile_auth_test.py

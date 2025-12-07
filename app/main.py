@@ -10,6 +10,7 @@ import time
 import os
 import hashlib
 import secrets
+import subprocess
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
@@ -593,6 +594,60 @@ async def cleanup_logs(current_user: User = Depends(get_current_user)):
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": f"日志清理失败: {str(e)}"}, status_code=500)
 
+def get_dependency_versions():
+    """获取依赖项的版本"""
+    versions = {
+        "python": sys.version.split(" ")[0],
+        "gallery-dl": "N/A",
+        "rclone": "N/A",
+    }
+    try:
+        # Get gallery-dl version
+        result = subprocess.run(['gallery-dl', '--version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            versions['gallery-dl'] = result.stdout.strip().split(" ")[-1]
+    except (FileNotFoundError, Exception):
+        pass  # gallery-dl not found or other error
+
+    try:
+        # Get rclone version
+        result = subprocess.run(['rclone', 'version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            versions['rclone'] = result.stdout.strip().split("\n")[0].split(" ")[-1]
+    except (FileNotFoundError, Exception):
+        pass  # rclone not found or other error
+        
+    return versions
+
+def get_active_tasks_count():
+    """获取活动任务数量"""
+    count = 0
+    if STATUS_DIR.exists():
+        for status_file in STATUS_DIR.glob("*.json"):
+            try:
+                with open(status_file, "r") as f:
+                    data = json.load(f)
+                    if data.get("status") == "running":
+                        count += 1
+            except (IOError, json.JSONDecodeError):
+                continue
+    return count
+
+def get_system_uptime():
+    """获取系统运行时间"""
+    import psutil
+    boot_time_timestamp = psutil.boot_time()
+    from datetime import datetime
+    boot_time = datetime.fromtimestamp(boot_time_timestamp)
+    now = datetime.now()
+    delta = now - boot_time
+    
+    days = delta.days
+    hours, remainder = divmod(delta.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    return f"{days}d {hours}h {minutes}m"
+
 @main_app.get("/server-status/json")
 async def get_server_status(current_user: User = Depends(get_current_user)):
     """获取服务器状态信息"""
@@ -601,21 +656,14 @@ async def get_server_status(current_user: User = Depends(get_current_user)):
     
     # 系统信息
     system_info = {
-        "uptime": "N/A",  # 可以添加实际运行时间计算
+        "uptime": get_system_uptime(),
         "platform": platform.system(),
         "platform_release": platform.release(),
         "platform_version": platform.version(),
         "architecture": platform.machine(),
         "hostname": platform.node(),
         "processor": platform.processor(),
-    }
-    
-    # CPU信息
-    cpu_info = {
-        "usage": psutil.cpu_percent(interval=1),
-        "count": psutil.cpu_count(),
-        "count_logical": psutil.cpu_count(logical=True),
-        "frequency": psutil.cpu_freq()._asdict() if psutil.cpu_freq() else None,
+        "cpu_usage": psutil.cpu_percent(interval=1),
     }
     
     # 内存信息
@@ -628,30 +676,36 @@ async def get_server_status(current_user: User = Depends(get_current_user)):
         "percent": memory.percent,
     }
     
-    # 磁盘信息
-    disk = psutil.disk_usage('/')
-    disk_info = {
-        "total": disk.total,
-        "used": disk.used,
-        "free": disk.free,
-        "percent": (disk.used / disk.total) * 100,
-    }
-    
-    # 网络信息
-    network = psutil.net_io_counters()
-    network_info = {
-        "bytes_sent": network.bytes_sent,
-        "bytes_recv": network.bytes_recv,
-        "packets_sent": network.packets_sent,
-        "packets_recv": network.packets_recv,
+    # 磁盘信息 for /data
+    disk_path = '/data' if os.path.exists('/data') else '/'
+    try:
+        disk = psutil.disk_usage(disk_path)
+        disk_info = {
+            "total": disk.total,
+            "used": disk.used,
+            "free": disk.free,
+            "percent": disk.percent,
+        }
+    except FileNotFoundError:
+        disk_info = {
+            "total": 0,
+            "used": 0,
+            "free": 0,
+            "percent": 0,
+        }
+
+
+    # 应用信息
+    application_info = {
+        "active_tasks": get_active_tasks_count(),
+        "versions": get_dependency_versions(),
     }
     
     return JSONResponse(content={
         "system": system_info,
-        "cpu": cpu_info,
         "memory": memory_info,
         "disk": disk_info,
-        "network": network_info,
+        "application": application_info,
     })
 
 # --- Static Files Mounting ---
