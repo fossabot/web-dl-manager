@@ -336,7 +336,33 @@ def get_lang(request: Request):
 @main_app.get("/downloader", response_class=HTMLResponse)
 async def get_downloader(request: Request, current_user: User = Depends(get_current_user)):
     lang = get_lang(request)
-    return templates.TemplateResponse("downloader.html", {"request": request, "lang": lang, "user": current_user.username, "avatar_url": AVATAR_URL})
+    
+    # Read upload configs from environment variables
+    upload_configs = {
+        "webdav_url": os.getenv("WDM_WEBDAV_URL"),
+        "webdav_user": os.getenv("WDM_WEBDAV_USER"),
+        "webdav_pass": os.getenv("WDM_WEBDAV_PASS"),
+        "s3_provider": os.getenv("WDM_S3_PROVIDER"),
+        "s3_access_key_id": os.getenv("WDM_S3_ACCESS_KEY_ID"),
+        "s3_secret_access_key": os.getenv("WDM_S3_SECRET_ACCESS_KEY"),
+        "s3_region": os.getenv("WDM_S3_REGION"),
+        "s3_endpoint": os.getenv("WDM_S3_ENDPOINT"),
+        "b2_account_id": os.getenv("WDM_B2_ACCOUNT_ID"),
+        "b2_application_key": os.getenv("WDM_B2_APPLICATION_KEY"),
+        "gofile_token": os.getenv("WDM_GOFILE_TOKEN"),
+        "gofile_folder_id": os.getenv("WDM_GOFILE_FOLDER_ID"),
+        "openlist_url": os.getenv("WDM_OPENLIST_URL"),
+        "openlist_user": os.getenv("WDM_OPENLIST_USER"),
+        "openlist_pass": os.getenv("WDM_OPENLIST_PASS"),
+    }
+    
+    return templates.TemplateResponse("downloader.html", {
+        "request": request, 
+        "lang": lang, 
+        "user": current_user.username, 
+        "avatar_url": AVATAR_URL,
+        "upload_configs": upload_configs
+    })
 
 @main_app.get("/login", response_class=HTMLResponse)
 async def get_login_form_main(request: Request):
