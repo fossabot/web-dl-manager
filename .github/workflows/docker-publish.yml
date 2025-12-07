@@ -68,7 +68,7 @@ jobs:
           
           # 关键修改2：添加 -t 参数 (Pseudo-TTY)，强制让日志逐行实时输出
           # 关键修改3：添加 PYTHONUNBUFFERED=1，防止 Python 内部缓存
-          timeout 300s docker run -t --name web-dl-manager \
+          timeout 600s docker run -t --name web-dl-manager \
             -p 5492:5492 \
             -p 127.0.0.1:6275:6275 \
             -e DATABASE_URL='sqlite:///:memory:' \
