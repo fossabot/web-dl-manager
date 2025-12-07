@@ -10,6 +10,7 @@ on:
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -48,6 +49,7 @@ jobs:
 
   preview-deployment:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: build_and_push
     if: github.event_name == 'push'
     steps:
