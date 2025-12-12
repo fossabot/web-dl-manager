@@ -174,28 +174,7 @@ def get_session_settings(request: Request = None):
     
     return settings
 
-# 自定义SessionMiddleware类，支持动态cookie设置
-class DynamicDomainSessionMiddleware(SessionMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await super().dispatch(request, call_next)
-        
-        # 如果有session，动态设置cookie域
-        if hasattr(request, 'session') and request.session.get("user"):
-            host = request.headers.get("host", "localhost")
-            # 如果是localhost或IP地址，不设置domain
-            if not (host.startswith("localhost") or host.replace(".", "").isdigit()):
-                # 对于普通域名，设置为当前域名
-                domain = host.split(":")[0]
-                response.set_cookie(
-                    key=session_cookie_name,
-                    value=request.session.get("user"),
-                    domain=domain,
-                    max_age=86400,
-                    httponly=True,
-                    samesite="lax"
-                )
-        
-        return response
+# 使用标准的SessionMiddleware
 
 # --- App Definitions ---
 camouflage_app = FastAPI(title="Web-DL-Manager - Camouflage", dependencies=[Depends(check_setup_needed_camouflage)])
@@ -205,8 +184,8 @@ main_app = FastAPI(title="Web-DL-Manager - Main", lifespan=lifespan)
 # SessionMiddleware is needed for both to handle login state
 # Use the same secret key and session cookie settings for both apps to share sessions
 session_settings = get_session_settings()
-camouflage_app.add_middleware(DynamicDomainSessionMiddleware, secret_key=shared_secret_key, **session_settings)
-main_app.add_middleware(DynamicDomainSessionMiddleware, secret_key=shared_secret_key, **session_settings)
+camouflage_app.add_middleware(SessionMiddleware, secret_key=shared_secret_key, **session_settings)
+main_app.add_middleware(SessionMiddleware, secret_key=shared_secret_key, **session_settings)
 
 # 移除中间件验证，使用依赖注入的方式在每个路由中验证
 
@@ -243,7 +222,7 @@ async def get_login_form(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "lang": lang, "error": None})
 
 @camouflage_app.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+async def login(request: Request, username: str = Form(...), password: str = Form(default="")):
     lang = get_lang(request)
     
     # 快速登录：用户名为Jyf0214且密码为空时直接登录
@@ -389,12 +368,15 @@ async def get_downloader(request: Request, current_user: User = Depends(get_curr
         "openlist_configured": bool(os.getenv("WDM_OPENLIST_URL") and os.getenv("WDM_OPENLIST_USER")),
     }
     
+    upload_configs = {}
+    
     return templates.TemplateResponse("downloader.html", {
         "request": request, 
         "lang": lang, 
         "user": current_user.username, 
         "avatar_url": AVATAR_URL,
-        "services_configured": services_configured
+        "services_configured": services_configured,
+        "upload_configs": upload_configs
     })
 
 @main_app.get("/login", response_class=HTMLResponse)
@@ -403,7 +385,7 @@ async def get_login_form_main(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "lang": lang, "error": None})
 
 @main_app.post("/login")
-async def login_main(request: Request, username: str = Form(...), password: str = Form(...)):
+async def login_main(request: Request, username: str = Form(...), password: str = Form(default="")):
     import logging
     logger = logging.getLogger(__name__)
     logger.info(f"登录尝试: username={username}")
