@@ -1,10 +1,8 @@
-/* Web-DL-Manager 统一样式文件 */
+/* Web-DL-Manager 简化样式文件 - 修复性能问题 */
 
 /* ===== 基础样式 ===== */
 :root {
-    /* 主题色彩 */
-    --primary-gradient-start: #667eea;
-    --primary-gradient-end: #764ba2;
+    /* 主题色彩 - 简化 */
     --primary-color: #667eea;
     --primary-hover: #5a67d8;
     --secondary-color: #6c757d;
@@ -33,10 +31,8 @@
     --border-radius-md: 0.75rem;
     --border-radius-lg: 1rem;
     
-    /* 阴影 */
+    /* 阴影 - 简化 */
     --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
 }
 
 /* ===== 全局样式 ===== */
@@ -55,15 +51,9 @@ body {
 }
 
 .card {
-    border: none;
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius-md);
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    background-color: var(--white);
 }
 
 .card-header {
@@ -73,17 +63,14 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+    background-color: var(--primary-color);
     border: none;
     border-radius: var(--border-radius-sm);
     font-weight: 500;
-    transition: all 0.2s;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, var(--primary-hover) 0%, #6b46c1 100%);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
+    background-color: var(--primary-hover);
 }
 
 .btn-outline-primary {
@@ -94,6 +81,7 @@ body {
 .btn-outline-primary:hover {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
+    color: var(--white);
 }
 
 .form-control:focus {
@@ -125,7 +113,7 @@ body {
 
 /* ===== 页面头部 ===== */
 .page-header {
-    background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+    background-color: var(--primary-color);
     color: var(--white);
     padding: var(--spacing-xl) var(--spacing-md);
     border-radius: var(--border-radius-lg);
@@ -143,38 +131,6 @@ body {
     opacity: 0.9;
 }
 
-/* ===== 特性卡片 ===== */
-.feature-card {
-    transition: transform 0.2s;
-    height: 100%;
-}
-
-.feature-card:hover {
-    transform: translateY(-5px);
-}
-
-.feature-card .card-title {
-    color: var(--primary-color);
-    font-weight: 600;
-}
-
-/* ===== 表单样式 ===== */
-.form-container {
-    background-color: var(--white);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-md);
-    padding: var(--spacing-xl);
-    margin: var(--spacing-xl) auto;
-    max-width: 450px;
-}
-
-.form-title {
-    text-align: center;
-    margin-bottom: var(--spacing-lg);
-    color: var(--primary-color);
-    font-weight: 600;
-}
-
 /* ===== 登录页面特殊样式 ===== */
 .login-page {
     display: flex;
@@ -188,12 +144,12 @@ body {
     width: 100%;
     max-width: 450px;
     border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-lg);
-    border: none;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
 }
 
 .login-card .card-header {
-    background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+    background-color: var(--primary-color);
     color: var(--white);
     border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0 !important;
     padding: var(--spacing-xl);
@@ -215,80 +171,7 @@ body {
     overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
-    counter-reset: line;
     padding: var(--spacing-md);
-}
-
-.log-line {
-    display: block;
-    counter-increment: line;
-    padding-left: 4em;
-    position: relative;
-}
-
-.log-line::before {
-    content: counter(line);
-    position: absolute;
-    left: 0;
-    width: 3em;
-    text-align: right;
-    color: #888;
-    padding-right: 1em;
-    user-select: none;
-}
-
-.log-line.selected {
-    background-color: #343a40;
-}
-
-/* ===== 任务卡片 ===== */
-.task-card {
-    margin-bottom: var(--spacing-md);
-}
-
-.status-badge {
-    font-size: 0.9em;
-}
-
-.command-block {
-    background-color: var(--light-bg);
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    font-family: monospace;
-    word-break: break-all;
-    font-size: 0.8rem;
-}
-
-.error-block {
-    color: var(--danger-color);
-    font-size: 0.9em;
-}
-
-/* ===== 页脚 ===== */
-.footer {
-    margin-top: var(--spacing-xl);
-    padding-top: var(--spacing-lg);
-    border-top: 1px solid var(--border-color);
-    text-align: center;
-}
-
-.footer .text-muted {
-    color: var(--text-muted) !important;
-}
-
-/* ===== 语言选择器 ===== */
-.language-selector {
-    margin-top: var(--spacing-sm);
-}
-
-.language-selector a {
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.language-selector a:hover {
-    color: var(--primary-color);
 }
 
 /* ===== 响应式设计 ===== */
@@ -305,9 +188,8 @@ body {
         padding: var(--spacing-md);
     }
     
-    .form-container {
+    .login-card {
         margin: var(--spacing-md);
-        padding: var(--spacing-lg);
     }
 }
 
@@ -323,45 +205,4 @@ body {
     .page-header p {
         font-size: 1rem;
     }
-    
-    .feature-card .card-body {
-        padding: var(--spacing-md);
-    }
-    
-    .btn-lg {
-        padding: var(--spacing-sm) var(--spacing-md);
-        font-size: 1rem;
-    }
-}
-
-/* ===== 动画效果 ===== */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-in {
-    animation: fadeIn 0.5s ease-out;
-}
-
-/* ===== 加载动画 ===== */
-.spinner-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: var(--spacing-lg);
-}
-
-/* ===== 工具类 ===== */
-.text-gradient {
-    background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.border-gradient {
-    border: 2px solid transparent;
-    background: linear-gradient(var(--white), var(--white)) padding-box,
-                linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%) border-box;
 }

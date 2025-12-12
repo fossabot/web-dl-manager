@@ -7,7 +7,6 @@ import threading
 import uvicorn
 import logging
 import time
-import os
 import hashlib
 import secrets
 import subprocess
@@ -28,6 +27,10 @@ from . import updater, status
 from .config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
 from .utils import get_task_status_path, update_task_status
 from .tasks import process_download_job
+
+# 创建日志目录
+LOG_DIR = BASE_DIR.parent / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 
 # --- Password Hashing ---
 def verify_password(plain_password, hashed_password):
@@ -126,47 +129,48 @@ async def check_setup_needed_main(request: Request):
         return templates.TemplateResponse("service_unavailable.html", {"request": request, "lang": lang}, status_code=503)
 
 async def get_current_user(request: Request):
+    # 检查会话是否存在且有效
+    if not hasattr(request, 'session') or not request.session:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    
     username = request.session.get("user")
-    if username:
-        user = User.get_user_by_username(username)
-        if user:
-            return user
-    # Main app is internal, so auth is always required.
-    # Instead of redirecting to a login page on another server, we deny access.
-    raise HTTPException(status_code=403, detail="Not authenticated")
+    if not username:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    
+    # 验证用户是否存在
+    user = User.get_user_by_username(username)
+    if not user:
+        # 用户不存在，清除无效会话
+        request.session.clear()
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    
+    return user
 
-# --- App Definitions ---
-camouflage_app = FastAPI(title="Web-DL-Manager - Camouflage", dependencies=[Depends(check_setup_needed_camouflage)])
-main_app = FastAPI(title="Web-DL-Manager - Main", lifespan=lifespan)
-
-# --- Middleware ---
-# SessionMiddleware is needed for both to handle login state
-# Use the same secret key and session cookie settings for both apps to share sessions
-shared_secret_key = os.getenv("SESSION_SECRET_KEY", "web-dl-manager-shared-secret-key-2024")
+# --- Session Configuration ---
+# 生成更随机的会话密钥，如果环境变量未设置
+default_secret = f"web-dl-manager-{secrets.token_hex(32)}-{int(time.time())}"
+shared_secret_key = os.getenv("SESSION_SECRET_KEY", default_secret)
 session_cookie_name = "session"
 
+# --- Session Settings ---
 def get_session_settings(request: Request = None):
-    """动态获取session设置，支持跨域cookie"""
+    """获取会话设置"""
     settings = {
         "session_cookie": session_cookie_name,
-        "same_site": "lax",
-        "https_only": False,  # Allow HTTP for local development
         "max_age": 86400,  # 24 hours
+        "same_site": "lax",
+        "https_only": False,
     }
     
-    # 如果有请求对象，尝试从请求中获取域信息
+    # 如果提供了request对象，可以根据请求动态设置
     if request:
-        host = request.headers.get("host", "")
-        # 检查是否是内网穿透或其他域，设置合适的cookie域
-        if "." in host and not host.startswith("127.0.0.1") and not host.startswith("localhost"):
-            # 对于非本地域名，设置cookie域为根域
-            domain_parts = host.split(":")[0].split(".")
-            if len(domain_parts) > 2:
-                # 对于子域名，设置为二级域名
-                settings["domain"] = "." + ".".join(domain_parts[-2:])
-            else:
-                # 对于普通域名，设置为当前域名
-                settings["domain"] = host.split(":")[0]
+        host = request.headers.get("host", "localhost")
+        # 如果是localhost或IP地址，不设置domain
+        if host.startswith("localhost") or host.replace(".", "").isdigit():
+            pass  # 不设置domain属性
+        else:
+            # 对于普通域名，设置为当前域名
+            settings["domain"] = host.split(":")[0]
     
     return settings
 
@@ -177,26 +181,34 @@ class DynamicDomainSessionMiddleware(SessionMiddleware):
         
         # 如果有session，动态设置cookie域
         if hasattr(request, 'session') and request.session.get("user"):
-            session_settings = get_session_settings(request)
-            if "domain" in session_settings:
-                # 重新设置cookie以包含正确的域
-                session_data = request.session
+            host = request.headers.get("host", "localhost")
+            # 如果是localhost或IP地址，不设置domain
+            if not (host.startswith("localhost") or host.replace(".", "").isdigit()):
+                # 对于普通域名，设置为当前域名
+                domain = host.split(":")[0]
                 response.set_cookie(
-                    key=session_settings["session_cookie"],
-                    value=session_data.get("session_id", ""),
-                    max_age=session_settings["max_age"],
-                    domain=session_settings["domain"],
-                    path="/",
-                    samesite=session_settings["same_site"],
-                    secure=session_settings["https_only"],
-                    httponly=True
+                    key=session_cookie_name,
+                    value=request.session.get("user"),
+                    domain=domain,
+                    max_age=86400,
+                    httponly=True,
+                    samesite="lax"
                 )
         
         return response
 
+# --- App Definitions ---
+camouflage_app = FastAPI(title="Web-DL-Manager - Camouflage", dependencies=[Depends(check_setup_needed_camouflage)])
+main_app = FastAPI(title="Web-DL-Manager - Main", lifespan=lifespan)
+
+# --- Middleware ---
+# SessionMiddleware is needed for both to handle login state
+# Use the same secret key and session cookie settings for both apps to share sessions
 session_settings = get_session_settings()
 camouflage_app.add_middleware(DynamicDomainSessionMiddleware, secret_key=shared_secret_key, **session_settings)
 main_app.add_middleware(DynamicDomainSessionMiddleware, secret_key=shared_secret_key, **session_settings)
+
+# 移除中间件验证，使用依赖注入的方式在每个路由中验证
 
 templates = Jinja2Templates(directory=str(template_dir))
 
@@ -411,10 +423,27 @@ async def login_main(request: Request, username: str = Form(...), password: str 
 
 @main_app.get("/logout")
 async def logout(request: Request):
+    # 清除会话数据
     request.session.clear()
-    # On the main app, logging out should just deny further access.
-    # A redirect to a login page on another server isn't ideal.
-    return Response(content="You have been logged out. Please log in again via the public-facing service to continue.", media_type="text/plain")
+    
+    # 创建响应并设置cookie为过期状态
+    response = Response(
+        content="You have been logged out. Please log in again via the public-facing service to continue.",
+        media_type="text/plain"
+    )
+    
+    # 设置cookie为过期状态，确保浏览器删除它
+    response.set_cookie(
+        key=session_cookie_name,
+        value="",
+        max_age=0,
+        expires=0,
+        path="/",
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
 
 @main_app.get("/set_language/{lang_code}")
 async def set_language(lang_code: str, response: Response, user: User = Depends(get_current_user)):
@@ -741,16 +770,37 @@ async def get_server_status():
 
 # --- Static Files Mounting ---
 static_site_dir = Path("/app/static_site")
-# Mount static files for both apps so they can serve common assets if needed
+# Mount static files for main app
+main_app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+# Mount static files for camouflage app if directory exists
 if static_site_dir.is_dir():
     camouflage_app.mount("/", StaticFiles(directory=static_site_dir, html=True), name="static_site")
-    main_app.mount("/static", StaticFiles(directory=static_site_dir), name="static_site_main")
+
+# --- Debug Test Endpoint ---
+@main_app.get("/debug/routes")
+async def debug_routes():
+    """Debug endpoint to list all routes"""
+    routes = []
+    for route in main_app.routes:
+        routes.append({
+            "path": route.path,
+            "name": getattr(route, 'name', ''),
+            "methods": getattr(route, 'methods', None)
+        })
+    return {"routes": routes}
 
 
 # --- Main Execution Block ---
 def run_camouflage_app():
     """Runs the public-facing camouflage app."""
-    uvicorn.run(camouflage_app, host="0.0.0.0", port=5492)
+    # 检查是否启用DEBUG模式
+    debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
+    
+    if debug_enabled:
+        # 在DEBUG模式下启用详细日志，但不在线程中使用reload
+        uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_level="debug")
+    else:
+        uvicorn.run(camouflage_app, host="0.0.0.0", port=5492)
 
 def run_main_app():
     """Runs the internal main application."""
@@ -758,7 +808,7 @@ def run_main_app():
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
     
     if debug_enabled:
-        # 启用所有日志输出
+        # 启用所有日志输出，同时写入文件和控制台
         log_config = {
             "version": 1,
             "disable_existing_loggers": False,
@@ -774,25 +824,35 @@ def run_main_app():
                     "level": "DEBUG",
                     "stream": "ext://sys.stdout",
                 },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "formatter": "default",
+                    "level": "DEBUG",
+                    "filename": str(LOG_DIR / "debug.log"),
+                    "mode": "a",
+                    "encoding": "utf-8",
+                },
             },
             "loggers": {
-                "": {"level": "DEBUG", "handlers": ["console"]},
-                "uvicorn": {"level": "DEBUG", "handlers": ["console"]},
-                "uvicorn.error": {"level": "DEBUG", "handlers": ["console"]},
-                "uvicorn.access": {"level": "DEBUG", "handlers": ["console"]},
-                "fastapi": {"level": "DEBUG", "handlers": ["console"]},
-                "app": {"level": "DEBUG", "handlers": ["console"]},
-                "app.database": {"level": "DEBUG", "handlers": ["console"]},
-                "app.logging_handler": {"level": "DEBUG", "handlers": ["console"]},
-                "app.main": {"level": "DEBUG", "handlers": ["console"]},
-                "app.tasks": {"level": "DEBUG", "handlers": ["console"]},
-                "app.utils": {"level": "DEBUG", "handlers": ["console"]},
+                "": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "uvicorn": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "uvicorn.error": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "uvicorn.access": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "fastapi": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "app": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "app.database": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "app.logging_handler": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "app.main": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "app.tasks": {"level": "DEBUG", "handlers": ["console", "file"]},
+                "app.utils": {"level": "DEBUG", "handlers": ["console", "file"]},
             },
             "root": {
                 "level": "DEBUG",
-                "handlers": ["console"]
+                "handlers": ["console", "file"]
             }
         }
+        # 在DEBUG模式下启用详细日志，但不在线程中使用reload
+        uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
     else:
         # 禁用main_app的所有日志输出
         log_config = {
@@ -822,7 +882,7 @@ def run_main_app():
                 "handlers": ["null"]
             }
         }
-    uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
+        uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
 
 def load_config_from_db():
     """从数据库加载配置"""
