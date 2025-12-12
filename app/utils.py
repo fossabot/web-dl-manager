@@ -211,3 +211,44 @@ def generate_archive_name(url: str) -> str:
             return "_".join(path_parts)
     except Exception:
         return "archive"
+
+def convert_rate_limit_to_kbps(rate_limit_str: str) -> int:
+    """Converts rate limit string (e.g., '2M', '500K') to integer KB/s for megadl command.
+    
+    Args:
+        rate_limit_str: Speed limit string like '2M', '500K', '1G', or plain number.
+        
+    Returns:
+        Integer value in KB/s.
+    """
+    if not rate_limit_str:
+        return 0
+    
+    rate_limit_str = rate_limit_str.strip().upper()
+    
+    # If it's just a number, return it as integer
+    if rate_limit_str.isdigit():
+        return int(rate_limit_str)
+    
+    # Parse number and unit
+    import re
+    match = re.match(r'^(\d+(?:\.\d+)?)\s*([KMG])?$', rate_limit_str)
+    if not match:
+        # If format is invalid, try to extract just the number
+        numbers = re.findall(r'\d+', rate_limit_str)
+        if numbers:
+            return int(numbers[0])
+        return 0
+    
+    number = float(match.group(1))
+    unit = match.group(2)
+    
+    # Convert to KB/s
+    if unit == 'G':
+        return int(number * 1000 * 1000)  # 1G = 1,000,000 KB/s
+    elif unit == 'M':
+        return int(number * 1000)  # 1M = 1,000 KB/s
+    elif unit == 'K':
+        return int(number)  # Already in KB/s
+    else:
+        return int(number)  # No unit, assume KB/s

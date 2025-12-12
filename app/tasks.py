@@ -15,6 +15,7 @@ from .utils import (
     create_rclone_config,
     generate_archive_name,
     update_task_status,
+    convert_rate_limit_to_kbps,
 )
 
 # 获取logger
@@ -273,7 +274,21 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
         if downloader == "megadl":
             command = f"megadl --path {task_download_dir}"
             if params.get("rate_limit"):
-                command += f" --limit-speed {params['rate_limit']}"
+                # Convert rate limit string to integer for megadl
+                rate_limit = params['rate_limit'].strip().upper()
+                try:
+                    if rate_limit.endswith('K'):
+                        bytes_per_second = int(float(rate_limit[:-1]) * 1000)
+                    elif rate_limit.endswith('M'):
+                        bytes_per_second = int(float(rate_limit[:-1]) * 1000000)
+                    elif rate_limit.endswith('G'):
+                        bytes_per_second = int(float(rate_limit[:-1]) * 1000000000)
+                    else:
+                        bytes_per_second = int(float(rate_limit))
+                    command += f" --limit-speed {bytes_per_second}"
+                except ValueError:
+                    # If conversion fails, use original value (will likely fail but preserve error)
+                    command += f" --limit-speed {params['rate_limit']}"
             command += f" {url}"
             command_log = command
         else:
