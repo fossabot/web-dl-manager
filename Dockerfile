@@ -1,5 +1,5 @@
-ARG DEBUG_MODE=false
 FROM python:3.13-slim
+ARG DEBUG_MODE=false
 
 # Install runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
