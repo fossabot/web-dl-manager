@@ -306,10 +306,8 @@ async def update_app(background_tasks: BackgroundTasks, user: User = Depends(get
 
 @main_app.get("/version")
 async def get_version(user: User = Depends(get_current_user)):
-    version_file = BASE_DIR.parent / ".version_info"
-    version = "N/A"
-    if version_file.exists():
-        version = version_file.read_text().strip()[:7]
+    sha = updater.get_local_commit_sha()
+    version = sha[:7] if sha else "N/A"
     return {"version": version}
 
 @main_app.get("/changelog")
