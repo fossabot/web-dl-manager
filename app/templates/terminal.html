@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="{{ lang.get('lang_code', 'en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ lang.app_title }} - {{ lang.terminal_title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .log-container {
+            height: 500px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-line {
+            line-height: 1.4;
+            margin-bottom: 0.25rem;
+        }
+        .user-scrolling {
+            /* Class to indicate user is manually scrolling */
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    {% include 'components/navbar.html' %}
+    
+    <div class="container-main">
+        <div class="card fade-in">
+            <div class="card-body">
+                <h1 class="card-title mb-4">
+                    <i class="bi bi-terminal"></i> {{ lang.terminal_title }}
+                </h1>
+                <p class="text-muted">{{ lang.terminal_description }}</p>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="bi bi-key"></i> {{ lang.oauth_command_title }}
+                                </h5>
+                                <p class="card-text">{{ lang.oauth_command_description }}</p>
+                                
+                                <form id="oauth-form">
+                                    <div class="mb-3">
+                                        <label for="oauth-param" class="form-label">{{ lang.oauth_param_label }}</label>
+                                        <input type="text" class="form-control" id="oauth-param" 
+                                               placeholder="{{ lang.oauth_param_placeholder }}" 
+                                               required pattern="[a-zA-Z0-9_-]+" title="{{ lang.oauth_param_title }}">
+                                        <div class="form-text">{{ lang.oauth_param_help }}</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" id="execute-button">
+                                        <i class="bi bi-play-circle"></i> {{ lang.execute_button }}
+                                    </button>
+                                    <button type="button" class="btn btn-warning" id="copy-error-log-button" style="display: none;">
+                                        <i class="bi bi-exclamation-triangle"></i> {{ lang.copy_error_log_button }}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="bi bi-info-circle"></i> {{ lang.terminal_info_title }}
+                                </h5>
+                                <p class="card-text">{{ lang.terminal_info_text }}</p>
+                                <ul class="list-unstyled">
+                                    <li><i class="bi bi-check-circle text-success"></i> {{ lang.terminal_info_item1 }}</li>
+                                    <li><i class="bi bi-check-circle text-success"></i> {{ lang.terminal_info_item2 }}</li>
+                                    <li><i class="bi bi-check-circle text-success"></i> {{ lang.terminal_info_item3 }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-activity"></i> {{ lang.real_time_logs_title }}
+                        </h5>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="auto-refresh-switch" checked>
+                            <label class="form-check-label" for="auto-refresh-switch">{{ lang.auto_refresh_label }}</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="position-relative">
+                            <div id="log-container" class="log-container">
+                                <div id="log-content"></div>
+                            </div>
+                            <div class="position-absolute top-0 end-0 m-2 d-flex" style="gap: 5px;">
+                                <button class="btn btn-light btn-sm" id="copy-log-button" title="{{ lang.copy_button }}">
+                                    <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
+                                </button>
+                                <button class="btn btn-warning btn-sm" id="copy-error-log-button-2" title="{{ lang.copy_error_log_button }}">
+                                    <i class="bi bi-exclamation-triangle"></i> {{ lang.copy_error_log_button }}
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="clear-log-button" title="{{ lang.clear_log_button }}">
+                                    <i class="bi bi-trash"></i> {{ lang.clear_log_button }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="auto-scroll-switch" checked>
+                                <label class="form-check-label" for="auto-scroll-switch">{{ lang.auto_scroll_label }}</label>
+                            </div>
+                            <small class="text-muted">{{ lang.auto_scroll_description }}</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <a href="/downloader" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left"></i> {{ lang.back_to_downloader }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p class="text-muted">{{ lang.powered_by }}</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentTaskId = null;
+        let logIntervalId = null;
+        let isUserScrolling = false;
+        let scrollTimer = null;
+        let isTaskCompleted = false;
+        
+        // DOM elements
+        const oauthForm = document.getElementById('oauth-form');
+        const oauthParamInput = document.getElementById('oauth-param');
+        const executeButton = document.getElementById('execute-button');
+        const logContainer = document.getElementById('log-container');
+        const logContent = document.getElementById('log-content');
+        const autoRefreshSwitch = document.getElementById('auto-refresh-switch');
+        const autoScrollSwitch = document.getElementById('auto-scroll-switch');
+        const copyLogButton = document.getElementById('copy-log-button');
+        const copyErrorLogButton = document.getElementById('copy-error-log-button-2');
+        const clearLogButton = document.getElementById('clear-log-button');
+        const copyErrorLogButtonTop = document.getElementById('copy-error-log-button');
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            // Form submission
+            oauthForm.addEventListener('submit', handleOAuthSubmit);
+            
+            // Auto-refresh switch
+            autoRefreshSwitch.addEventListener('change', handleAutoRefreshChange);
+            
+            // Auto-scroll switch
+            autoScrollSwitch.addEventListener('change', handleAutoScrollChange);
+            
+            // Copy buttons
+            copyLogButton.addEventListener('click', () => copyLogContent('all'));
+            copyErrorLogButton.addEventListener('click', () => copyLogContent('error'));
+            if (copyErrorLogButtonTop) {
+                copyErrorLogButtonTop.addEventListener('click', () => copyLogContent('error'));
+            }
+            
+            // Clear log button
+            clearLogButton.addEventListener('click', clearLogContent);
+            
+            // User scrolling detection
+            logContainer.addEventListener('scroll', handleLogScroll);
+            
+            // Prevent form submission on Enter key in input
+            oauthParamInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    oauthForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
+        
+        function handleOAuthSubmit(e) {
+            e.preventDefault();
+            const param = oauthParamInput.value.trim();
+            
+            if (!param) {
+                alert('Please enter a service parameter.');
+                return;
+            }
+            
+            // Validate no spaces
+            if (param.includes(' ')) {
+                alert('Parameter cannot contain spaces.');
+                return;
+            }
+            
+            // Disable input and button while processing
+            oauthParamInput.disabled = true;
+            executeButton.disabled = true;
+            executeButton.innerHTML = '<i class="bi bi-hourglass"></i> Executing...';
+            
+            // Clear previous logs
+            clearLogContent();
+            isTaskCompleted = false;
+            
+            // Show error copy button
+            if (copyErrorLogButtonTop) {
+                copyErrorLogButtonTop.style.display = 'inline-block';
+            }
+            
+            // Send request to start OAuth command
+            fetch('/api/oauth-execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ param: param })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    currentTaskId = data.task_id;
+                    startLogPolling();
+                } else {
+                    throw new Error(data.message || 'Failed to start command');
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+                resetForm();
+            });
+        }
+        
+        function startLogPolling() {
+            if (logIntervalId) {
+                clearInterval(logIntervalId);
+            }
+            
+            // Start polling immediately
+            fetchLogs();
+            
+            // Set up interval for polling (every 2 seconds)
+            logIntervalId = setInterval(fetchLogs, 2000);
+            
+            // Enable auto-refresh switch
+            autoRefreshSwitch.checked = true;
+        }
+        
+        function stopLogPolling() {
+            if (logIntervalId) {
+                clearInterval(logIntervalId);
+                logIntervalId = null;
+            }
+        }
+        
+        async function fetchLogs() {
+            if (!currentTaskId) return;
+            
+            try {
+                const response = await fetch(`/api/oauth-logs/${currentTaskId}`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        // Task not found, maybe completed and cleaned up
+                        stopLogPolling();
+                        resetForm();
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.status === 'success') {
+                    renderLogs(data.log);
+                    
+                    // Check if task is completed
+                    if (isTaskCompleted) {
+                        // Already completed, no need to check
+                        return;
+                    }
+                    
+                    // Detect completion from log content
+                    const logText = data.log.toLowerCase();
+                    if (logText.includes('completed successfully') || 
+                        logText.includes('command failed') ||
+                        logText.includes('error executing') ||
+                        logText.includes('failed with exit code')) {
+                        
+                        // Task is completed or failed
+                        isTaskCompleted = true;
+                        stopLogPolling();
+                        resetForm();
+                        
+                        // Show completion message
+                        const completionMsg = logText.includes('completed successfully') 
+                            ? 'OAuth command completed successfully.' 
+                            : 'OAuth command failed. Check logs for details.';
+                        
+                        // Add visual indicator
+                        const statusDiv = document.createElement('div');
+                        statusDiv.className = logText.includes('completed successfully') 
+                            ? 'alert alert-success mt-3' 
+                            : 'alert alert-danger mt-3';
+                        statusDiv.innerHTML = `<i class="bi bi-info-circle"></i> ${completionMsg}`;
+                        logContent.appendChild(statusDiv);
+                        
+                        // Auto-refresh switch should be turned off since task is done
+                        autoRefreshSwitch.checked = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                // Don't stop polling on transient errors
+            }
+        }
+        
+        function renderLogs(logText) {
+            const lines = logText.split('\n');
+            const currentLength = logContent.children.length;
+            
+            // Add new lines
+            for (let i = currentLength; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.trim() === '') continue;
+                
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'log-line';
+                lineDiv.textContent = line;
+                
+                // Highlight error lines
+                if (line.includes('ERROR') || line.includes('FAILED') || line.includes('Exception') || 
+                    line.includes('Traceback') || line.includes('错误') || line.includes('失败')) {
+                    lineDiv.style.color = '#dc3545';
+                    lineDiv.style.fontWeight = 'bold';
+                }
+                
+                logContent.appendChild(lineDiv);
+            }
+            
+            // Auto-scroll if enabled and user is not manually scrolling
+            if (autoScrollSwitch.checked && !isUserScrolling) {
+                // Small delay to ensure DOM is updated
+                setTimeout(() => {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }, 100);
+            }
+        }
+        
+        function handleAutoRefreshChange() {
+            if (autoRefreshSwitch.checked && currentTaskId && !isTaskCompleted) {
+                startLogPolling();
+            } else {
+                stopLogPolling();
+            }
+        }
+        
+        function handleAutoScrollChange() {
+            // Nothing special needed
+        }
+        
+        function handleLogScroll() {
+            // Mark that user is manually scrolling
+            isUserScrolling = true;
+            
+            // Clear previous timer
+            if (scrollTimer) {
+                clearTimeout(scrollTimer);
+            }
+            
+            // Reset user scrolling flag after 2 seconds of inactivity
+            scrollTimer = setTimeout(() => {
+                isUserScrolling = false;
+            }, 2000);
+        }
+        
+        function copyLogContent(type) {
+            const allText = logContent.textContent;
+            let textToCopy;
+            
+            if (type === 'error') {
+                const lines = allText.split('\n');
+                const errorLines = lines.filter(line => 
+                    line.includes('ERROR') || 
+                    line.includes('FAILED') || 
+                    line.includes('Exception') || 
+                    line.includes('Traceback') || 
+                    line.includes('错误') ||
+                    line.includes('失败')
+                );
+                textToCopy = errorLines.join('\n');
+            } else {
+                textToCopy = allText;
+            }
+            
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalButton = type === 'error' ? copyErrorLogButton : copyLogButton;
+                const originalHTML = originalButton.innerHTML;
+                originalButton.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+                setTimeout(() => {
+                    originalButton.innerHTML = originalHTML;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text to clipboard.');
+            });
+        }
+        
+        function clearLogContent() {
+            logContent.innerHTML = '';
+            isUserScrolling = false;
+        }
+        
+        function resetForm() {
+            oauthParamInput.disabled = false;
+            executeButton.disabled = false;
+            executeButton.innerHTML = '<i class="bi bi-play-circle"></i> {{ lang.execute_button }}';
+            oauthParamInput.value = '';
+            
+            // Hide error copy button if no task running
+            if (copyErrorLogButtonTop) {
+                copyErrorLogButtonTop.style.display = 'none';
+            }
+        }
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            stopLogPolling();
+        });
+    </script>
+</body>
+</html>

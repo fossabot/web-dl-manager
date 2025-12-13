@@ -10,6 +10,7 @@ import time
 import hashlib
 import secrets
 import subprocess
+import base64
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
@@ -25,6 +26,7 @@ from .logging_handler import MySQLLogHandler, cleanup_old_logs
 
 from . import updater, status
 from .config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
+from .config import CONFIG_BACKUP_RCLONE_BASE64, CONFIG_BACKUP_REMOTE_PATH, GALLERY_DL_CONFIG_DIR
 from .utils import get_task_status_path, update_task_status
 from .tasks import process_download_job
 
@@ -403,6 +405,173 @@ async def get_downloader(request: Request, current_user: User = Depends(get_curr
         "services_configured": services_configured,
         "upload_configs": upload_configs
     })
+
+@main_app.get("/terminal", response_class=HTMLResponse)
+async def get_terminal(request: Request, current_user: User = Depends(get_current_user)):
+    lang = get_lang(request)
+    return templates.TemplateResponse("terminal.html", {
+        "request": request,
+        "lang": lang,
+        "user": current_user.username,
+        "avatar_url": AVATAR_URL
+    })
+
+@main_app.post("/api/oauth-execute")
+async def oauth_execute(request: Request, current_user: User = Depends(get_current_user)):
+    """Execute gallery-dl oauth command with the given parameter."""
+    import re
+    from pydantic import BaseModel
+    
+    class OAuthRequest(BaseModel):
+        param: str
+    
+    try:
+        data = await request.json()
+        req = OAuthRequest(**data)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "Invalid request data"}
+        )
+    
+    # Validate parameter: only alphanumeric, hyphen, underscore, no spaces
+    if not re.match(r'^[a-zA-Z0-9_-]+$', req.param):
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "Parameter can only contain letters, numbers, hyphens and underscores, no spaces."}
+        )
+    
+    # Create task ID and log file
+    task_id = str(uuid.uuid4())
+    status_file = STATUS_DIR / f"oauth_{task_id}.log"
+    
+    # Write initial log
+    with open(status_file, "w", encoding="utf-8") as f:
+        f.write(f"Starting OAuth authentication for: {req.param}\n")
+        f.write(f"Command: gallery-dl oauth:{req.param}\n")
+    
+    # Start async task
+    asyncio.create_task(run_oauth_command(task_id, req.param, status_file))
+    
+    return JSONResponse(
+        status_code=200,
+        content={"status": "started", "task_id": task_id, "message": "OAuth command started"}
+    )
+
+@main_app.get("/api/oauth-logs/{task_id}")
+async def get_oauth_logs(task_id: str, current_user: User = Depends(get_current_user)):
+    """Get logs for an OAuth task."""
+    log_file = STATUS_DIR / f"oauth_{task_id}.log"
+    if not log_file.exists():
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": "Task not found"}
+        )
+    
+    with open(log_file, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    return JSONResponse(
+        status_code=200,
+        content={"status": "success", "task_id": task_id, "log": content}
+    )
+
+async def backup_gallery_dl_config(log_file: Path):
+    """Backup gallery-dl configuration files if configured."""
+    # Check if backup is configured
+    if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write("\nConfiguration backup not configured. Skipping backup.\n")
+        return
+    
+    # Check if gallery-dl config directory exists
+    if not GALLERY_DL_CONFIG_DIR.exists():
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\nGallery-dl config directory not found: {GALLERY_DL_CONFIG_DIR}\n")
+        return
+    
+    try:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\nStarting gallery-dl configuration backup...\n")
+            f.write(f"Config directory: {GALLERY_DL_CONFIG_DIR}\n")
+            f.write(f"Remote path: {CONFIG_BACKUP_REMOTE_PATH}\n")
+        
+        # Decode base64 rclone config
+        try:
+            rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
+        except Exception as e:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\nFailed to decode base64 rclone config: {str(e)}\n")
+            return
+        
+        # Create temporary rclone config file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
+            tmp_file.write(rclone_config_content)
+            tmp_config_path = tmp_file.name
+        
+        try:
+            # Execute rclone copy command
+            rclone_cmd = f"rclone copy --config \"{tmp_config_path}\" \"{GALLERY_DL_CONFIG_DIR}\" \"{CONFIG_BACKUP_REMOTE_PATH}\" -P --log-level=INFO"
+            
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\nExecuting backup command: rclone copy {GALLERY_DL_CONFIG_DIR} -> {CONFIG_BACKUP_REMOTE_PATH}\n")
+            
+            # Run rclone command
+            process = await asyncio.create_subprocess_shell(
+                rclone_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            with open(log_file, "a", encoding="utf-8") as f:
+                if process.returncode == 0:
+                    f.write("\nConfiguration backup completed successfully.\n")
+                    if stdout:
+                        f.write(f"Backup output: {stdout.decode('utf-8', errors='ignore')}\n")
+                else:
+                    f.write(f"\nConfiguration backup failed with exit code: {process.returncode}\n")
+                    if stderr:
+                        f.write(f"Backup error: {stderr.decode('utf-8', errors='ignore')}\n")
+        
+        finally:
+            # Clean up temporary config file
+            if os.path.exists(tmp_config_path):
+                os.unlink(tmp_config_path)
+    
+    except Exception as e:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\nError during configuration backup: {str(e)}\n")
+
+async def run_oauth_command(task_id: str, param: str, log_file: Path):
+    """Run the gallery-dl oauth command asynchronously."""
+    command = f"gallery-dl oauth:{param}"
+    try:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\nExecuting: {command}\n")
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=f,
+                stderr=f,
+                preexec_fn=os.setsid
+            )
+        
+        await process.wait()
+        
+        # Backup configuration files if OAuth command was successful
+        if process.returncode == 0:
+            await backup_gallery_dl_config(log_file)
+        
+        with open(log_file, "a", encoding="utf-8") as f:
+            if process.returncode == 0:
+                f.write("\nOAuth command completed successfully.\n")
+            else:
+                f.write(f"\nOAuth command failed with exit code: {process.returncode}\n")
+    except Exception as e:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\nError executing OAuth command: {str(e)}\n")
 
 @main_app.get("/login", response_class=HTMLResponse)
 async def get_login_form_main(request: Request):

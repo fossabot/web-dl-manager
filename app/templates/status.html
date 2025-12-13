@@ -73,10 +73,14 @@
         const downloadLogContentElement = downloadLogContainer.querySelector('code');
 
         const copyDownloadLogButton = document.getElementById('copy-download-log-button');
+        const copyErrorLogButton = document.getElementById('copy-error-log-button');
         const autoRefreshSwitch = document.getElementById('auto-refresh-switch');
         const decreaseFontSizeButton = document.getElementById('decrease-font-size');
         const increaseFontSizeButton = document.getElementById('increase-font-size');
         let intervalId;
+        let isUserScrolling = false;
+        let scrollTimer = null;
+        let isTaskCompleted = false;
 
         function renderLog(logElement, logContent) {
             logElement.innerHTML = ''; // Clear previous content
@@ -95,7 +99,29 @@
                 if (response.ok) {
                     const data = await response.json();
                     renderLog(downloadLogContentElement, data.log);
-                    downloadLogContainer.scrollTop = downloadLogContainer.scrollHeight;
+                    
+                    // Auto-scroll only if user is not manually scrolling
+                    if (!isUserScrolling) {
+                        downloadLogContainer.scrollTop = downloadLogContainer.scrollHeight;
+                    }
+
+                    // Check if task is completed
+                    if (!isTaskCompleted && data.status && data.status.status) {
+                        const taskStatus = data.status.status;
+                        if (taskStatus === 'completed' || taskStatus === 'failed') {
+                            isTaskCompleted = true;
+                            stopAutoRefresh();
+                            autoRefreshSwitch.checked = false;
+                            
+                            // Show completion message
+                            const statusDiv = document.createElement('div');
+                            statusDiv.className = taskStatus === 'completed' 
+                                ? 'alert alert-success mt-3' 
+                                : 'alert alert-danger mt-3';
+                            statusDiv.innerHTML = `<i class="bi bi-info-circle"></i> Task ${taskStatus}. Auto-refresh stopped.`;
+                            downloadLogContentElement.appendChild(statusDiv);
+                        }
+                    }
 
                 } else {
                     console.error('Failed to fetch logs:', response.statusText);
@@ -153,6 +179,33 @@
 
         setupCopyButton(copyDownloadLogButton, downloadLogContentElement);
 
+        function setupCopyErrorButton(button, contentElement) {
+            button.addEventListener('click', () => {
+                const allText = contentElement.textContent;
+                const lines = allText.split('\n');
+                const errorLines = lines.filter(line => 
+                    line.includes('ERROR') || 
+                    line.includes('FAILED') || 
+                    line.includes('Exception') || 
+                    line.includes('Traceback') || 
+                    line.includes('错误') ||
+                    line.includes('失败')
+                );
+                const errorText = errorLines.join('\n');
+                navigator.clipboard.writeText(errorText).then(() => {
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '<i class="bi bi-check-lg"></i> {{ lang.copied_button }}';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                });
+            });
+        }
+
+        setupCopyErrorButton(copyErrorLogButton, downloadLogContentElement);
+
         function handleLineClick(event) {
             const target = event.target;
             if (target.classList.contains('log-line')) {
@@ -167,6 +220,23 @@
         }
 
         downloadLogContentElement.addEventListener('click', handleLineClick);
+
+        // User scrolling detection
+        function handleLogScroll() {
+            isUserScrolling = true;
+            
+            // Clear previous timer
+            if (scrollTimer) {
+                clearTimeout(scrollTimer);
+            }
+            
+            // Reset user scrolling flag after 2 seconds of inactivity
+            scrollTimer = setTimeout(() => {
+                isUserScrolling = false;
+            }, 2000);
+        }
+
+        downloadLogContainer.addEventListener('scroll', handleLogScroll);
 
         // Initial fetch and start auto-refresh
         fetchLogs();
