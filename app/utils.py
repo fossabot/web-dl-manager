@@ -3,11 +3,17 @@ import json
 import random
 import httpx
 import subprocess
+import asyncio
+import base64
+import tempfile
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from . import openlist
-from .config import STATUS_DIR
+from .config import STATUS_DIR, CONFIG_BACKUP_RCLONE_BASE64, CONFIG_BACKUP_REMOTE_PATH, GALLERY_DL_CONFIG_DIR
+
+logger = logging.getLogger(__name__)
 
 # --- Helper Functions ---
 
@@ -119,9 +125,6 @@ async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Option
             f.write(f"All Gofile servers failed for {upload_type} upload.\n")
         return None
 
-    # --- Main logic ---
-
-    # 1. Fetch the server list first, as it's required for ALL upload types.
     servers = []
     try:
         with open(status_file, "a", encoding="utf-8") as f:
@@ -140,19 +143,16 @@ async def upload_to_gofile(file_path: Path, status_file: Path, api_token: Option
             f.write(f"{error_message}\n")
         raise Exception(error_message)
 
-    # 2. Attempt authenticated upload if a token is provided.
     download_link = None
     if api_token:
         download_link = await _attempt_upload(use_token=True, servers=servers)
 
-    # 3. If authenticated upload failed or was skipped, attempt public upload as a fallback.
     if not download_link:
         if api_token:
             with open(status_file, "a", encoding="utf-8") as f:
                 f.write("Authenticated upload failed. Falling back to public upload.\n")
         download_link = await _attempt_upload(use_token=False, servers=servers)
 
-    # 4. If all attempts have failed, raise a final exception.
     if not download_link:
         raise Exception("Gofile.io upload failed completely after trying all available servers and fallback options.")
 
@@ -170,13 +170,10 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     
     config_content = f"[remote]\ntype = {service}\n"
     
-    # Basic parameter mapping
     if service == "webdav":
         config_content += f"url = {params['webdav_url']}\n"
         config_content += f"vendor = other\n"
         config_content += f"user = {params['webdav_user']}\n"
-        
-        # Obscure the password
         obscured_pass_process = subprocess.run(
             ["rclone", "obscure", params['webdav_pass']],
             capture_output=True,
@@ -226,15 +223,12 @@ def convert_rate_limit_to_kbps(rate_limit_str: str) -> int:
     
     rate_limit_str = rate_limit_str.strip().upper()
     
-    # If it's just a number, return it as integer
     if rate_limit_str.isdigit():
         return int(rate_limit_str)
     
-    # Parse number and unit
     import re
     match = re.match(r'^(\d+(?:\.\d+)?)\s*([KMG])?$', rate_limit_str)
     if not match:
-        # If format is invalid, try to extract just the number
         numbers = re.findall(r'\d+', rate_limit_str)
         if numbers:
             return int(numbers[0])
@@ -243,12 +237,123 @@ def convert_rate_limit_to_kbps(rate_limit_str: str) -> int:
     number = float(match.group(1))
     unit = match.group(2)
     
-    # Convert to KB/s
     if unit == 'G':
-        return int(number * 1000 * 1000)  # 1G = 1,000,000 KB/s
+        return int(number * 1000 * 1000)
     elif unit == 'M':
-        return int(number * 1000)  # 1M = 1,000 KB/s
+        return int(number * 1000)
     elif unit == 'K':
-        return int(number)  # Already in KB/s
+        return int(number)
     else:
-        return int(number)  # No unit, assume KB/s
+        return int(number)
+
+async def _run_rclone_command(command: str, log_file: Optional[Path] = None):
+    """Helper to run an rclone command and log its output."""
+    log_message = f"Executing rclone command: {command}\n"
+    if log_file:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(log_message)
+    else:
+        logger.info(log_message)
+
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+
+    output = stdout.decode('utf-8', errors='ignore')
+    error = stderr.decode('utf-8', errors='ignore')
+
+    if process.returncode == 0:
+        log_message = f"Rclone command finished successfully.\nOutput: {output}\n"
+        if log_file:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(log_message)
+        else:
+            logger.info(log_message)
+    else:
+        # Note: rclone can exit with non-zero codes for non-critical errors (e.g., file not found on remote),
+        # so we log this as INFO, not ERROR, for the restore case.
+        log_message = f"Rclone command finished with exit code {process.returncode}.\nError: {error}\n"
+        if log_file:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(log_message)
+        else:
+            logger.info(log_message)
+    
+    return process.returncode == 0
+
+async def backup_gallery_dl_config(log_file: Optional[Path] = None):
+    """Backup gallery-dl configuration files if configured."""
+    if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
+        message = "Configuration backup not configured. Skipping backup."
+        if log_file:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\n{message}\n")
+        else:
+            logger.info(message)
+        return
+
+    if not GALLERY_DL_CONFIG_DIR.exists():
+        message = f"Gallery-dl config directory not found, nothing to back up: {GALLERY_DL_CONFIG_DIR}"
+        if log_file:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\n{message}\n")
+        else:
+            logger.warning(message)
+        return
+
+    try:
+        rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
+    except Exception as e:
+        message = f"Failed to decode base64 rclone config for backup: {str(e)}"
+        if log_file:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\n{message}\n")
+        else:
+            logger.error(message)
+        return
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
+        tmp_config_path = tmp_file.name
+        tmp_file.write(rclone_config_content)
+
+    try:
+        rclone_cmd = (f"rclone copy --config \"{tmp_config_path}\" "
+                      f"\"{GALLERY_DL_CONFIG_DIR}\" \"{CONFIG_BACKUP_REMOTE_PATH}\" "
+                      f"-P --log-level=INFO")
+        await _run_rclone_command(rclone_cmd, log_file)
+    finally:
+        if os.path.exists(tmp_config_path):
+            os.unlink(tmp_config_path)
+
+
+async def restore_gallery_dl_config():
+    """Restore gallery-dl configuration files at startup."""
+    logger.info("Attempting to restore gallery-dl config from rclone remote...")
+    if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
+        logger.info("Configuration restore not configured. Skipping.")
+        return
+
+    GALLERY_DL_CONFIG_DIR.mkdir(exist_ok=True, parents=True)
+
+    try:
+        rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
+    except Exception as e:
+        logger.error(f"Failed to decode base64 rclone config for restore: {str(e)}")
+        return
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
+        tmp_config_path = tmp_file.name
+        tmp_file.write(rclone_config_content)
+
+    try:
+        rclone_cmd = (f"rclone copy --config \"{tmp_config_path}\" "
+                      f"\"{CONFIG_BACKUP_REMOTE_PATH}\" \"{GALLERY_DL_CONFIG_DIR}\" "
+                      f"-P --log-level=INFO")
+        await _run_rclone_command(rclone_cmd)
+        logger.info("Finished attempt to restore gallery-dl config.")
+    finally:
+        if os.path.exists(tmp_config_path):
+            os.unlink(tmp_config_path)

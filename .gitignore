@@ -6,7 +6,6 @@ ENV/
 # Python build artifacts
 __pycache__/
 *.pyc
-*.log
 dist/
 build/
 .tmp_build/

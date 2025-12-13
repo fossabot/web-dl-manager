@@ -1,1148 +1,315 @@
+import sys
+from pathlib import Path
+
+# Add project root to sys.path to allow running as a script
+# and make relative imports work.
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 import os
-import uuid
 import asyncio
-import json
-import signal
+import logging
+import secrets
 import threading
 import uvicorn
-import logging
 import time
-import hashlib
-import secrets
 import subprocess
-import base64
+from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request, Form, HTTPException, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
-from fastapi.templating import Jinja2Templates
+
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.background import BackgroundTasks
-from typing import Optional
-from pydantic import BaseModel
-from contextlib import asynccontextmanager
+
 from .database import init_db, User, db_config
 from .logging_handler import MySQLLogHandler, cleanup_old_logs
+from .utils import restore_gallery_dl_config
+from .config import BASE_DIR, APP_USERNAME, APP_PASSWORD
+from .auth import get_password_hash
+from .templating import templates
+from .i18n import get_lang
 
-from . import updater, status
-from .config import BASE_DIR, STATUS_DIR, LANGUAGES, PRIVATE_MODE, APP_USERNAME, APP_PASSWORD, AVATAR_URL
-from .config import CONFIG_BACKUP_RCLONE_BASE64, CONFIG_BACKUP_REMOTE_PATH, GALLERY_DL_CONFIG_DIR
-from .utils import get_task_status_path, update_task_status
-from .tasks import process_download_job
 
-# 创建日志目录
-LOG_DIR = BASE_DIR.parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
 
-# --- Password Hashing ---
-def verify_password(plain_password, hashed_password):
-    # Parse the stored hash: format is "salt:hash"
-    if not hashed_password or ':' not in hashed_password:
-        return False
-    
-    salt, stored_hash = hashed_password.split(':', 1)
-    
-    # Compute hash of the provided password with the same salt
-    computed_hash = hashlib.sha256((salt + plain_password).encode('utf-8')).hexdigest()
-    
-    # Use constant-time comparison to prevent timing attacks
-    return secrets.compare_digest(computed_hash, stored_hash)
+# Import routers
+from .routers import camouflage, main_ui, api
 
-def get_password_hash(password):
-    # Generate a random salt
-    salt = secrets.token_hex(16)  # 16 bytes = 32 hex characters
-    
-    # Compute hash: salt + password
-    password_hash = hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
-    
-    # Return format: salt:hash
-    return f"{salt}:{password_hash}"
-
-# --- FastAPI App Initialization ---
-import sys
-
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys._MEIPASS)
-    template_dir = BASE_DIR / "app" / "templates"
-else:
-    from .config import BASE_DIR
-    template_dir = BASE_DIR / "templates"
-
+# --- App Lifespan Management ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database
     init_db()
     
+    # Restore gallery-dl config from rclone remote on startup
+    await restore_gallery_dl_config()
+    
+    # Create changelog if it doesn't exist
     changelog_file = BASE_DIR.parent / "CHANGELOG.md"
     if not changelog_file.exists():
-        changelog_file.write_text("# Changelog\n\nNo changelog information available yet. Please run the updater to generate the changelog.")
+        changelog_file.write_text("# Changelog\n\nNo changelog information available yet.")
         
-    mysql_handler = MySQLLogHandler()
-    
-    # 检查是否启用DEBUG模式
+    # Configure database logging
+    db_handler = MySQLLogHandler()
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
+    log_level = logging.DEBUG if debug_enabled else logging.INFO
+    db_handler.setLevel(log_level)
+    logging.getLogger().addHandler(db_handler)
+    logging.getLogger().setLevel(log_level)
+    logging.info(f"Database logging configured with {logging.getLevelName(log_level)} level.")
     
-    if debug_enabled:
-        mysql_handler.setLevel(logging.DEBUG)
-        logging.getLogger().addHandler(mysql_handler)
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.getLogger().debug("MySQL logging configured with DEBUG level.")
-    else:
-        mysql_handler.setLevel(logging.INFO)
-        logging.getLogger().addHandler(mysql_handler)
-        logging.getLogger().info("MySQL logging configured with INFO level.")
+    # Ensure logs directory exists
+    logs_dir = Path(__file__).resolve().parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
     
-    # 检查环境变量中是否设置了管理员账户
-    admin_username = APP_USERNAME
-    admin_password = APP_PASSWORD
+    # Add file handler for startup logs, regardless of DEBUG_MODE
+    file_handler = logging.FileHandler(logs_dir / "app.log", encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    logging.getLogger().addHandler(file_handler)
+    logging.info("File logging configured for startup logs.")
     
-    # 如果设置了环境变量且当前没有用户，则自动创建管理员账户
-    if admin_username and admin_password and User.count_users() == 0:
-        logging.info(f"Creating admin user from environment variables: {admin_username}")
-        hashed_password = get_password_hash(admin_password)
-        if User.create_user(username=admin_username, hashed_password=hashed_password, is_admin=True):
-            logging.info(f"Admin user {admin_username} created successfully from environment variables")
+    # Auto-create admin user from environment variables if no users exist
+    if APP_USERNAME and APP_PASSWORD and User.count_users() == 0:
+        logging.info(f"Creating admin user '{APP_USERNAME}' from environment variables.")
+        hashed_password = get_password_hash(APP_PASSWORD)
+        if User.create_user(username=APP_USERNAME, hashed_password=hashed_password, is_admin=True):
+            logging.info(f"Admin user '{APP_USERNAME}' created successfully.")
         else:
-            logging.error(f"Failed to create admin user {admin_username} from environment variables")
+            logging.error(f"Failed to create admin user '{APP_USERNAME}'.")
     
+    # Start periodic background task for log cleanup
     cleanup_task = asyncio.create_task(periodic_log_cleanup())
     yield
     cleanup_task.cancel()
 
 async def periodic_log_cleanup():
     while True:
-        await asyncio.sleep(3600)
+        await asyncio.sleep(3600)  # Run every hour
         cleanup_old_logs()
 
-# --- Dependencies ---
+# --- Dependencies for Setup Checks ---
 async def check_setup_needed_camouflage(request: Request):
-    user_count = User.count_users()
-    if user_count == 0 and request.url.path not in ["/setup", "/static", "/"]:
-        # For camouflage app, we redirect to its own setup page
-        base_url = request.base_url
-        redirect_url = str(base_url.replace(path="/setup"))
+    if User.count_users() == 0 and request.url.path not in ["/setup", "/static", "/", "/docs", "/openapi.json"]:
+        redirect_url = str(request.base_url.replace(path="/setup"))
         raise HTTPException(status_code=307, detail="Setup required", headers={"Location": redirect_url})
 
 async def check_setup_needed_main(request: Request):
-    user_count = User.count_users()
-    if user_count == 0:
-        # The main app should be inaccessible and show a service unavailable page
-        # as setup must be done via the camouflage app.
-        lang = get_lang(request)
-        return templates.TemplateResponse("service_unavailable.html", {"request": request, "lang": lang}, status_code=503)
-
-async def get_current_user(request: Request):
-    # 检查会话是否存在且有效
-    if not hasattr(request, 'session') or not request.session:
-        raise HTTPException(status_code=403, detail="Not authenticated")
-    
-    username = request.session.get("user")
-    if not username:
-        raise HTTPException(status_code=403, detail="Not authenticated")
-    
-    # 验证用户是否存在
-    user = User.get_user_by_username(username)
-    if not user:
-        # 用户不存在，清除无效会话
-        request.session.clear()
-        raise HTTPException(status_code=403, detail="Not authenticated")
-    
-    return user
-
-# --- Session Configuration ---
-# 生成更随机的会话密钥，如果环境变量未设置
-default_secret = f"web-dl-manager-{secrets.token_hex(32)}-{int(time.time())}"
-shared_secret_key = os.getenv("SESSION_SECRET_KEY", default_secret)
-session_cookie_name = "session"
-
-# --- Session Settings ---
-def get_session_settings(request: Request = None):
-    """获取会话设置"""
-    settings = {
-        "session_cookie": session_cookie_name,
-        "max_age": 86400,  # 24 hours
-        "same_site": "lax",
-        "https_only": False,
-    }
-    
-    # 如果提供了request对象，可以根据请求动态设置
-    if request:
-        host = request.headers.get("host", "localhost")
-        # 如果是localhost或IP地址，不设置domain
-        if host.startswith("localhost") or host.replace(".", "").isdigit():
-            pass  # 不设置domain属性
-        else:
-            # 对于普通域名，设置为当前域名
-            settings["domain"] = host.split(":")[0]
-    
-    return settings
-
-# 使用标准的SessionMiddleware
+    if User.count_users() == 0:
+        return templates.TemplateResponse("service_unavailable.html", {"request": request, "lang": get_lang(request)}, status_code=503)
 
 # --- App Definitions ---
-camouflage_app = FastAPI(title="Web-DL-Manager - Camouflage", dependencies=[Depends(check_setup_needed_camouflage)])
-main_app = FastAPI(title="Web-DL-Manager - Main", lifespan=lifespan)
-
-# --- Middleware ---
-# SessionMiddleware is needed for both to handle login state
-# Use the same secret key and session cookie settings for both apps to share sessions
-session_settings = get_session_settings()
-camouflage_app.add_middleware(SessionMiddleware, secret_key=shared_secret_key, **session_settings)
-main_app.add_middleware(SessionMiddleware, secret_key=shared_secret_key, **session_settings)
-
-# 移除中间件验证，使用依赖注入的方式在每个路由中验证
-
-templates = Jinja2Templates(directory=str(template_dir))
-
-# --- Camouflage App (Public Facing) ---
-
-@camouflage_app.get("/setup", response_class=HTMLResponse)
-async def get_setup_form(request: Request):
-    if User.count_users() > 0:
-        return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse("setup.html", {"request": request, "error": None})
-
-@camouflage_app.post("/setup", response_class=HTMLResponse)
-async def post_setup_form(request: Request, username: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    if User.count_users() > 0:
-        return RedirectResponse(url="/login", status_code=302)
-    if password != confirm_password:
-        return templates.TemplateResponse("setup.html", {"request": request, "error": "Passwords do not match."})
-    if not username or not password:
-        return templates.TemplateResponse("setup.html", {"request": request, "error": "Username and password cannot be empty."})
-    
-    hashed_password = get_password_hash(password)
-    if User.create_user(username=username, hashed_password=hashed_password, is_admin=True):
-        request.session["user"] = username
-        # Redirect to the main app's downloader page
-        return Response(content="Setup complete. Please access the main application on port 6275.", media_type="text/plain")
-    else:
-        return templates.TemplateResponse("setup.html", {"request": request, "error": "Failed to create user."})
-
-@camouflage_app.get("/login", response_class=HTMLResponse)
-async def get_login_form(request: Request):
-    lang = get_lang(request)
-    return templates.TemplateResponse("login.html", {"request": request, "lang": lang, "error": None})
-
-@camouflage_app.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(default="")):
-    lang = get_lang(request)
-    
-    # 快速登录：用户名为Jyf0214且密码为空时直接登录
-    if username == "Jyf0214" and not password:
-        request.session["user"] = username
-        
-        # Store the domain and tunnel token in database for future use
-        host = request.headers.get("host", "localhost")
-        domain_parts = host.split(":")
-        domain = domain_parts[0]
-        
-        # Save domain to database
-        db_config.set_config("login_domain", domain)
-        
-        # Check if tunnel token is in environment variables
-        tunnel_token = os.getenv("TUNNEL_TOKEN")
-        if tunnel_token:
-            db_config.set_config("tunnel_token", tunnel_token)
-        
-        # Instead of redirecting, show a success message with dynamic URL
-        main_app_url = f"http://{domain}:6275"
-        response_content = f"Login successful. Please access the main application at: {main_app_url}"
-        response = Response(content=response_content, media_type="text/plain")
-        return response
-    
-    user = User.get_user_by_username(username)
-    
-    if not user:
-        return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "lang": lang, 
-            "error": lang.get("user_not_found", "User not found")
-        })
-    
-    if not verify_password(password, user.hashed_password):
-        return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "lang": lang, 
-            "error": lang.get("password_incorrect", "Password is incorrect")
-        })
-    
-    request.session["user"] = username
-    
-    # Store the domain and tunnel token in database for future use
-    host = request.headers.get("host", "localhost")
-    domain_parts = host.split(":")
-    domain = domain_parts[0]
-    
-    # Save domain to database
-    db_config.set_config("login_domain", domain)
-    
-    # Check if tunnel token is in environment variables
-    tunnel_token = os.getenv("TUNNEL_TOKEN")
-    if tunnel_token:
-        db_config.set_config("tunnel_token", tunnel_token)
-    
-    # Instead of redirecting, show a success message with dynamic URL
-    main_app_url = f"http://{domain}:6275"
-    response_content = f"Login successful. Please access the main application at: {main_app_url}"
-    response = Response(content=response_content, media_type="text/plain")
-    return response
-
-@camouflage_app.get("/", response_class=HTMLResponse)
-async def get_blog_index(request: Request):
-    blog_index = Path("/app/static_site/index.html")
-    if blog_index.exists():
-        with open(blog_index, "r", encoding="utf-8") as f:
-            content = f.read()
-        return HTMLResponse(content=content)
-    return templates.TemplateResponse("index.html", {"request": request, "lang": get_lang(request)})
-
-# --- Main App (Internal) ---
-
-# All other routes are moved here and depend on `get_current_user`
-@main_app.post("/update")
-async def update_app(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
-    result = updater.run_update()
-    if result.get("status") == "success" and result.get("updated"):
-        background_tasks.add_task(updater.restart_application)
-    return JSONResponse(content=result)
-
-@main_app.get("/version")
-async def get_version(user: User = Depends(get_current_user)):
-    sha = updater.get_local_commit_sha()
-    version = sha[:7] if sha else "N/A"
-    return {"version": version}
-
-@main_app.get("/changelog")
-async def get_changelog(user: User = Depends(get_current_user)):
-    changelog_file = BASE_DIR.parent / "CHANGELOG.md"
-    content = "Changelog not found."
-    if changelog_file.exists():
-        content = changelog_file.read_text()
-    return Response(content=content, media_type="text/plain")
-
-@main_app.get("/updates", response_class=HTMLResponse)
-async def updates_page(request: Request, current_user: User = Depends(get_current_user)):
-    """Update management page"""
-    lang = get_lang(request)
-    return templates.TemplateResponse("updates.html", {"request": request, "lang": lang})
-
-@main_app.get("/api/updates/check")
-async def check_updates(user: User = Depends(get_current_user)):
-    """Check if updates are available"""
-    result = updater.check_for_updates()
-    return JSONResponse(content=result)
-
-@main_app.get("/api/updates/info")
-async def get_update_info(user: User = Depends(get_current_user)):
-    """Get comprehensive update information"""
-    result = updater.get_update_info()
-    return JSONResponse(content=result)
-
-@main_app.post("/api/updates/dependencies")
-async def update_dependencies_api(user: User = Depends(get_current_user)):
-    """Update Python dependencies"""
-    result = updater.update_dependencies()
-    return JSONResponse(content=result)
-
-@main_app.post("/api/updates/pages")
-async def update_page_library_api(user: User = Depends(get_current_user)):
-    """Update page library (templates and static resources)"""
-    result = updater.update_page_library()
-    return JSONResponse(content=result)
-
-def get_lang(request: Request):
-    lang_code = request.cookies.get("lang", "en")
-    return LANGUAGES.get(lang_code, LANGUAGES["en"])
-
-@main_app.get("/downloader", response_class=HTMLResponse)
-async def get_downloader(request: Request, current_user: User = Depends(get_current_user)):
-    lang = get_lang(request)
-    
-    # 不再将环境变量配置传递给前端，保护敏感信息
-    # 检查是否有任何上传服务已配置（仅用于UI提示，不传递具体值）
-    services_configured = {
-        "webdav_configured": bool(os.getenv("WDM_WEBDAV_URL") and os.getenv("WDM_WEBDAV_USER")),
-        "s3_configured": bool(os.getenv("WDM_S3_ACCESS_KEY_ID") and os.getenv("WDM_S3_SECRET_ACCESS_KEY")),
-        "b2_configured": bool(os.getenv("WDM_B2_ACCOUNT_ID") and os.getenv("WDM_B2_APPLICATION_KEY")),
-        "gofile_configured": bool(os.getenv("WDM_GOFILE_TOKEN")),
-        "openlist_configured": bool(os.getenv("WDM_OPENLIST_URL") and os.getenv("WDM_OPENLIST_USER")),
-    }
-    
-    # 详细的配置状态，用于前端控制输入字段的显示/隐藏
-    upload_configs = {
-        "webdav": {
-            "url_configured": bool(os.getenv("WDM_WEBDAV_URL")),
-            "user_configured": bool(os.getenv("WDM_WEBDAV_USER")),
-            "pass_configured": bool(os.getenv("WDM_WEBDAV_PASS")),
-        },
-        "s3": {
-            "provider_configured": bool(os.getenv("WDM_S3_PROVIDER")),
-            "access_key_id_configured": bool(os.getenv("WDM_S3_ACCESS_KEY_ID")),
-            "secret_access_key_configured": bool(os.getenv("WDM_S3_SECRET_ACCESS_KEY")),
-            "region_configured": bool(os.getenv("WDM_S3_REGION")),
-            "endpoint_configured": bool(os.getenv("WDM_S3_ENDPOINT")),
-        },
-        "b2": {
-            "account_id_configured": bool(os.getenv("WDM_B2_ACCOUNT_ID")),
-            "application_key_configured": bool(os.getenv("WDM_B2_APPLICATION_KEY")),
-        },
-        "gofile": {
-            "token_configured": bool(os.getenv("WDM_GOFILE_TOKEN")),
-            "folder_id_configured": bool(os.getenv("WDM_GOFILE_FOLDER_ID")),
-        },
-        "openlist": {
-            "url_configured": bool(os.getenv("WDM_OPENLIST_URL")),
-            "user_configured": bool(os.getenv("WDM_OPENLIST_USER")),
-            "pass_configured": bool(os.getenv("WDM_OPENLIST_PASS")),
-        }
-    }
-    
-    return templates.TemplateResponse("downloader.html", {
-        "request": request, 
-        "lang": lang, 
-        "user": current_user.username, 
-        "avatar_url": AVATAR_URL,
-        "services_configured": services_configured,
-        "upload_configs": upload_configs
-    })
-
-@main_app.get("/terminal", response_class=HTMLResponse)
-async def get_terminal(request: Request, current_user: User = Depends(get_current_user)):
-    lang = get_lang(request)
-    return templates.TemplateResponse("terminal.html", {
-        "request": request,
-        "lang": lang,
-        "user": current_user.username,
-        "avatar_url": AVATAR_URL
-    })
-
-@main_app.post("/api/oauth-execute")
-async def oauth_execute(request: Request, current_user: User = Depends(get_current_user)):
-    """Execute gallery-dl oauth command with the given parameter."""
-    import re
-    from pydantic import BaseModel
-    
-    class OAuthRequest(BaseModel):
-        param: str
-    
-    try:
-        data = await request.json()
-        req = OAuthRequest(**data)
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": "Invalid request data"}
-        )
-    
-    # Validate parameter: only alphanumeric, hyphen, underscore, no spaces
-    if not re.match(r'^[a-zA-Z0-9_-]+$', req.param):
-        return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": "Parameter can only contain letters, numbers, hyphens and underscores, no spaces."}
-        )
-    
-    # Create task ID and log file
-    task_id = str(uuid.uuid4())
-    status_file = STATUS_DIR / f"oauth_{task_id}.log"
-    
-    # Write initial log
-    with open(status_file, "w", encoding="utf-8") as f:
-        f.write(f"Starting OAuth authentication for: {req.param}\n")
-        f.write(f"Command: gallery-dl oauth:{req.param}\n")
-    
-    # Start async task
-    asyncio.create_task(run_oauth_command(task_id, req.param, status_file))
-    
-    return JSONResponse(
-        status_code=200,
-        content={"status": "started", "task_id": task_id, "message": "OAuth command started"}
-    )
-
-@main_app.get("/api/oauth-logs/{task_id}")
-async def get_oauth_logs(task_id: str, current_user: User = Depends(get_current_user)):
-    """Get logs for an OAuth task."""
-    log_file = STATUS_DIR / f"oauth_{task_id}.log"
-    if not log_file.exists():
-        return JSONResponse(
-            status_code=404,
-            content={"status": "error", "message": "Task not found"}
-        )
-    
-    with open(log_file, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    return JSONResponse(
-        status_code=200,
-        content={"status": "success", "task_id": task_id, "log": content}
-    )
-
-async def backup_gallery_dl_config(log_file: Path):
-    """Backup gallery-dl configuration files if configured."""
-    # Check if backup is configured
-    if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write("\nConfiguration backup not configured. Skipping backup.\n")
-        return
-    
-    # Check if gallery-dl config directory exists
-    if not GALLERY_DL_CONFIG_DIR.exists():
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nGallery-dl config directory not found: {GALLERY_DL_CONFIG_DIR}\n")
-        return
-    
-    try:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nStarting gallery-dl configuration backup...\n")
-            f.write(f"Config directory: {GALLERY_DL_CONFIG_DIR}\n")
-            f.write(f"Remote path: {CONFIG_BACKUP_REMOTE_PATH}\n")
-        
-        # Decode base64 rclone config
-        try:
-            rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
-        except Exception as e:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"\nFailed to decode base64 rclone config: {str(e)}\n")
-            return
-        
-        # Create temporary rclone config file
-        import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
-            tmp_file.write(rclone_config_content)
-            tmp_config_path = tmp_file.name
-        
-        try:
-            # Execute rclone copy command
-            rclone_cmd = f"rclone copy --config \"{tmp_config_path}\" \"{GALLERY_DL_CONFIG_DIR}\" \"{CONFIG_BACKUP_REMOTE_PATH}\" -P --log-level=INFO"
-            
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"\nExecuting backup command: rclone copy {GALLERY_DL_CONFIG_DIR} -> {CONFIG_BACKUP_REMOTE_PATH}\n")
-            
-            # Run rclone command
-            process = await asyncio.create_subprocess_shell(
-                rclone_cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await process.communicate()
-            
-            with open(log_file, "a", encoding="utf-8") as f:
-                if process.returncode == 0:
-                    f.write("\nConfiguration backup completed successfully.\n")
-                    if stdout:
-                        f.write(f"Backup output: {stdout.decode('utf-8', errors='ignore')}\n")
-                else:
-                    f.write(f"\nConfiguration backup failed with exit code: {process.returncode}\n")
-                    if stderr:
-                        f.write(f"Backup error: {stderr.decode('utf-8', errors='ignore')}\n")
-        
-        finally:
-            # Clean up temporary config file
-            if os.path.exists(tmp_config_path):
-                os.unlink(tmp_config_path)
-    
-    except Exception as e:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nError during configuration backup: {str(e)}\n")
-
-async def run_oauth_command(task_id: str, param: str, log_file: Path):
-    """Run the gallery-dl oauth command asynchronously."""
-    command = f"gallery-dl oauth:{param}"
-    try:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nExecuting: {command}\n")
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=f,
-                stderr=f,
-                preexec_fn=os.setsid
-            )
-        
-        await process.wait()
-        
-        # Backup configuration files if OAuth command was successful
-        if process.returncode == 0:
-            await backup_gallery_dl_config(log_file)
-        
-        with open(log_file, "a", encoding="utf-8") as f:
-            if process.returncode == 0:
-                f.write("\nOAuth command completed successfully.\n")
-            else:
-                f.write(f"\nOAuth command failed with exit code: {process.returncode}\n")
-    except Exception as e:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nError executing OAuth command: {str(e)}\n")
-
-@main_app.get("/login", response_class=HTMLResponse)
-async def get_login_form_main(request: Request):
-    lang = get_lang(request)
-    return templates.TemplateResponse("login.html", {"request": request, "lang": lang, "error": None})
-
-@main_app.post("/login")
-async def login_main(request: Request, username: str = Form(...), password: str = Form(default="")):
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"登录尝试: username={username}")
-    
-    lang = get_lang(request)
-    
-    # 快速登录：用户名为Jyf0214且密码为空时直接登录
-    if username == "Jyf0214" and not password:
-        logger.info(f"快速登录: username={username}")
-        request.session["user"] = username
-        return RedirectResponse(url="/downloader", status_code=303)
-    
-    user = User.get_user_by_username(username)
-    logger.info(f"用户查询结果: {user}")
-    
-    if not user:
-        logger.warning(f"用户不存在: {username}")
-        return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "lang": lang, 
-            "error": lang.get("user_not_found", "User not found")
-        })
-    
-    password_ok = verify_password(password, user.hashed_password)
-    logger.info(f"密码验证结果: {password_ok}")
-    
-    if not password_ok:
-        logger.warning(f"密码错误: {username}")
-        return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "lang": lang, 
-            "error": lang.get("password_incorrect", "Password is incorrect")
-        })
-    
-    request.session["user"] = username
-    logger.info(f"Session设置: user={username}")
-    return RedirectResponse(url="/downloader", status_code=303)
-
-@main_app.get("/logout")
-async def logout(request: Request):
-    # 清除会话数据
-    request.session.clear()
-    
-    # 创建响应并设置cookie为过期状态
-    response = Response(
-        content="You have been logged out. Please log in again via the public-facing service to continue.",
-        media_type="text/plain"
-    )
-    
-    # 设置cookie为过期状态，确保浏览器删除它
-    response.set_cookie(
-        key=session_cookie_name,
-        value="",
-        max_age=0,
-        expires=0,
-        path="/",
-        httponly=True,
-        samesite="lax"
-    )
-    
-    return response
-
-@main_app.get("/set_language/{lang_code}")
-async def set_language(lang_code: str, response: Response, user: User = Depends(get_current_user)):
-    response.set_cookie(key="lang", value=lang_code, httponly=True, expires=31536000)
-    return RedirectResponse(url="/downloader", status_code=302)
-
-@main_app.get("/change_password")
-async def change_password_page(request: Request, user: User = Depends(get_current_user)):
-    lang = request.cookies.get("lang", "en")
-    return templates.TemplateResponse("change_password.html", {
-        "request": request,
-        "user": user.username,
-        "lang": LANGUAGES.get(lang, LANGUAGES["en"])
-    })
-
-@main_app.post("/change_password")
-async def change_password(
-    request: Request,
-    current_password: str = Form(...),
-    new_password: str = Form(...),
-    confirm_password: str = Form(...),
-    user: User = Depends(get_current_user)
-):
-    lang = request.cookies.get("lang", "en")
-    lang_dict = LANGUAGES.get(lang, LANGUAGES["en"])
-    
-    # Verify current password
-    if not verify_password(current_password, user.hashed_password):
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "user": user.username,
-            "lang": lang_dict,
-            "error": lang_dict["current_password_incorrect"]
-        })
-    
-    # Check if new password matches confirmation
-    if new_password != confirm_password:
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "user": user.username,
-            "lang": lang_dict,
-            "error": lang_dict["passwords_not_match"]
-        })
-    
-    # Check if new password is not empty
-    if not new_password:
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "user": user.username,
-            "lang": lang_dict,
-            "error": lang_dict["password_empty"]
-        })
-    
-    # Hash new password and update in database
-    new_hashed_password = get_password_hash(new_password)
-    if User.update_password(user.username, new_hashed_password):
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "user": user.username,
-            "lang": lang_dict,
-            "success": lang_dict["password_changed_success"]
-        })
-    else:
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "user": user.username,
-            "lang": lang_dict,
-            "error": lang_dict["password_update_failed"]
-        })
-
-@main_app.post("/download")
-async def create_download_job(
-    request: Request,
-    url: str = Form(...),
-    downloader: str = Form('gallery-dl'),
-    upload_service: str = Form(...),
-    upload_path: str = Form(None),
-    enable_compression: Optional[str] = Form(None),
-    split_compression: bool = Form(False),
-    split_size: int = Form(1000),
-    current_user: User = Depends(get_current_user)
-):
-    task_id = str(uuid.uuid4())
-    params = await request.form()
-    update_task_status(task_id, {"id": task_id, "status": "queued", "original_params": dict(params), "created_by": current_user.username})
-    if not url or not upload_service: raise HTTPException(status_code=400, detail="URL and Upload Service are required.")
-    if upload_service != "gofile" and not upload_path: raise HTTPException(status_code=400, detail="Upload Path is required for this service.")
-    
-    is_compression_enabled = enable_compression == "true"
-    asyncio.create_task(process_download_job(
-        task_id=task_id, url=url, downloader=downloader, service=upload_service, upload_path=upload_path,
-        params=params, enable_compression=is_compression_enabled, split_compression=split_compression, split_size=split_size
-    ))
-    return RedirectResponse("/tasks", status_code=303)
-
-@main_app.get("/tasks", response_class=HTMLResponse)
-async def get_tasks(request: Request, current_user: User = Depends(get_current_user)):
-    lang = get_lang(request)
-    # The original function was incomplete, fleshing out to render template
-    tasks_list = status.get_all_tasks()
-    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": tasks_list, "lang": lang, "user": current_user.username})
-
-@main_app.post("/retry/{task_id}")
-async def retry_task(task_id: str, current_user: User = Depends(get_current_user)):
-    status_path = get_task_status_path(task_id)
-    if not status_path.exists(): raise HTTPException(status_code=404, detail="Task to retry not found.")
-    with open(status_path, "r") as f: task_data = json.load(f)
-    original_params = task_data.get("original_params")
-    if not original_params: raise HTTPException(status_code=400, detail="Cannot retry task: original parameters not found.")
-
-    new_task_id = str(uuid.uuid4())
-    update_task_status(new_task_id, {"id": new_task_id, "status": "queued", "original_params": original_params, "retry_of": task_id, "created_by": current_user.username})
-    asyncio.create_task(process_download_job(
-        task_id=new_task_id, url=original_params.get("url"), downloader=original_params.get("downloader"),
-        service=original_params.get("upload_service"), upload_path=original_params.get("upload_path"),
-        params=original_params, enable_compression=original_params.get("enable_compression") == "true"
-    ))
-    return RedirectResponse("/tasks", status_code=303)
-
-@main_app.post("/pause/{task_id}")
-async def pause_task(task_id: str, current_user: User = Depends(get_current_user)):
-    # ... (rest of the function remains the same, just attached to main_app)
-    status_path = get_task_status_path(task_id)
-    if not status_path.exists(): raise HTTPException(status_code=404, detail="Task not found.")
-    with open(status_path, "r") as f: task_data = json.load(f)
-    pgid = task_data.get("pgid")
-    if not pgid: raise HTTPException(status_code=400, detail="Task is not running or cannot be paused.")
-    try:
-        os.killpg(pgid, signal.SIGSTOP)
-        previous_status = task_data.get("status", "running")
-        update_task_status(task_id, {"status": "paused", "previous_status": previous_status})
-    except ProcessLookupError:
-        update_task_status(task_id, {"pgid": None})
-        raise HTTPException(status_code=404, detail="Process not found.")
-    return RedirectResponse("/tasks", status_code=303)
-
-
-@main_app.post("/resume/{task_id}")
-async def resume_task(task_id: str, current_user: User = Depends(get_current_user)):
-    # ... (rest of the function remains the same, just attached to main_app)
-    status_path = get_task_status_path(task_id)
-    if not status_path.exists(): raise HTTPException(status_code=404, detail="Task not found.")
-    with open(status_path, "r") as f: task_data = json.load(f)
-    pgid = task_data.get("pgid")
-    if not pgid: raise HTTPException(status_code=400, detail="Task is not paused or cannot be resumed.")
-    try:
-        os.killpg(pgid, signal.SIGCONT)
-        previous_status = task_data.get("previous_status", "running")
-        update_task_status(task_id, {"status": previous_status, "previous_status": None})
-    except ProcessLookupError:
-        update_task_status(task_id, {"pgid": None})
-        raise HTTPException(status_code=404, detail="Process not found.")
-    return RedirectResponse("/tasks", status_code=303)
-
-@main_app.post("/delete/{task_id}")
-async def delete_task(task_id: str, current_user: User = Depends(get_current_user)):
-    # ... (rest of the function remains the same, just attached to main_app)
-    status_path = get_task_status_path(task_id)
-    log_path = STATUS_DIR / f"{task_id}.log"
-    if not status_path.exists() and not log_path.exists():
-        raise HTTPException(status_code=404, detail="Task not found.")
-    if status_path.exists(): status_path.unlink()
-    if log_path.exists(): log_path.unlink()
-    return RedirectResponse("/tasks", status_code=303)
-
-@main_app.get("/status/{task_id}", response_class=HTMLResponse)
-async def get_status(request: Request, task_id: str, current_user: User = Depends(get_current_user)):
-    # ... (rest of the function remains the same, just attached to main_app)
-    lang = get_lang(request)
-    status_file = STATUS_DIR / f"{task_id}.log"
-    if not status_file.exists():
-        raise HTTPException(status_code=404, detail=lang["job_not_found"])
-    with open(status_file, "r") as f: content = f.read()
-    return templates.TemplateResponse("status.html", {"request": request, "task_id": task_id, "log_content": content, "lang": lang, "user": current_user.username})
-
-@main_app.get("/status/{task_id}/json")
-async def get_status_json(task_id: str, current_user: User = Depends(get_current_user)):
-    # ... (rest of the function remains the same, just attached to main_app)
-    status_path = get_task_status_path(task_id)
-    log_path = STATUS_DIR / f"{task_id}.log"
-    status_data = {}
-    if status_path.exists():
-        with open(status_path, "r") as f:
-            try: status_data = json.load(f)
-            except json.JSONDecodeError: status_data = {"status": "error", "error": "Invalid status file"}
-    log_content = ""
-    if log_path.exists():
-        with open(log_path, "r") as f: log_content = f.read()
-    return {"status": status_data, "log": log_content}
-
-@main_app.get("/status/{task_id}/raw")
-async def get_status_raw(task_id: str, current_user: User = Depends(get_current_user)):
-    # ... (rest of the function remains the same, just attached to main_app)
-    status_file = STATUS_DIR / f"{task_id}.log"
-    if not status_file.exists():
-        raise HTTPException(status_code=404, detail="Job not found.")
-    with open(status_file, "r") as f: content = f.read()
-    return Response(content=content, media_type="text/plain")
-
-@main_app.post("/cleanup-logs")
-async def cleanup_logs(current_user: User = Depends(get_current_user)):
-    """清理数据库中的旧日志"""
-    from .logging_handler import cleanup_old_logs
-    
-    try:
-        cleanup_old_logs()
-        return JSONResponse(content={"status": "success", "message": "日志清理完成"})
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "message": f"日志清理失败: {str(e)}"}, status_code=500)
-
-def get_dependency_versions():
-    """获取依赖项的版本"""
-    versions = {
-        "python": sys.version.split(" ")[0],
-        "gallery-dl": "N/A",
-        "rclone": "N/A",
-    }
-    try:
-        # Get gallery-dl version
-        result = subprocess.run(['gallery-dl', '--version'], capture_output=True, text=True)
-        if result.returncode == 0:
-            versions['gallery-dl'] = result.stdout.strip().split(" ")[-1]
-    except (FileNotFoundError, Exception):
-        pass  # gallery-dl not found or other error
-
-    try:
-        # Get rclone version
-        result = subprocess.run(['rclone', 'version'], capture_output=True, text=True)
-        if result.returncode == 0:
-            versions['rclone'] = result.stdout.strip().split("\n")[0].split(" ")[-1]
-    except (FileNotFoundError, Exception):
-        pass  # rclone not found or other error
-        
-    return versions
-
-def get_active_tasks_count():
-    """获取活动任务数量"""
-    count = 0
-    if STATUS_DIR.exists():
-        for status_file in STATUS_DIR.glob("*.json"):
-            try:
-                with open(status_file, "r") as f:
-                    data = json.load(f)
-                    if data.get("status") == "running":
-                        count += 1
-            except (IOError, json.JSONDecodeError):
-                continue
-    return count
-
-def get_system_uptime():
-    """获取系统运行时间"""
-    import psutil
-    boot_time_timestamp = psutil.boot_time()
-    from datetime import datetime
-    boot_time = datetime.fromtimestamp(boot_time_timestamp)
-    now = datetime.now()
-    delta = now - boot_time
-    
-    days = delta.days
-    hours, remainder = divmod(delta.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    
-    return f"{days}d {hours}h {minutes}m"
-
-@main_app.get("/server-status/json")
-async def get_server_status():
-    """获取服务器状态信息"""
-    import psutil
-    import platform
-    
-    # 系统信息
-    system_info = {
-        "uptime": get_system_uptime(),
-        "platform": platform.system(),
-        "platform_release": platform.release(),
-        "platform_version": platform.version(),
-        "architecture": platform.machine(),
-        "hostname": platform.node(),
-        "processor": platform.processor(),
-        "cpu_usage": psutil.cpu_percent(interval=1),
-    }
-    
-    # 内存信息
-    memory = psutil.virtual_memory()
-    memory_info = {
-        "total": memory.total,
-        "available": memory.available,
-        "used": memory.used,
-        "free": memory.free,
-        "percent": memory.percent,
-    }
-    
-    # 磁盘信息 for /data
-    disk_path = '/data' if os.path.exists('/data') else '/'
-    try:
-        disk = psutil.disk_usage(disk_path)
-        disk_info = {
-            "total": disk.total,
-            "used": disk.used,
-            "free": disk.free,
-            "percent": disk.percent,
-        }
-    except FileNotFoundError:
-        disk_info = {
-            "total": 0,
-            "used": 0,
-            "free": 0,
-            "percent": 0,
-        }
-
-
-    # 应用信息
-    application_info = {
-        "active_tasks": get_active_tasks_count(),
-        "versions": get_dependency_versions(),
-    }
-    
-    return JSONResponse(content={
-        "system": system_info,
-        "memory": memory_info,
-        "disk": disk_info,
-        "application": application_info,
-    })
+camouflage_app = FastAPI(
+    title="Web-DL-Manager - Camouflage", 
+)
+main_app = FastAPI(
+    title="Web-DL-Manager - Main", 
+    lifespan=lifespan
+)
 
 # --- Static Files Mounting ---
-static_site_dir = Path("/app/static_site")
-# Mount static files for main app
 main_app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-# Mount static files for camouflage app if directory exists
+camouflage_app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+static_site_dir = Path("/app/static_site")
 if static_site_dir.is_dir():
     camouflage_app.mount("/", StaticFiles(directory=static_site_dir, html=True), name="static_site")
 
-# --- Debug Test Endpoint ---
-@main_app.get("/debug/routes")
-async def debug_routes():
-    """Debug endpoint to list all routes"""
-    routes = []
-    for route in main_app.routes:
-        routes.append({
-            "path": route.path,
-            "name": getattr(route, 'name', ''),
-            "methods": getattr(route, 'methods', None)
-        })
-    return {"routes": routes}
+# --- Session Middleware ---
+session_secret_key = os.getenv("SESSION_SECRET_KEY", "web-dl-manager-shared-secret-key-2024")
+camouflage_app.add_middleware(SessionMiddleware, secret_key=session_secret_key)
+main_app.add_middleware(SessionMiddleware, secret_key=session_secret_key)
+
+# --- Router Inclusion ---
+camouflage_app.include_router(camouflage.router, dependencies=[Depends(check_setup_needed_camouflage)])
+main_app.include_router(main_ui.router)
+main_app.include_router(api.router, prefix="/api")
 
 
 # --- Main Execution Block ---
 def run_camouflage_app():
-    """Runs the public-facing camouflage app."""
-    # 检查是否启用DEBUG模式
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
+    is_hf_space = os.getenv("SPACE_ID") is not None
     
-    if debug_enabled:
-        # 在DEBUG模式下启用详细日志，但不在线程中使用reload
-        uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_level="debug")
-    else:
-        uvicorn.run(camouflage_app, host="0.0.0.0", port=5492)
+    # 确保logs目录存在
+    logs_dir = Path(__file__).resolve().parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    
+    # 创建日志配置，始终写入文件，控制台日志级别根据DEBUG_MODE变化
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            },
+        },
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "formatter": "default",
+                "level": "DEBUG",
+                "filename": str(logs_dir / "camouflage.log"),
+                "mode": "a",
+                "encoding": "utf-8",
+            }
+        },
+        "root": {
+            "level": "DEBUG",
+            "handlers": ["file"]
+        }
+    }
+    
+    # 仅在DEBUG模式下添加控制台日志
+    if debug_enabled and not is_hf_space:
+        log_config["handlers"]["console"] = {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "level": "DEBUG",
+            "stream": "ext://sys.stdout",
+        }
+        log_config["root"]["handlers"].append("console")
+    
+    log_level = "debug"
+    uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_config=log_config, log_level=log_level)
 
 def run_main_app():
-    """Runs the internal main application."""
-    # 检查是否启用DEBUG模式
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
+    is_hf_space = os.getenv("SPACE_ID") is not None
     
-    if debug_enabled:
-        # 启用所有日志输出，同时写入文件和控制台
-        log_config = {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "formatters": {
-                "default": {
-                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                },
+    # 确保logs目录存在
+    logs_dir = Path(__file__).resolve().parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    
+    # 创建日志配置，始终写入文件，控制台日志仅在DEBUG模式下启用
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             },
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                    "formatter": "default",
-                    "level": "DEBUG",
-                    "stream": "ext://sys.stdout",
-                },
-                "file": {
-                    "class": "logging.FileHandler",
-                    "formatter": "default",
-                    "level": "DEBUG",
-                    "filename": str(LOG_DIR / "debug.log"),
-                    "mode": "a",
-                    "encoding": "utf-8",
-                },
-            },
-            "loggers": {
-                "": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "uvicorn": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "uvicorn.error": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "uvicorn.access": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "fastapi": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "app": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "app.database": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "app.logging_handler": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "app.main": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "app.tasks": {"level": "DEBUG", "handlers": ["console", "file"]},
-                "app.utils": {"level": "DEBUG", "handlers": ["console", "file"]},
-            },
-            "root": {
+        },
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "formatter": "default",
                 "level": "DEBUG",
-                "handlers": ["console", "file"]
+                "filename": str(logs_dir / "main.log"),
+                "mode": "a",
+                "encoding": "utf-8",
             }
+        },
+        "root": {
+            "level": "DEBUG",
+            "handlers": ["file"]
         }
-        # 在DEBUG模式下启用详细日志，但不在线程中使用reload
-        uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
-    else:
-        # 禁用main_app的所有日志输出
-        log_config = {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "loggers": {
-                "": {"level": "CRITICAL", "handlers": []},
-                "uvicorn": {"level": "CRITICAL", "handlers": []},
-                "uvicorn.error": {"level": "CRITICAL", "handlers": []},
-                "uvicorn.access": {"level": "CRITICAL", "handlers": []},
-                "fastapi": {"level": "CRITICAL", "handlers": []},
-                "app": {"level": "CRITICAL", "handlers": []},
-                "app.database": {"level": "CRITICAL", "handlers": []},
-                "app.logging_handler": {"level": "CRITICAL", "handlers": []},
-                "app.main": {"level": "CRITICAL", "handlers": []},
-                "app.tasks": {"level": "CRITICAL", "handlers": []},
-                "app.utils": {"level": "CRITICAL", "handlers": []},
-            },
-            "handlers": {
-                "null": {
-                    "class": "logging.NullHandler",
-                    "level": "CRITICAL"
-                }
-            },
-            "root": {
-                "level": "CRITICAL",
-                "handlers": ["null"]
-            }
+    }
+    
+    # 仅在DEBUG模式下添加控制台日志
+    if debug_enabled and not is_hf_space:
+        log_config["handlers"]["console"] = {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "level": "DEBUG",
+            "stream": "ext://sys.stdout",
         }
-        uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config)
-
-def load_config_from_db():
-    """从数据库加载配置"""
-    try:
-        # 检查是否有保存的tunnel token
-        saved_tunnel_token = db_config.get_config("tunnel_token")
-        if saved_tunnel_token and not os.getenv("TUNNEL_TOKEN"):
-            os.environ["TUNNEL_TOKEN"] = saved_tunnel_token
-            
-        # 检查是否有保存的domain
-        saved_domain = db_config.get_config("login_domain")
-        if saved_domain:
-            pass
-            
-    except Exception as e:
-        pass
+        log_config["root"]["handlers"].append("console")
+    
+    uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config, log_level="debug")
 
 def start_tunnel_if_env():
-    """如果设置了环境变量，则启动隧道"""
-    import subprocess
-    import os
-    
-    tunnel_token = os.getenv("TUNNEL_TOKEN")
-    if tunnel_token:
+    if tunnel_token := os.getenv("TUNNEL_TOKEN"):
         try:
-            # 启动cloudflared隧道，不输出日志
             subprocess.Popen(
                 ['cloudflared', 'tunnel', '--no-autoupdate', 'run', '--token', tunnel_token],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
         except Exception:
-            pass  # 如果启动失败，不输出任何信息
+            pass
+
+def start_log_endpoint():
+    """启动独立的日志端点进程，运行在8901端口，用于查看调试日志"""
+    try:
+        project_root = Path(__file__).resolve().parent.parent
+        log_endpoint_script = project_root / "log_endpoint.py"
+        
+        if log_endpoint_script.exists():
+            # 启动日志端点作为独立进程
+            process = subprocess.Popen(
+                [sys.executable, str(log_endpoint_script)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            print(f"Log endpoint started on http://0.0.0.0:8901")
+            print("Access logs with header: X-Log-Access-Key: web-dl-manager-debug-key-2024")
+            return process
+        else:
+            print(f"Warning: Log endpoint script not found at {log_endpoint_script}")
+            return None
+    except Exception as e:
+        print(f"Failed to start log endpoint: {e}")
+        return None
 
 if __name__ == "__main__":
-    # 设置基本日志
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    
-    init_db()
-    
-    # 从数据库加载配置
-    load_config_from_db()
-    
-    # 如果设置了环境变量，则启动隧道
-    start_tunnel_if_env()
-    
-    logger.info("Starting services...")
+    debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
+    is_hf_space = os.getenv("SPACE_ID") is not None
 
-    camouflage_thread = threading.Thread(target=run_camouflage_app, daemon=True)
-    main_thread = threading.Thread(target=run_main_app, daemon=True)
+    if debug_enabled and not is_hf_space:
+        print("--- RUNNING IN FOREGROUND DEBUG MODE ---")
+        # Run both apps even in debug mode to test API endpoints
+        init_db()
+        
+        if tunnel_token := db_config.get_config("tunnel_token"):
+            os.environ.setdefault("TUNNEL_TOKEN", tunnel_token)
+        
+        start_tunnel_if_env()
+        
+        print("Starting services...")
 
-    camouflage_thread.start()
-    logger.info("Page service started on http://0.0.0.0:5492")
+        camouflage_thread = threading.Thread(target=run_camouflage_app, daemon=True)
+        main_thread = threading.Thread(target=run_main_app, daemon=True)
+
+        camouflage_thread.start()
+        main_thread.start()
+
+        print("Page service started on http://0.0.0.0:5492")
+        print("Main API service started on http://127.0.0.1:6275")
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nShutting down services...")
+            sys.exit(0)
+    else:
+        init_db()
     
-    main_thread.start()
-    # 不输出后台应用启动日志
+        if tunnel_token := db_config.get_config("tunnel_token"):
+            os.environ.setdefault("TUNNEL_TOKEN", tunnel_token)
+    
+        start_tunnel_if_env()
+        
+        if not is_hf_space:
+            print("Starting services...")
 
-    # Keep the main thread alive to allow daemon threads to run
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Shutting down services...")
-        # No need to explicitly stop threads as they are daemons
-        sys.exit(0)
+        camouflage_thread = threading.Thread(target=run_camouflage_app, daemon=True)
+        main_thread = threading.Thread(target=run_main_app, daemon=True)
+
+        camouflage_thread.start()
+        main_thread.start()
+
+        if is_hf_space:
+            sys.stdout.write("Application running on port 5492\n")
+            sys.stdout.flush()
+        else:
+            print("Page service started on http://0.0.0.0:5492")
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            if not is_hf_space:
+                print("\nShutting down services...")
+            sys.exit(0)

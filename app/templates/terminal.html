@@ -272,6 +272,7 @@
             if (!currentTaskId) return;
             
             try {
+                console.log('Fetching logs for task:', currentTaskId);
                 const response = await fetch(`/api/oauth-logs/${currentTaskId}`);
                 if (!response.ok) {
                     if (response.status === 404) {
@@ -284,6 +285,7 @@
                 }
                 
                 const data = await response.json();
+                console.log('Received log data:', {status: data.status, logLength: data.log?.length});
                 if (data.status === 'success') {
                     renderLogs(data.log);
                     
@@ -329,6 +331,7 @@
         }
         
         function renderLogs(logText) {
+            console.log('Rendering logs, length:', logText.length, 'lines:', logText.split('\n').length);
             const lines = logText.split('\n');
             const currentLength = logContent.children.length;
             
