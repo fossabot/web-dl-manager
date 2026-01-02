@@ -59,8 +59,9 @@
                     <ul class="dropdown-menu text-small dropdown-menu-end" aria-labelledby="userDropdown">
                         <li><span class="dropdown-item-text">Signed in as <strong>{{ user }}</strong></span></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/change_password">Change Password</a></li>
-                        <li><a class="dropdown-item" href="/logout">Logout</a></li>
+                        <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear me-2"></i>{{ lang.settings_title }}</a></li>
+                        <li><a class="dropdown-item" href="/change_password"><i class="bi bi-key me-2"></i>Change Password</a></li>
+                        <li><a class="dropdown-item" href="/logout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>
                 {% endif %}

@@ -73,6 +73,80 @@ async def change_password_page(request: Request, current_user: User = Depends(ge
         "lang": lang
     })
 
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, current_user: User = Depends(get_current_user)):
+    lang = get_lang(request)
+    
+    # Fetch current configuration from database
+    config_keys = [
+        "TUNNEL_TOKEN", 
+        "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID",
+        "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS",
+        "AVATAR_URL"
+    ]
+    
+    current_config = {key: db_config.get_config(key, "") for key in config_keys}
+    
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "user": current_user.username,
+        "lang": lang,
+        "config": current_config,
+        "avatar_url": AVATAR_URL
+    })
+
+@router.post("/settings", response_class=HTMLResponse)
+async def save_settings(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    TUNNEL_TOKEN: str = Form(None),
+    WDM_GOFILE_TOKEN: str = Form(None),
+    WDM_GOFILE_FOLDER_ID: str = Form(None),
+    WDM_OPENLIST_URL: str = Form(None),
+    WDM_OPENLIST_USER: str = Form(None),
+    WDM_OPENLIST_PASS: str = Form(None),
+    AVATAR_URL_INPUT: str = Form(None)
+):
+    lang = get_lang(request)
+    
+    try:
+        # Save all configs
+        if TUNNEL_TOKEN is not None: db_config.set_config("TUNNEL_TOKEN", TUNNEL_TOKEN.strip())
+        if WDM_GOFILE_TOKEN is not None: db_config.set_config("WDM_GOFILE_TOKEN", WDM_GOFILE_TOKEN.strip())
+        if WDM_GOFILE_FOLDER_ID is not None: db_config.set_config("WDM_GOFILE_FOLDER_ID", WDM_GOFILE_FOLDER_ID.strip())
+        if WDM_OPENLIST_URL is not None: db_config.set_config("WDM_OPENLIST_URL", WDM_OPENLIST_URL.strip())
+        if WDM_OPENLIST_USER is not None: db_config.set_config("WDM_OPENLIST_USER", WDM_OPENLIST_USER.strip())
+        if WDM_OPENLIST_PASS is not None: db_config.set_config("WDM_OPENLIST_PASS", WDM_OPENLIST_PASS.strip())
+        if AVATAR_URL_INPUT is not None: db_config.set_config("AVATAR_URL", AVATAR_URL_INPUT.strip())
+        
+        # Clear cache to ensure new settings are picked up
+        db_config.clear_cache()
+        
+        # Fetch updated config for rendering
+        config_keys = ["TUNNEL_TOKEN", "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID", "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS", "AVATAR_URL"]
+        current_config = {key: db_config.get_config(key, "") for key in config_keys}
+        
+        return templates.TemplateResponse("settings.html", {
+            "request": request,
+            "user": current_user.username,
+            "lang": lang,
+            "config": current_config,
+            "success": lang["settings_saved_success"],
+            "avatar_url": AVATAR_URL
+        })
+    except Exception as e:
+        # Re-fetch for rendering on error
+        config_keys = ["TUNNEL_TOKEN", "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID", "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS", "AVATAR_URL"]
+        current_config = {key: db_config.get_config(key, "") for key in config_keys}
+        return templates.TemplateResponse("settings.html", {
+            "request": request,
+            "user": current_user.username,
+            "lang": lang,
+            "config": current_config,
+            "error": f"{lang['settings_update_failed']}: {str(e)}",
+            "avatar_url": AVATAR_URL
+        })
+
 @router.post("/change_password", response_class=HTMLResponse)
 async def change_password(
     request: Request,

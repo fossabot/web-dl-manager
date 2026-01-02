@@ -104,7 +104,13 @@ LANGUAGES = {
         "login_error": "Invalid username or password",
         "user_not_found": "User not found",
         "password_incorrect": "Password is incorrect",
-
+        "settings_title": "Settings",
+        "system_settings_title": "System Settings",
+        "save_settings_button": "Save Settings",
+        "settings_saved_success": "Settings saved successfully.",
+        "settings_update_failed": "Failed to update settings.",
+        "general_settings_section": "General Settings",
+        "storage_services_section": "Storage Services",
     },
     "zh": {
         "app_title": "Web-DL-Manager",
