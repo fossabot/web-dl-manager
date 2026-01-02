@@ -154,7 +154,14 @@ def check_for_updates() -> dict:
         remote_ver = get_remote_version_tag()
         local_ver = get_local_version_tag()
 
+        # Primary check: SHA mismatch
         update_available = new_sha != old_sha if old_sha else True
+        
+        # Refinement: If semantic versions are available and identical, 
+        # it's likely a manual edit or local dev, so don't prompt for update.
+        if update_available and remote_ver and local_ver and remote_ver == local_ver:
+            update_available = False
+            
         commits_behind = 0
         
         if update_available and old_sha:
