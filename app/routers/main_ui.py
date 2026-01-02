@@ -45,15 +45,7 @@ async def get_downloader(request: Request, current_user: User = Depends(get_curr
         "upload_configs": upload_configs
     })
 
-@router.get("/terminal", response_class=HTMLResponse)
-async def get_terminal(request: Request, current_user: User = Depends(get_current_user)):
-    lang = get_lang(request)
-    return templates.TemplateResponse("terminal.html", {
-        "request": request,
-        "lang": lang,
-        "user": current_user.username,
-        "avatar_url": AVATAR_URL
-    })
+
 
 @router.get("/tasks", response_class=HTMLResponse)
 async def get_tasks(request: Request, current_user: User = Depends(get_current_user)):

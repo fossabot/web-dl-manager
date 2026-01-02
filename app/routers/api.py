@@ -17,7 +17,7 @@ from ..auth import get_current_user
 from ..database import User
 from ..config import BASE_DIR, STATUS_DIR
 from ..tasks import process_download_job
-from ..utils import get_task_status_path, update_task_status, backup_gallery_dl_config
+from ..utils import get_task_status_path, update_task_status
 
 
 router = APIRouter(
@@ -68,87 +68,7 @@ async def update_page_library_api():
     return JSONResponse(content=result)
 
 
-# --- OAuth ---
-class OAuthRequest(BaseModel):
-    param: str
 
-async def run_oauth_command(task_id: str, param: str, log_file: Path):
-    """Run the gallery-dl oauth command asynchronously."""
-    command = f"gallery-dl oauth:{param}"
-    try:
-        # 初始日志
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nExecuting: {command}\n")
-            f.flush()
-        
-        # 创建子进程，捕获stdout和stderr
-        process = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            stdin=asyncio.subprocess.PIPE,  # 用于交互式命令
-            preexec_fn=os.setsid
-        )
-        
-        # 实时读取输出并写入日志文件
-        async def read_stream(stream, stream_name):
-            while True:
-                line = await stream.readline()
-                if not line:
-                    break
-                line_str = line.decode('utf-8', errors='replace')
-                with open(log_file, "a", encoding="utf-8") as f:
-                    f.write(line_str)
-                    f.flush()
-        
-        # 同时读取stdout和stderr
-        await asyncio.gather(
-            read_stream(process.stdout, 'stdout'),
-            read_stream(process.stderr, 'stderr')
-        )
-        
-        # 等待进程结束
-        returncode = await process.wait()
-        
-        # 记录完成状态
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nOAuth command completed with exit code: {returncode}\n")
-            f.flush()
-        
-        if returncode == 0:
-            await backup_gallery_dl_config(log_file)
-        
-    except Exception as e:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"\nError executing OAuth command: {str(e)}\n")
-            f.flush()
-
-@router.post("/oauth-execute")
-async def oauth_execute(req: OAuthRequest, request: Request):
-    if not re.match(r'^[a-zA-Z0-9_-]+$', req.param):
-        raise HTTPException(status_code=400, detail="Parameter can only contain letters, numbers, hyphens and underscores.")
-    
-    task_id = str(uuid.uuid4())
-    status_file = STATUS_DIR / f"oauth_{task_id}.log"
-    
-    with open(status_file, "w", encoding="utf-8") as f:
-        f.write(f"Starting OAuth authentication for: {req.param}\n")
-        f.write(f"Command: gallery-dl oauth:{req.param}\n")
-    
-    asyncio.create_task(run_oauth_command(task_id, req.param, status_file))
-    
-    return JSONResponse(status_code=200, content={"status": "started", "task_id": task_id})
-
-@router.get("/oauth-logs/{task_id}")
-async def get_oauth_logs(task_id: str):
-    log_file = STATUS_DIR / f"oauth_{task_id}.log"
-    if not log_file.exists():
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    with open(log_file, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    return JSONResponse(content={"status": "success", "task_id": task_id, "log": content})
 
 
 # --- Downloads & Tasks ---

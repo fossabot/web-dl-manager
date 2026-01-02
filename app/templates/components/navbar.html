@@ -27,11 +27,7 @@
                         <i class="bi bi-cloud-arrow-up"></i> 更新管理
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/terminal">
-                        <i class="bi bi-terminal"></i> 终端
-                    </a>
-                </li>
+
                 {% endif %}
             </ul>
             
@@ -49,15 +45,15 @@
                         <i class="bi bi-translate"></i>
                     </button>
                     <ul class="dropdown-menu" aria-labelledby="languageDropdown">
-                        <li><a class="dropdown-item" href="#" onclick="setLanguage('en')">English</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="setLanguage('zh')">中文</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0);" onclick="setLanguage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0);" onclick="setLanguage('zh')">中文</a></li>
                     </ul>
                 </div>
                 
                 <!-- 用户菜单 -->
                 {% if user %}
                 <div class="dropdown">
-                    <a href="#" class="d-block link-dark text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a href="javascript:void(0);" class="d-block link-dark text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <img src="{{ avatar_url }}" alt="Avatar" class="rounded-circle navbar-avatar" width="32" height="32">
                     </a>
                     <ul class="dropdown-menu text-small dropdown-menu-end" aria-labelledby="userDropdown">

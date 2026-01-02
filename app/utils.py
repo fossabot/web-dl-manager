@@ -284,49 +284,7 @@ async def _run_rclone_command(command: str, log_file: Optional[Path] = None):
     
     return process.returncode == 0
 
-async def backup_gallery_dl_config(log_file: Optional[Path] = None):
-    """Backup gallery-dl configuration files if configured."""
-    if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
-        message = "Configuration backup not configured. Skipping backup."
-        if log_file:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"\n{message}\n")
-        else:
-            logger.info(message)
-        return
 
-    if not GALLERY_DL_CONFIG_DIR.exists():
-        message = f"Gallery-dl config directory not found, nothing to back up: {GALLERY_DL_CONFIG_DIR}"
-        if log_file:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"\n{message}\n")
-        else:
-            logger.warning(message)
-        return
-
-    try:
-        rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
-    except Exception as e:
-        message = f"Failed to decode base64 rclone config for backup: {str(e)}"
-        if log_file:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"\n{message}\n")
-        else:
-            logger.error(message)
-        return
-
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
-        tmp_config_path = tmp_file.name
-        tmp_file.write(rclone_config_content)
-
-    try:
-        rclone_cmd = (f"rclone copy --config \"{tmp_config_path}\" "
-                      f"\"{GALLERY_DL_CONFIG_DIR}\" \"{CONFIG_BACKUP_REMOTE_PATH}\" "
-                      f"-P --log-level=INFO")
-        await _run_rclone_command(rclone_cmd, log_file)
-    finally:
-        if os.path.exists(tmp_config_path):
-            os.unlink(tmp_config_path)
 
 
 async def restore_gallery_dl_config():
