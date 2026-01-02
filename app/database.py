@@ -28,16 +28,48 @@ elif FINAL_DATABASE_URL.startswith("mysql://"):
     FINAL_DATABASE_URL = FINAL_DATABASE_URL.replace("mysql://", "mysql+pymysql://")
 
 # SQLAlchemy Setup
+def create_db_engine(url):
+    """Creates a database engine with a fallback strategy for MySQL SSL."""
+    if "mysql" in url:
+        # 1. Attempt plain connection first
+        try:
+            logger.info("Attempting plain MySQL connection...")
+            temp_engine = create_engine(url, pool_pre_ping=True)
+            # Test connection immediately
+            with temp_engine.connect() as conn:
+                logger.info("Plain MySQL connection successful.")
+                return temp_engine
+        except Exception as e:
+            logger.info(f"Plain MySQL connection failed ({e}). Attempting SSL with trusted certificates...")
+            # 2. Attempt SSL connection, trusting all certificates (no verification)
+            try:
+                # For pymysql, passing a dict to 'ssl' enables SSL.
+                # Disabling 'check_hostname' and not providing 'ca' effectively trusts remote certs.
+                ssl_engine = create_engine(
+                    url, 
+                    pool_pre_ping=True, 
+                    connect_args={"ssl": {"check_hostname": False}}
+                )
+                # Test connection
+                with ssl_engine.connect() as conn:
+                    logger.info("SSL MySQL connection successful (certificates trusted).")
+                    return ssl_engine
+            except Exception as e2:
+                logger.error(f"MySQL SSL connection failed: {e2}")
+                raise e2
+    else:
+        # SQLite or other schemes
+        return create_engine(
+            url, 
+            connect_args={"check_same_thread": False} if "sqlite" in url else {}
+        )
+
 try:
-    engine = create_engine(
-        FINAL_DATABASE_URL, 
-        pool_pre_ping=True,
-        # SQLite specific args, ignored by MySQL
-        connect_args={"check_same_thread": False} if "sqlite" in FINAL_DATABASE_URL else {}
-    )
+    engine = create_db_engine(FINAL_DATABASE_URL)
 except Exception as e:
-    logger.error(f"Failed to create database engine: {e}")
-    # Fallback to in-memory sqlite to prevent crash, though app might be unusable
+    logger.error(f"Failed to initialize database engine: {e}")
+    logger.warning("Falling back to in-memory SQLite database.")
+    # Fallback to in-memory sqlite to prevent crash
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
