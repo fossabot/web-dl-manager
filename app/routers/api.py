@@ -280,6 +280,13 @@ def get_system_uptime():
     hours, minutes = divmod(remainder, 60)
     return f"{delta.days}d {days}h {minutes}m"
 
+@router.get("/status/all_tasks")
+async def get_all_tasks_json():
+    """Returns all tasks as a JSON list for the frontend."""
+    from ..status import get_all_tasks
+    tasks = get_all_tasks()
+    return JSONResponse(content=tasks)
+
 @router.get("/server-status/json")
 async def get_server_status():
     import psutil, platform
