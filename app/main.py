@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     # Create changelog if it doesn't exist
     changelog_file = PROJECT_ROOT / "CHANGELOG.md"
     if not changelog_file.exists():
-        changelog_file.write_text("# Changelog\n\nNo changelog information available yet.")
+        changelog_file.write_text("# Changelog\n\nNo changelog information available yet.", encoding="utf-8")
         
     # Configure database logging
     db_handler = MySQLLogHandler()
@@ -116,9 +116,11 @@ if static_site_dir.is_dir():
     camouflage_app.mount("/", StaticFiles(directory=static_site_dir, html=True), name="static_site")
 
 # --- Session Middleware ---
-session_secret_key = os.getenv("SESSION_SECRET_KEY", "web-dl-manager-shared-secret-key-2024")
-camouflage_app.add_middleware(SessionMiddleware, secret_key=session_secret_key)
-main_app.add_middleware(SessionMiddleware, secret_key=session_secret_key)
+# Generate a random secret key on startup to ensure sessions are invalidated on server restart
+session_secret_key = secrets.token_hex(32)
+# max_age=None ensures the cookie is a "session cookie" that expires when the browser is closed
+camouflage_app.add_middleware(SessionMiddleware, secret_key=session_secret_key, max_age=None)
+main_app.add_middleware(SessionMiddleware, secret_key=session_secret_key, max_age=None)
 
 # --- Router Inclusion ---
 camouflage_app.include_router(camouflage.router, dependencies=[Depends(check_setup_needed_camouflage)])

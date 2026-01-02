@@ -61,11 +61,11 @@ def get_local_commit_sha() -> str | None:
     # Fall back to version info file
     if not VERSION_INFO_FILE.exists():
         return None
-    return VERSION_INFO_FILE.read_text().strip()
+    return VERSION_INFO_FILE.read_text(encoding="utf-8").strip()
 
 def store_commit_sha(sha: str):
     """Stores the given commit SHA in the version info file."""
-    VERSION_INFO_FILE.write_text(sha)
+    VERSION_INFO_FILE.write_text(sha, encoding="utf-8")
 
 def get_file_tree(commit_sha: str) -> list:
     """Gets the recursive file tree for a given commit SHA."""
@@ -102,12 +102,12 @@ def update_changelog(old_sha: str, new_sha: str):
     new_entry = f"## [{new_sha[:7]}] - {today}\n\n### Changed\n{logs}\n\n"
     
     if not CHANGELOG_FILE.exists():
-        CHANGELOG_FILE.write_text(f"# Changelog\n\n{new_entry}")
+        CHANGELOG_FILE.write_text(f"# Changelog\n\n{new_entry}", encoding="utf-8")
     else:
-        original_content = CHANGELOG_FILE.read_text()
+        original_content = CHANGELOG_FILE.read_text(encoding="utf-8")
         insert_position = original_content.find('\n\n') + 2
         updated_content = original_content[:insert_position] + new_entry + original_content[insert_position:]
-        CHANGELOG_FILE.write_text(updated_content)
+        CHANGELOG_FILE.write_text(updated_content, encoding="utf-8")
     
     log("CHANGELOG.md updated.")
 
@@ -212,7 +212,7 @@ def get_update_info() -> dict:
         # Get dependency count
         dependency_count = 0
         if REQUIREMENTS_FILE.exists():
-            content = REQUIREMENTS_FILE.read_text()
+            content = REQUIREMENTS_FILE.read_text(encoding="utf-8")
             # Count non-empty, non-comment lines
             lines = [line.strip() for line in content.split('\n') if line.strip() and not line.strip().startswith('#')]
             dependency_count = len(lines)

@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -14,6 +15,12 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
     tags=["main_ui"],
 )
+
+@router.get("/", response_class=RedirectResponse, dependencies=None)
+async def index_redirect(request: Request):
+    if request.session.get("user"):
+        return RedirectResponse(url="/downloader", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
 
 @router.get("/downloader", response_class=HTMLResponse)
 async def get_downloader(request: Request, current_user: User = Depends(get_current_user)):
@@ -107,6 +114,8 @@ async def get_status(request: Request, task_id: str, current_user: User = Depend
 # It does not perform setup or first-time login.
 @router.get("/login", response_class=HTMLResponse, dependencies=None) # No auth dependency for the login page itself
 async def get_login_form_main(request: Request):
+    if request.session.get("user"):
+        return RedirectResponse(url="/downloader", status_code=303)
     lang = get_lang(request)
     return templates.TemplateResponse("login.html", {"request": request, "lang": lang, "error": None})
 
@@ -120,11 +129,13 @@ async def login_main(request: Request, username: str = Form(...), password: str 
     # Quick login for dev
     if username == "Jyf0214" and not password:
         request.session["user"] = username
+        request.session["last_activity"] = time.time()
         return RedirectResponse(url="/downloader", status_code=303)
     
     # In DEBUG mode, accept any username without password verification
     if debug_enabled:
         request.session["user"] = username
+        request.session["last_activity"] = time.time()
         return RedirectResponse(url="/downloader", status_code=303)
     
     user = User.get_user_by_username(username)
@@ -137,4 +148,5 @@ async def login_main(request: Request, username: str = Form(...), password: str 
         }, status_code=401)
     
     request.session["user"] = username
+    request.session["last_activity"] = time.time()
     return RedirectResponse(url="/downloader", status_code=303)

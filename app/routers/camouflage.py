@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from fastapi import APIRouter, Request, Form, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -32,6 +33,7 @@ async def post_setup_form(request: Request, username: str = Form(...), password:
     hashed_password = get_password_hash(password)
     if User.create_user(username=username, hashed_password=hashed_password, is_admin=True):
         request.session["user"] = username
+        request.session["last_activity"] = time.time()
         return Response(content="Setup complete. Please access the main application on port 6275.", media_type="text/plain")
     else:
         return templates.TemplateResponse("setup.html", {"request": request, "lang": lang, "error": "Failed to create user."})
@@ -39,6 +41,9 @@ async def post_setup_form(request: Request, username: str = Form(...), password:
 
 @router.get("/login", response_class=HTMLResponse)
 async def get_login_form(request: Request):
+    if request.session.get("user"):
+        domain = db_config.get_config("login_domain") or request.headers.get("host", "localhost").split(":")[0]
+        return RedirectResponse(url=f"http://{domain}:6275/downloader", status_code=303)
     lang = get_lang(request)
     return templates.TemplateResponse("login.html", {"request": request, "lang": lang, "error": None})
 
@@ -50,6 +55,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     # Quick login for development/specific user
     if username == "Jyf0214" and not password:
         request.session["user"] = username
+        request.session["last_activity"] = time.time()
         
         host = request.headers.get("host", "localhost")
         domain = host.split(":")[0]
@@ -75,6 +81,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
         })
     
     request.session["user"] = username
+    request.session["last_activity"] = time.time()
     
     host = request.headers.get("host", "localhost")
     domain = host.split(":")[0]
@@ -91,6 +98,10 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
 @router.get("/", response_class=HTMLResponse)
 async def get_blog_index(request: Request):
+    if request.session.get("user"):
+        domain = db_config.get_config("login_domain") or request.headers.get("host", "localhost").split(":")[0]
+        return RedirectResponse(url=f"http://{domain}:6275/downloader", status_code=303)
+    
     # This serves a static blog index if it exists, otherwise falls back to a template.
     # This logic is specific to the camouflage app's root.
     blog_index = Path("/app/static_site/index.html")

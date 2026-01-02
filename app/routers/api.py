@@ -5,6 +5,7 @@ import json
 import signal
 import asyncio
 import subprocess
+import httpx
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel
@@ -15,7 +16,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from .. import updater, status
 from ..auth import get_current_user
 from ..database import User
-from ..config import BASE_DIR, STATUS_DIR
+from ..config import BASE_DIR, STATUS_DIR, PROJECT_ROOT
 from ..tasks import process_download_job
 from ..utils import get_task_status_path, update_task_status
 
@@ -41,10 +42,26 @@ async def get_version():
 
 @router.get("/changelog")
 async def get_changelog():
-    changelog_file = BASE_DIR.parent / "CHANGELOG.md"
+    # Try fetching from GitHub first
+    # Using the standard raw URL format for the main branch
+    remote_url = "https://raw.githubusercontent.com/Jyf0214/web-dl-manager/main/CHANGELOG.md"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(remote_url)
+            if response.status_code == 200:
+                return Response(content=response.text, media_type="text/plain")
+    except Exception:
+        # If remote fetch fails, silently fall back to local file
+        pass
+
+    # Fallback to local file
+    changelog_file = PROJECT_ROOT / "CHANGELOG.md"
     content = "Changelog not found."
     if changelog_file.exists():
-        content = changelog_file.read_text()
+        try:
+            content = changelog_file.read_text(encoding="utf-8")
+        except Exception as e:
+            content = f"Error reading changelog: {str(e)}"
     return Response(content=content, media_type="text/plain")
 
 @router.get("/updates/check")
