@@ -45,7 +45,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            DEBUG_MODE=true
+            MODE=true
 
   # preview-deployment:
   #   runs-on: ubuntu-latest
