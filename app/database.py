@@ -23,6 +23,9 @@ logger.addHandler(handler)
 FINAL_DATABASE_URL = DATABASE_URL
 if not FINAL_DATABASE_URL:
     FINAL_DATABASE_URL = f"sqlite:///{BASE_DIR.parent / 'webdl-manager.db'}"
+elif FINAL_DATABASE_URL.startswith("mysql://"):
+    # Automatically use pymysql driver if not specified
+    FINAL_DATABASE_URL = FINAL_DATABASE_URL.replace("mysql://", "mysql+pymysql://")
 
 # SQLAlchemy Setup
 try:

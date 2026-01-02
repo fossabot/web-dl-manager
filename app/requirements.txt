@@ -12,4 +12,6 @@ python-jose
 gofilepy-api
 psutil
 passlib[argon2]
-mysqlclient
+pymysql
+cryptography
+sqlalchemy
