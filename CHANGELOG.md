@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-01-02
+
+### Fixed
+- **Logging**: Fixed real-time log updates on the status page by disabling Python output buffering (`PYTHONUNBUFFERED=1`) and preventing browser caching of status API responses.
+
+### Optimized
+- **Database Performance**: Added SQLAlchemy connection pooling and an in-memory configuration cache to significantly reduce database query latency, especially for remote MySQL backends.
+- **UI Performance**: Implemented server-side caching for the changelog fetch logic to eliminate delays caused by frequent GitHub API requests.
+
 ## [0.1.4] - 2026-01-02
 
 ### Changed
