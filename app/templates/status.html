@@ -40,7 +40,13 @@
                             </h5>
                             <div class="collapse show" id="downloadLogCollapse">
                                 <div class="position-relative">
-                                    <div id="log-container" class="p-3"><code></code></div>
+                                    <div id="log-container" class="p-3"><code>
+                                        {% if log_content %}
+                                            {% for line in log_content.split('\n') %}
+                                                <div class="log-line">{{ line }}</div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </code></div>
                                     <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-download-log-button" title="{{ lang.copy_button }}">
                                         <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
                                     </button>
