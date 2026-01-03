@@ -19,7 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Optimized
 - **Log UI**: Redesigned the status page with a dedicated progress panel and dual dark-mode log containers with independent folding and scrolling.
 - **Log UI (Visibility)**: Upload logs are now hidden by default to keep the interface clean, automatically expanding only on errors.
+- **File Handling**: Enhanced `count_files_in_dir` to gracefully handle single files and non-existent paths, improving workflow resilience.
 - **Caching**: Implemented a comprehensive memory caching layer for users and tasks, including manual cache refresh capabilities to ensure data consistency and performance.
+
+### Fixed
+- **NameError**: Resolved an issue where `count_files_in_dir` was used in `tasks.py` without being imported, causing job failures after download.
+- **MEGA Downloads**: Fixed a `Not a directory` error during `megadl` jobs by ensuring the target download directory exists before starting the download.
+
 - **UI & UX**:
     - Fixed an issue where avatars failed to load (`about:blank#blocked`) on several pages by implementing a CSS variable-based loading strategy and a global template context function.
     - Added avatar previews to the login and setup pages for a more personalized experience.
