@@ -242,25 +242,39 @@
     <template id="template-webdav">
         <div class="service-config">
             <h5>{{ lang.webdav_settings_title }}</h5>
-            {% if upload_configs.webdav.url_configured or upload_configs.webdav.user_configured %}
+            {% if upload_configs.webdav.url_configured or upload_configs.webdav.user_configured or upload_configs.webdav.pass_configured %}
             <div class="alert alert-info small mb-3">
                 <i class="bi bi-info-circle"></i> 
-                {% if upload_configs.webdav.url_configured and upload_configs.webdav.user_configured %}
-                WebDAV服务已通过环境变量配置。请直接使用已配置的服务。
-                {% elif upload_configs.webdav.url_configured %}
-                WebDAV URL已通过环境变量配置，请输入用户名和密码。
-                {% elif upload_configs.webdav.user_configured %}
-                WebDAV用户名已通过环境变量配置，请输入URL和密码。
+                {% if upload_configs.webdav.url_configured and upload_configs.webdav.user_configured and upload_configs.webdav.pass_configured %}
+                WebDAV服务已完整配置。您可以直接开始下载，或在下方输入新信息以临时覆盖。
+                {% else %}
+                部分WebDAV配置已存在：
+                <ul>
+                    {% if upload_configs.webdav.url_configured %}<li>URL 已配置</li>{% endif %}
+                    {% if upload_configs.webdav.user_configured %}<li>用户名 已配置</li>{% endif %}
+                    {% if upload_configs.webdav.pass_configured %}<li>密码 已配置</li>{% endif %}
+                </ul>
+                请输入缺失的信息。
                 {% endif %}
             </div>
             {% endif %}
+            
             {% if not upload_configs.webdav.url_configured %}
             <div class="mb-3"><label for="webdav_url" class="form-label">{{ lang.webdav_url_label }}</label><input type="url" class="form-control" id="webdav_url" name="webdav_url" placeholder="{{ lang.webdav_url_placeholder }}" required></div>
+            {% else %}
+            <div class="mb-3"><label for="webdav_url" class="form-label">{{ lang.webdav_url_label }} (可选)</label><input type="url" class="form-control" id="webdav_url" name="webdav_url" placeholder="留空则使用已保存的URL"></div>
             {% endif %}
+
             {% if not upload_configs.webdav.user_configured %}
             <div class="mb-3"><label for="webdav_user" class="form-label">{{ lang.webdav_username_label }}</label><input type="text" class="form-control" id="webdav_user" name="webdav_user" placeholder="Username" required></div>
+            {% else %}
+            <div class="mb-3"><label for="webdav_user" class="form-label">{{ lang.webdav_username_label }} (可选)</label><input type="text" class="form-control" id="webdav_user" name="webdav_user" placeholder="留空则使用已保存的用户名"></div>
             {% endif %}
-            <div class="mb-3"><label for="webdav_pass" class="form-label">{{ lang.webdav_password_label }}</label><input type="password" class="form-control" id="webdav_pass" name="webdav_pass" placeholder="Password" {% if not upload_configs.webdav.url_configured or not upload_configs.webdav.user_configured %}required{% endif %} autocomplete="new-password"></div>
+
+            <div class="mb-3">
+                <label for="webdav_pass" class="form-label">{{ lang.webdav_password_label }} {% if upload_configs.webdav.pass_configured %}(可选){% endif %}</label>
+                <input type="password" class="form-control" id="webdav_pass" name="webdav_pass" placeholder="{% if upload_configs.webdav.pass_configured %}留空则使用已保存的密码{% else %}Password{% endif %}" {% if not upload_configs.webdav.pass_configured and (not upload_configs.webdav.url_configured or not upload_configs.webdav.user_configured) %}required{% endif %} autocomplete="new-password">
+            </div>
         </div>
     </template>
     <template id="template-s3">
@@ -338,25 +352,39 @@
             <template id="template-openlist">
                 <div class="service-config">
                     <h5>Openlist Settings</h5>
-                    {% if upload_configs.openlist.url_configured or upload_configs.openlist.user_configured %}
-                    <div class="alert alert-info mb-3">
+                    {% if upload_configs.openlist.url_configured or upload_configs.openlist.user_configured or upload_configs.openlist.pass_configured %}
+                    <div class="alert alert-info small mb-3">
                         <i class="bi bi-info-circle"></i> 
-                        {% if upload_configs.openlist.url_configured and upload_configs.openlist.user_configured %}
-                        Openlist服务已通过环境变量配置。请直接使用已配置的服务。
-                        {% elif upload_configs.openlist.url_configured %}
-                        Openlist URL已通过环境变量配置，请输入用户名和密码。
-                        {% elif upload_configs.openlist.user_configured %}
-                        Openlist用户名已通过环境变量配置，请输入URL和密码。
+                        {% if upload_configs.openlist.url_configured and upload_configs.openlist.user_configured and upload_configs.openlist.pass_configured %}
+                        Openlist服务已完整配置。您可以直接开始下载，或在下方输入新信息以临时覆盖。
+                        {% else %}
+                        部分Openlist配置已存在：
+                        <ul>
+                            {% if upload_configs.openlist.url_configured %}<li>URL 已配置</li>{% endif %}
+                            {% if upload_configs.openlist.user_configured %}<li>用户名 已配置</li>{% endif %}
+                            {% if upload_configs.openlist.pass_configured %}<li>密码 已配置</li>{% endif %}
+                        </ul>
+                        请输入缺失的信息。
                         {% endif %}
                     </div>
                     {% endif %}
+
                     {% if not upload_configs.openlist.url_configured %}
                     <div class="mb-3"><label for="openlist_url" class="form-label">Openlist URL</label><input type="url" class="form-control" id="openlist_url" name="openlist_url" placeholder="e.g., http://your-alist-server.com" required></div>
+                    {% else %}
+                    <div class="mb-3"><label for="openlist_url" class="form-label">Openlist URL (可选)</label><input type="url" class="form-control" id="openlist_url" name="openlist_url" placeholder="留空则使用已保存的URL"></div>
                     {% endif %}
+
                     {% if not upload_configs.openlist.user_configured %}
                     <div class="mb-3"><label for="openlist_user" class="form-label">Username</label><input type="text" class="form-control" id="openlist_user" name="openlist_user" required></div>
+                    {% else %}
+                    <div class="mb-3"><label for="openlist_user" class="form-label">Username (可选)</label><input type="text" class="form-control" id="openlist_user" name="openlist_user" placeholder="留空则使用已保存的用户名"></div>
                     {% endif %}
-                    <div class="mb-3"><label for="openlist_pass" class="form-label">Password</label><input type="password" class="form-control" id="openlist_pass" name="openlist_pass" required autocomplete="new-password"></div>
+
+                    <div class="mb-3">
+                        <label for="openlist_pass" class="form-label">Password {% if upload_configs.openlist.pass_configured %}(可选){% endif %}</label>
+                        <input type="password" class="form-control" id="openlist_pass" name="openlist_pass" placeholder="{% if upload_configs.openlist.pass_configured %}留空则使用已保存的密码{% else %}Password{% endif %}" {% if not upload_configs.openlist.pass_configured %}required{% endif %} autocomplete="new-password">
+                    </div>
                 </div>
             </template>
             

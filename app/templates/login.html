@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
         :root {
-            --wdm-avatar-url: url('{{ get_avatar_url() }}');
+            --wdm-avatar-url: url("{{ get_avatar_url() | safe }}");
         }
         .login-avatar {
             width: 80px;
