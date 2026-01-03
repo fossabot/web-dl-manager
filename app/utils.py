@@ -44,9 +44,16 @@ def get_net_speed():
     return max(0, recv_speed), max(0, sent_speed)
 
 def count_files_in_dir(directory: Path) -> Dict[str, Any]:
-    """Counts files and total size in a directory."""
+    """Counts files and total size in a directory or single file."""
     count = 0
     total_size = 0
+    
+    if not directory.exists():
+        return {"count": 0, "size": 0}
+        
+    if directory.is_file():
+        return {"count": 1, "size": directory.stat().st_size}
+        
     for item in directory.rglob("*"):
         if item.is_file():
             count += 1

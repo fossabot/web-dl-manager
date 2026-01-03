@@ -302,6 +302,9 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
         
         downloader = params.get("downloader", "gallery-dl")
 
+        # Ensure task_download_dir exists
+        task_download_dir.mkdir(parents=True, exist_ok=True)
+
         if debug_enabled:
             logger.debug(f"[WORKFLOW] 配置下载器: {downloader}")
             logger.debug(f"[WORKFLOW] 代理设置: {proxy if proxy else '无'}")
