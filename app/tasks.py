@@ -3,6 +3,7 @@ import asyncio
 import signal
 import shutil
 import random
+import time
 import logging
 from pathlib import Path
 
@@ -160,23 +161,70 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                 await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_task_dir, status_file)
                 
                 uploaded_count = 0
+                total_uploaded_size = 0
+                last_update_time = 0
+                
+                def format_size(size):
+                    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                        if size < 1024.0:
+                            return f"{size:.2f} {unit}"
+                        size /= 1024.0
+                    return f"{size:.2f} PB"
+
                 async def upload_dir_contents(local_dir: Path, remote_dir: str):
-                    nonlocal uploaded_count
+                    nonlocal uploaded_count, total_uploaded_size, last_update_time
                     for item in local_dir.iterdir():
                         if item.is_dir():
                             remote_item_path = f"{remote_dir}/{item.name}"
                             await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_item_path, status_file)
                             await upload_dir_contents(item, remote_item_path)
                         else:
-                            await asyncio.to_thread(openlist.upload_file, openlist_url, token, item, remote_dir, status_file)
+                            file_size = item.stat().st_size
+                            def progress_handler(current, total):
+                                nonlocal last_update_time
+                                now = time.time()
+                                if now - last_update_time < 0.5 and current < total:
+                                    return
+                                last_update_time = now
+                                
+                                # Total progress calculation
+                                current_total_uploaded = total_uploaded_size + current
+                                total_percent = int((current_total_uploaded / stats["size"]) * 100) if stats["size"] > 0 else 0
+                                file_percent = int((current / total) * 100) if total > 0 else 0
+                                
+                                update_task_status(task_id, {
+                                    "upload_stats": {
+                                        "total_files": stats["count"],
+                                        "total_size": stats["size"],
+                                        "uploaded_files": uploaded_count,
+                                        "percent": total_percent,
+                                        "file_percent": file_percent,
+                                        "current_file": item.name,
+                                        "transferred": format_size(current_total_uploaded),
+                                        "total": format_size(stats["size"])
+                                    }
+                                })
+
+                            await asyncio.to_thread(openlist.upload_file, openlist_url, token, item, remote_dir, status_file, progress_handler)
+                            
                             uploaded_count += 1
+                            total_uploaded_size += file_size
+                            
+                            # Final update for this file
                             percent = int((uploaded_count / stats["count"]) * 100) if stats["count"] > 0 else 100
+                            # Also update total size based percent for consistency
+                            total_percent_size = int((total_uploaded_size / stats["size"]) * 100) if stats["size"] > 0 else 100
+                            
                             update_task_status(task_id, {
                                 "upload_stats": {
                                     "total_files": stats["count"],
                                     "total_size": stats["size"],
                                     "uploaded_files": uploaded_count,
-                                    "percent": percent
+                                    "percent": total_percent_size,
+                                    "file_percent": 100,
+                                    "current_file": item.name,
+                                    "transferred": format_size(total_uploaded_size),
+                                    "total": format_size(stats["size"])
                                 }
                             })
     
@@ -443,8 +491,58 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, upload_log_file)
                 await asyncio.to_thread(openlist.create_directory, openlist_url, token, upload_path, upload_log_file)
                 
+                # Initialize tracking variables for archives
+                total_archives_size = sum(p.stat().st_size for p in archive_paths)
+                total_uploaded_archives_size = 0
+                last_update_time = 0
+                
+                def format_size(size):
+                    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                        if size < 1024.0:
+                            return f"{size:.2f} {unit}"
+                        size /= 1024.0
+                    return f"{size:.2f} PB"
+
                 # Single archive upload in openlist (could be multiple if split)
-                await asyncio.to_thread(openlist.upload_file, openlist_url, token, archive_path, upload_path, upload_log_file)
+                current_archive_size = archive_path.stat().st_size
+                
+                def progress_handler(current, total):
+                    nonlocal last_update_time
+                    now = time.time()
+                    if now - last_update_time < 0.5 and current < total:
+                        return
+                    last_update_time = now
+                    
+                    # Total progress (considering previously uploaded archives in the loop)
+                    # Note: uploaded_count is updated AFTER the file is done in the loop
+                    # So current_total includes size of already uploaded files + current progress
+                    
+                    # We need to calculate size of *previous* archives in this loop
+                    # The loop iterates 'archive_paths'. We can use 'uploaded_count' as index if we are careful,
+                    # but simpler to just track accumulated size.
+                    
+                    # Actually, 'uploaded_count' is incremented at the end of loop.
+                    # So 'total_uploaded_archives_size' tracks completed files.
+                    
+                    current_total_uploaded = total_uploaded_archives_size + current
+                    total_percent = int((current_total_uploaded / total_archives_size) * 100) if total_archives_size > 0 else 0
+                    file_percent = int((current / total) * 100) if total > 0 else 0
+                    
+                    update_task_status(task_id, {
+                        "upload_stats": {
+                            "total_files": total_upload_files,
+                            "uploaded_files": uploaded_count,
+                            "percent": total_percent,
+                            "file_percent": file_percent,
+                            "current_file": archive_path.name,
+                            "transferred": format_size(current_total_uploaded),
+                            "total": format_size(total_archives_size)
+                        }
+                    })
+
+                await asyncio.to_thread(openlist.upload_file, openlist_url, token, archive_path, upload_path, upload_log_file, progress_handler)
+                
+                total_uploaded_archives_size += current_archive_size
                 
                 uploaded_count += 1
                 percent = int((uploaded_count / total_upload_files) * 100)
