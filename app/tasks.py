@@ -17,6 +17,7 @@ from .utils import (
     generate_archive_name,
     update_task_status,
     convert_rate_limit_to_kbps,
+    count_files_in_dir,
 )
 
 # 获取logger
