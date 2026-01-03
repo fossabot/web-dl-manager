@@ -1,7 +1,7 @@
 # Web-DL-Manager 🚀
 
 [![Docker Build](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml)
-[![Version](https://img.shields.io/badge/version-0.1.4-blue.svg)](https://github.com/Jyf0214/web-dl-manager)
+[![Version](https://img.shields.io/badge/version-0.1.6-blue.svg)](https://github.com/Jyf0214/web-dl-manager)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Web-DL-Manager** 是一款专为私有化部署设计的自动化下载与云端分发管理系统。它不仅为 `gallery-dl` 和 `megadl` 提供了现代化的 Web 界面，更集成了一套从**高效抓取**、**极速压缩**到**多云端自动上传**的完整工作流。

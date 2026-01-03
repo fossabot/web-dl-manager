@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-01-03
+
+### Added
+- **Dashboard**: Introduced a standalone static dashboard at `/page` featuring a modern UI and CORS support for flexible access.
+- **Settings**: Added a dedicated system settings page, enabling users to update configurations directly through the UI after logging in.
+
+### Optimized
+- **Caching**: Implemented a comprehensive memory caching layer for users and tasks, including manual cache refresh capabilities to ensure data consistency and performance.
+
 ## [0.1.5] - 2026-01-02
 
 ### Fixed
