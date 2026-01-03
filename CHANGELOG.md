@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-01-03
 
 ### Added
+- **Dual Progress Monitoring**: Implemented real-time progress tracking for Openlist uploads, showing both individual file percentage and overall task percentage in the UI.
 - **Upload Progress**: Implemented real-time upload progress tracking for both rclone and Openlist, including percentage, file counts, and data size.
 - **Speed Dashboard**: Added a real-time network speed monitor (Up/Down) to the job status page.
 - **Log Management**: Separated download and upload logs into distinct files and UI containers for better clarity and debugging.
