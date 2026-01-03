@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Optimized
 - **Caching**: Implemented a comprehensive memory caching layer for users and tasks, including manual cache refresh capabilities to ensure data consistency and performance.
+- **UI & UX**:
+    - Fixed an issue where avatars failed to load (`about:blank#blocked`) on several pages by implementing a CSS variable-based loading strategy and a global template context function.
+    - Added avatar previews to the login and setup pages for a more personalized experience.
 - **Consistency**: Standardized configuration keys (e.g., `TUNNEL_TOKEN`) to uppercase across the entire codebase to prevent case-sensitivity issues between database and environment variables.
 - **Repository**: Updated `.gitignore` to properly exclude build artifacts (`.next/`, `node_modules/`) and application log files.
 
