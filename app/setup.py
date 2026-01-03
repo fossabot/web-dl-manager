@@ -18,7 +18,7 @@ if sys.platform == "win32":
 
 setup(
     name="gallery-dl-web",
-    version="0.1",
+    version="1.2.0",
     description="gallery-dl-web application",
     options={"build_exe": build_exe_options},
     executables=[Executable("app/main.py", base=base)]

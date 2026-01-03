@@ -151,13 +151,13 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                 with open(status_file, "a") as f:
                     f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---\n")
                 
-                token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
+                token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, status_file)
                 
                 if "terabox" in upload_path:
                     remote_task_dir = upload_path
                 else:
                     remote_task_dir = f"{upload_path}/{task_id}"
-                openlist.create_directory(openlist_url, token, remote_task_dir, status_file)
+                await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_task_dir, status_file)
                 
                 uploaded_count = 0
                 async def upload_dir_contents(local_dir: Path, remote_dir: str):
@@ -165,10 +165,10 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                     for item in local_dir.iterdir():
                         if item.is_dir():
                             remote_item_path = f"{remote_dir}/{item.name}"
-                            openlist.create_directory(openlist_url, token, remote_item_path, status_file)
+                            await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_item_path, status_file)
                             await upload_dir_contents(item, remote_item_path)
                         else:
-                            openlist.upload_file(openlist_url, token, item, remote_dir, status_file)
+                            await asyncio.to_thread(openlist.upload_file, openlist_url, token, item, remote_dir, status_file)
                             uploaded_count += 1
                             percent = int((uploaded_count / stats["count"]) * 100) if stats["count"] > 0 else 100
                             update_task_status(task_id, {
@@ -440,11 +440,11 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
                     raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
                 with open(upload_log_file, "a") as f: f.write(f"\n--- Starting Openlist Upload ---\n")
-                token = openlist.login(openlist_url, openlist_user, openlist_pass, upload_log_file)
-                openlist.create_directory(openlist_url, token, upload_path, upload_log_file)
+                token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, upload_log_file)
+                await asyncio.to_thread(openlist.create_directory, openlist_url, token, upload_path, upload_log_file)
                 
                 # Single archive upload in openlist (could be multiple if split)
-                openlist.upload_file(openlist_url, token, archive_path, upload_path, upload_log_file)
+                await asyncio.to_thread(openlist.upload_file, openlist_url, token, archive_path, upload_path, upload_log_file)
                 
                 uploaded_count += 1
                 percent = int((uploaded_count / total_upload_files) * 100)
