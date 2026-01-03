@@ -287,7 +287,7 @@ def main():
         # Run both apps even in debug mode to test API endpoints
         init_db()
         
-        if tunnel_token := db_config.get_config("tunnel_token"):
+        if tunnel_token := db_config.get_config("TUNNEL_TOKEN"):
             os.environ.setdefault("TUNNEL_TOKEN", tunnel_token)
         
         start_tunnel_if_env()
@@ -312,7 +312,7 @@ def main():
     else:
         init_db()
     
-        if tunnel_token := db_config.get_config("tunnel_token"):
+        if tunnel_token := db_config.get_config("TUNNEL_TOKEN"):
             os.environ.setdefault("TUNNEL_TOKEN", tunnel_token)
     
         start_tunnel_if_env()

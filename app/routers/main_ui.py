@@ -46,7 +46,7 @@ async def get_downloader(request: Request, current_user: User = Depends(get_curr
         "request": request, 
         "lang": lang, 
         "user": current_user.username, 
-        "avatar_url": AVATAR_URL,
+        "avatar_url": db_config.get_config("AVATAR_URL", AVATAR_URL),
         "services_configured": services_configured,
         "upload_configs": upload_configs
     })
@@ -82,7 +82,11 @@ async def settings_page(request: Request, current_user: User = Depends(get_curre
         "TUNNEL_TOKEN", 
         "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID",
         "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS",
-        "AVATAR_URL"
+        "WDM_WEBDAV_URL", "WDM_WEBDAV_USER", "WDM_WEBDAV_PASS",
+        "WDM_S3_PROVIDER", "WDM_S3_ACCESS_KEY_ID", "WDM_S3_SECRET_ACCESS_KEY", "WDM_S3_REGION", "WDM_S3_ENDPOINT",
+        "WDM_B2_ACCOUNT_ID", "WDM_B2_APPLICATION_KEY",
+        "WDM_CONFIG_BACKUP_RCLONE_BASE64", "WDM_CONFIG_BACKUP_REMOTE_PATH",
+        "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN"
     ]
     
     current_config = {key: db_config.get_config(key, "") for key in config_keys}
@@ -92,38 +96,41 @@ async def settings_page(request: Request, current_user: User = Depends(get_curre
         "user": current_user.username,
         "lang": lang,
         "config": current_config,
-        "avatar_url": AVATAR_URL
+        "avatar_url": db_config.get_config("AVATAR_URL", AVATAR_URL)
     })
 
 @router.post("/settings", response_class=HTMLResponse)
 async def save_settings(
     request: Request,
-    current_user: User = Depends(get_current_user),
-    TUNNEL_TOKEN: str = Form(None),
-    WDM_GOFILE_TOKEN: str = Form(None),
-    WDM_GOFILE_FOLDER_ID: str = Form(None),
-    WDM_OPENLIST_URL: str = Form(None),
-    WDM_OPENLIST_USER: str = Form(None),
-    WDM_OPENLIST_PASS: str = Form(None),
-    AVATAR_URL_INPUT: str = Form(None)
+    current_user: User = Depends(get_current_user)
 ):
     lang = get_lang(request)
+    form_data = await request.form()
+    
+    config_keys = [
+        "TUNNEL_TOKEN", 
+        "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID",
+        "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS",
+        "WDM_WEBDAV_URL", "WDM_WEBDAV_USER", "WDM_WEBDAV_PASS",
+        "WDM_S3_PROVIDER", "WDM_S3_ACCESS_KEY_ID", "WDM_S3_SECRET_ACCESS_KEY", "WDM_S3_REGION", "WDM_S3_ENDPOINT",
+        "WDM_B2_ACCOUNT_ID", "WDM_B2_APPLICATION_KEY",
+        "WDM_CONFIG_BACKUP_RCLONE_BASE64", "WDM_CONFIG_BACKUP_REMOTE_PATH",
+        "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN"
+    ]
     
     try:
-        # Save all configs
-        if TUNNEL_TOKEN is not None: db_config.set_config("TUNNEL_TOKEN", TUNNEL_TOKEN.strip())
-        if WDM_GOFILE_TOKEN is not None: db_config.set_config("WDM_GOFILE_TOKEN", WDM_GOFILE_TOKEN.strip())
-        if WDM_GOFILE_FOLDER_ID is not None: db_config.set_config("WDM_GOFILE_FOLDER_ID", WDM_GOFILE_FOLDER_ID.strip())
-        if WDM_OPENLIST_URL is not None: db_config.set_config("WDM_OPENLIST_URL", WDM_OPENLIST_URL.strip())
-        if WDM_OPENLIST_USER is not None: db_config.set_config("WDM_OPENLIST_USER", WDM_OPENLIST_USER.strip())
-        if WDM_OPENLIST_PASS is not None: db_config.set_config("WDM_OPENLIST_PASS", WDM_OPENLIST_PASS.strip())
-        if AVATAR_URL_INPUT is not None: db_config.set_config("AVATAR_URL", AVATAR_URL_INPUT.strip())
+        # Save all configs that are present in the form
+        for key in config_keys:
+            # Handle AVATAR_URL separately because the input name is AVATAR_URL_INPUT in the template
+            form_key = "AVATAR_URL_INPUT" if key == "AVATAR_URL" else key
+            if form_key in form_data:
+                value = str(form_data[form_key]).strip()
+                db_config.set_config(key, value)
         
         # Clear cache to ensure new settings are picked up
         db_config.clear_cache()
         
         # Fetch updated config for rendering
-        config_keys = ["TUNNEL_TOKEN", "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID", "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS", "AVATAR_URL"]
         current_config = {key: db_config.get_config(key, "") for key in config_keys}
         
         return templates.TemplateResponse("settings.html", {
@@ -132,11 +139,10 @@ async def save_settings(
             "lang": lang,
             "config": current_config,
             "success": lang["settings_saved_success"],
-            "avatar_url": AVATAR_URL
+            "avatar_url": db_config.get_config("AVATAR_URL", AVATAR_URL)
         })
     except Exception as e:
         # Re-fetch for rendering on error
-        config_keys = ["TUNNEL_TOKEN", "WDM_GOFILE_TOKEN", "WDM_GOFILE_FOLDER_ID", "WDM_OPENLIST_URL", "WDM_OPENLIST_USER", "WDM_OPENLIST_PASS", "AVATAR_URL"]
         current_config = {key: db_config.get_config(key, "") for key in config_keys}
         return templates.TemplateResponse("settings.html", {
             "request": request,
@@ -144,7 +150,7 @@ async def save_settings(
             "lang": lang,
             "config": current_config,
             "error": f"{lang['settings_update_failed']}: {str(e)}",
-            "avatar_url": AVATAR_URL
+            "avatar_url": db_config.get_config("AVATAR_URL", AVATAR_URL)
         })
 
 @router.post("/change_password", response_class=HTMLResponse)

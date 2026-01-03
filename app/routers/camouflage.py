@@ -83,7 +83,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
         
         tunnel_token = os.getenv("TUNNEL_TOKEN")
         if tunnel_token:
-            db_config.set_config("tunnel_token", tunnel_token)
+            db_config.set_config("TUNNEL_TOKEN", tunnel_token)
         
         main_app_url = f"http://{domain}:6275"
         response_content = f"Login successful. Please access the main application at: {main_app_url}"
@@ -108,7 +108,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     
     tunnel_token = os.getenv("TUNNEL_TOKEN")
     if tunnel_token:
-        db_config.set_config("tunnel_token", tunnel_token)
+        db_config.set_config("TUNNEL_TOKEN", tunnel_token)
     
     main_app_url = f"http://{domain}:6275"
     response_content = f"Login successful. Please access the main application at: {main_app_url}"
