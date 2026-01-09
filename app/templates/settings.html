@@ -74,6 +74,11 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label for="REDIS_URL" class="form-label">Redis URL (Upstash/Standard)</label>
+                            <input type="text" class="form-control" id="REDIS_URL" name="REDIS_URL" value="{{ config.REDIS_URL }}" placeholder="rediss://:password@endpoint:port">
+                            <div class="form-text">Used for centralized logging. Leave empty to disable.</div>
+                        </div>
                     </div>
 
                     <!-- WebDAV Settings -->

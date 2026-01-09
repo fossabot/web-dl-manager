@@ -31,6 +31,10 @@ AVATAR_URL = os.getenv("AVATAR_URL", "https://github.com/Jyf0214.png")
 # For local development, a SQLite database can be used for simplicity.
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{PROJECT_ROOT / 'webdl-manager.db'}")
 
+# --- Redis Configuration ---
+# Upstash Redis Connection String, e.g., "rediss://:password@endpoint:port"
+REDIS_URL = os.getenv("REDIS_URL")
+
 # --- Config Backup Configuration ---
 CONFIG_BACKUP_RCLONE_BASE64 = os.getenv("WDM_CONFIG_BACKUP_RCLONE_BASE64")
 CONFIG_BACKUP_REMOTE_PATH = os.getenv("WDM_CONFIG_BACKUP_REMOTE_PATH", "remote:config-backup/gallery-dl")

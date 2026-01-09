@@ -10,6 +10,25 @@ from ..database import User, db_config
 from ..i18n import get_lang
 from ..templating import templates
 from ..config import AVATAR_URL
+from .. import redis_client
+from ..logging_handler import update_log_handlers
+
+# --- Constants & Helpers ---
+SECRET_KEYS = [
+    "GITHUB_TOKEN", "WDM_GOFILE_TOKEN", "WDM_OPENLIST_PASS", 
+    "WDM_WEBDAV_PASS", "WDM_S3_SECRET_ACCESS_KEY", "WDM_B2_APPLICATION_KEY", 
+    "REDIS_URL", "WDM_CONFIG_BACKUP_RCLONE_BASE64", "TUNNEL_TOKEN"
+]
+
+def mask_secret(value: str) -> str:
+    if not value:
+        return ""
+    n = len(value)
+    if n >= 6:
+        return f"{value[:3]}...{value[-3:]}"
+    elif n >= 4:
+        return f"{value[:2]}...{value[-2:]}"
+    return value
 
 router = APIRouter(
     tags=["main_ui"],
@@ -86,10 +105,17 @@ async def settings_page(request: Request, current_user: User = Depends(get_curre
         "WDM_S3_PROVIDER", "WDM_S3_ACCESS_KEY_ID", "WDM_S3_SECRET_ACCESS_KEY", "WDM_S3_REGION", "WDM_S3_ENDPOINT",
         "WDM_B2_ACCOUNT_ID", "WDM_B2_APPLICATION_KEY",
         "WDM_CONFIG_BACKUP_RCLONE_BASE64", "WDM_CONFIG_BACKUP_REMOTE_PATH",
-        "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN"
+        "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN",
+        "REDIS_URL"
     ]
     
-    current_config = {key: db_config.get_config(key, "") for key in config_keys}
+    current_config = {}
+    for key in config_keys:
+        val = db_config.get_config(key, "")
+        if key in SECRET_KEYS and val:
+            current_config[key] = mask_secret(val)
+        else:
+            current_config[key] = val
     
     return templates.TemplateResponse("settings.html", {
         "request": request,
@@ -114,7 +140,8 @@ async def save_settings(
         "WDM_S3_PROVIDER", "WDM_S3_ACCESS_KEY_ID", "WDM_S3_SECRET_ACCESS_KEY", "WDM_S3_REGION", "WDM_S3_ENDPOINT",
         "WDM_B2_ACCOUNT_ID", "WDM_B2_APPLICATION_KEY",
         "WDM_CONFIG_BACKUP_RCLONE_BASE64", "WDM_CONFIG_BACKUP_REMOTE_PATH",
-        "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN"
+        "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN",
+        "REDIS_URL"
     ]
     
     try:
@@ -123,11 +150,23 @@ async def save_settings(
             # Handle AVATAR_URL separately because the input name is AVATAR_URL_INPUT in the template
             form_key = "AVATAR_URL_INPUT" if key == "AVATAR_URL" else key
             if form_key in form_data:
-                value = str(form_data[form_key]).strip()
-                db_config.set_config(key, value)
+                new_value = str(form_data[form_key]).strip()
+                
+                # If it's a secret key, check if user actually changed it
+                if key in SECRET_KEYS:
+                    old_value = db_config.get_config(key, "")
+                    # If submitted value matches the masked version of the old value, user didn't change it
+                    if old_value and new_value == mask_secret(old_value):
+                        continue
+                
+                db_config.set_config(key, new_value)
         
         # Clear cache to ensure new settings are picked up
         db_config.clear_cache()
+        
+        # Reload Redis connection and log handlers
+        redis_client.init_redis()
+        update_log_handlers()
         
         # Fetch updated config for rendering
         current_config = {key: db_config.get_config(key, "") for key in config_keys}

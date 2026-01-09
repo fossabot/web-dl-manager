@@ -3,6 +3,38 @@ import datetime
 from .database import engine, db_type
 from sqlalchemy import text
 import sys
+import json
+import time
+
+class RedisLogHandler(logging.Handler):
+    def __init__(self, key="webdl:logs"):
+        super().__init__()
+        self.key = key
+        from .redis_client import get_redis_client
+        self.redis = get_redis_client()
+
+    def emit(self, record):
+        if not self.redis:
+            # Try to get client again in case it was initialized later
+            from .redis_client import get_redis_client
+            self.redis = get_redis_client()
+            if not self.redis:
+                return
+
+        try:
+            log_entry = {
+                "timestamp": datetime.datetime.fromtimestamp(record.created).isoformat(),
+                "level": record.levelname,
+                "logger": record.name,
+                "message": self.format(record),
+                "pathname": record.pathname,
+                "lineno": record.lineno
+            }
+            # Use RPUSH to append to the list
+            self.redis.rpush(self.key, json.dumps(log_entry))
+        except Exception:
+            # Fallback or ignore to prevent loop
+            pass
 
 class MySQLLogHandler(logging.Handler):
     def emit(self, record):
@@ -70,3 +102,23 @@ def cleanup_old_logs():
     except Exception as e:
         sys.stderr.write(f"Error during log cleanup: {e}\n")
         logging.error(f"Error during log cleanup: {e}")
+
+def update_log_handlers():
+    """Updates the root logger to include/exclude RedisLogHandler based on configuration."""
+    root_logger = logging.getLogger()
+    
+    # Remove existing RedisLogHandler if any
+    for h in root_logger.handlers[:]:
+        if isinstance(h, RedisLogHandler):
+            root_logger.removeHandler(h)
+            
+    # Check if Redis is available
+    from .redis_client import get_redis_client
+    if get_redis_client():
+        redis_handler = RedisLogHandler()
+        # Set level based on env or default
+        redis_handler.setLevel(root_logger.level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        redis_handler.setFormatter(formatter)
+        root_logger.addHandler(redis_handler)
+        logging.info("Redis logging enabled.")
