@@ -271,3 +271,10 @@ def clear_all_caches():
     from . import status
     status.clear_status_cache()
     logger.info("All application caches cleared.")
+
+# Check if we are using SQLite (memory or file) and initialize DB immediately
+# This prevents errors when other modules (like redis_client) try to access config on import
+logger.info(f"Checking database URL for initialization: {engine.url}")
+if "sqlite" in str(engine.url):
+    logger.info("SQLite database detected. Initializing tables immediately.")
+    init_db()
