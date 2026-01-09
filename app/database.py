@@ -2,7 +2,7 @@ import os
 import logging
 from contextlib import contextmanager
 from urllib.parse import urlparse
-from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, TIMESTAMP, func
+from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, TIMESTAMP, func, inspect, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.exc import SQLAlchemyError
 from pathlib import Path
@@ -263,6 +263,86 @@ class User:
         except Exception as e:
             logger.error(f"Error updating password for user '{username}': {e}")
             return False
+
+# --- Database Cleanup ---
+KNOWN_CONFIG_KEYS = {
+    # Redis
+    "REDIS_URL",
+    # Config Backup
+    "WDM_CONFIG_BACKUP_RCLONE_BASE64",
+    "WDM_CONFIG_BACKUP_REMOTE_PATH",
+    # Tunnel
+    "TUNNEL_TOKEN",
+    # UI
+    "AVATAR_URL",
+    "login_domain",
+    # Upload Services - OpenList
+    "WDM_OPENLIST_URL",
+    "WDM_OPENLIST_USER",
+    "WDM_OPENLIST_PASS",
+    # Upload Services - GoFile
+    "WDM_GOFILE_TOKEN",
+    "WDM_GOFILE_FOLDER_ID",
+    # Upload Services - WebDAV
+    "WDM_WEBDAV_URL",
+    "WDM_WEBDAV_USER",
+    "WDM_WEBDAV_PASS",
+    # Upload Services - S3
+    "WDM_S3_PROVIDER",
+    "WDM_S3_ACCESS_KEY_ID",
+    "WDM_S3_SECRET_ACCESS_KEY",
+    "WDM_S3_REGION",
+    "WDM_S3_ENDPOINT",
+    # Upload Services - B2
+    "WDM_B2_ACCOUNT_ID",
+    "WDM_B2_APPLICATION_KEY"
+}
+
+def cleanup_database():
+    """
+    Cleans up the database by removing unused tables and config keys.
+    """
+    cleaned_tables = []
+    cleaned_configs = []
+    
+    try:
+        # 1. Clean unused tables
+        inspector = inspect(engine)
+        db_tables = inspector.get_table_names()
+        model_tables = Base.metadata.tables.keys()
+        
+        with get_db_session() as session:
+            # Check for tables present in DB but not in Models
+            for table in db_tables:
+                if table not in model_tables:
+                    logger.warning(f"Dropping unused table: {table}")
+                    # Use raw SQL because SQLAlchemy models don't exist for it
+                    session.execute(text(f"DROP TABLE IF EXISTS {table}"))
+                    cleaned_tables.append(table)
+            
+            # 2. Clean unused config keys
+            # Fetch all existing keys from DB
+            existing_configs = session.query(ConfigModel).all()
+            for config in existing_configs:
+                if config.key_name not in KNOWN_CONFIG_KEYS:
+                    logger.warning(f"Removing unused config key: {config.key_name}")
+                    session.delete(config)
+                    cleaned_configs.append(config.key_name)
+            
+            session.commit()
+            
+    except Exception as e:
+        logger.error(f"Error during database cleanup: {e}")
+        return {"status": "error", "message": str(e)}
+        
+    return {
+        "status": "success", 
+        "message": f"Cleanup complete. Removed tables: {len(cleaned_tables)}, Removed configs: {len(cleaned_configs)}",
+        "details": {
+            "cleaned_tables": cleaned_tables,
+            "cleaned_configs": cleaned_configs
+        }
+    }
 
 def clear_all_caches():
     """Clears all in-memory caches (config and user)."""
