@@ -67,13 +67,21 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
+                                <label for="TERMINAL_ENABLED" class="form-label">{{ lang.terminal_enabled_config_label }}</label>
+                                <select class="form-select" id="TERMINAL_ENABLED" name="TERMINAL_ENABLED">
+                                    <option value="true" {% if config.TERMINAL_ENABLED == 'true' %}selected{% endif %}>True</option>
+                                    <option value="false" {% if config.TERMINAL_ENABLED != 'true' %}selected{% endif %}>False</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
                                 <label for="DEBUG_MODE" class="form-label">{{ lang.debug_mode_label }}</label>
                                 <select class="form-select" id="DEBUG_MODE" name="DEBUG_MODE">
                                     <option value="true" {% if config.DEBUG_MODE == 'true' %}selected{% endif %}>True</option>
                                     <option value="false" {% if config.DEBUG_MODE != 'true' %}selected{% endif %}>False</option>
                                 </select>
                             </div>
-                        </div>
                         <div class="mb-3">
                             <label for="REDIS_URL" class="form-label">{{ lang.redis_url_label }}</label>
                             <input type="text" class="form-control" id="REDIS_URL" name="REDIS_URL" value="{{ config.REDIS_URL }}" placeholder="rediss://:password@endpoint:port">

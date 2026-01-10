@@ -8,9 +8,13 @@ on:
 
 jobs:
   build_and_push:
-    name: 构建并推送镜像
+    name: 构建并推送镜像 (${{ matrix.version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [standard, full]
     permissions:
       contents: read
       packages: write
@@ -35,7 +39,8 @@ jobs:
         id: extract_version
         if: steps.check_changelog.outputs.changed == 'true'
         run: |
-          VERSION=$(grep -m1 '## \[' CHANGELOG.md | sed -E 's/.*\((.*)\).*/\1/')
+          # 修正 sed 提取逻辑，更鲁棒地获取 [x.y.z] 格式
+          VERSION=$(grep -m1 '## \[' CHANGELOG.md | sed -E 's/## \[([^]]+)\].*/\1/')
           if [ -z "$VERSION" ]; then
             echo "无法从 CHANGELOG.md 提取版本号"
             exit 1
@@ -50,11 +55,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 提取 Docker 元数据 (标签、标签)
+      - name: 提取 Docker 元数据
         id: meta
         uses: docker/metadata-action@v4
         with:
           images: ghcr.io/jyf0214/web-dl-manager
+          flavor: |
+            suffix=${{ matrix.version == 'full' && '-full' || '' }},onlatest=true
           tags: |
             type=raw,value=${{ steps.extract_version.outputs.version }},enable=${{ steps.check_changelog.outputs.changed == 'true' }}
             type=raw,value=stable,enable=${{ steps.check_changelog.outputs.changed == 'true' }}
@@ -71,10 +78,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             MODE=true
+            INSTALL_NODE=${{ matrix.version == 'full' && 'true' || 'false' }}
 
+  # 重启 Hugging Face Space 任务，确保在所有镜像（包括全量包）构建完成后执行
   rebuild_hf_space:
     name: 重启 Hugging Face Space
     needs: build_and_push
+    # 仅在主仓库的 main 分支推送时触发，且需要 build_and_push 成功完成（含 standard 和 full）
     if: github.repository == 'Jyf0214/web-dl-manager' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
