@@ -80,9 +80,11 @@ jobs:
             MODE=true
             INSTALL_NODE=${{ matrix.version == 'full' && 'true' || 'false' }}
 
+  # 重启 Hugging Face Space 任务，确保在所有镜像（包括全量包）构建完成后执行
   rebuild_hf_space:
     name: 重启 Hugging Face Space
     needs: build_and_push
+    # 仅在主仓库的 main 分支推送时触发，且需要 build_and_push 成功完成（含 standard 和 full）
     if: github.repository == 'Jyf0214/web-dl-manager' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
