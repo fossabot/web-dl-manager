@@ -134,6 +134,7 @@ async def create_download_job(
     # Site Specific Options
     kemono_posts: Optional[int] = Form(None),
     kemono_revisions: Optional[str] = Form(None),
+    kemono_path_template: Optional[str] = Form(None),
     pixiv_ugoira: Optional[str] = Form("true"),
     twitter_retweets: Optional[str] = Form(None),
     twitter_replies: Optional[str] = Form(None)
@@ -153,6 +154,7 @@ async def create_download_job(
         split_compression=split_compression, split_size=split_size,
         kemono_posts=kemono_posts,
         kemono_revisions=(kemono_revisions == "true"),
+        kemono_path_template=(kemono_path_template == "true"),
         pixiv_ugoira=(pixiv_ugoira == "true"),
         twitter_retweets=(twitter_retweets == "true"),
         twitter_replies=(twitter_replies == "true")

@@ -411,6 +411,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     # Extract site specific options from kwargs or params
     kemono_posts = kwargs.get("kemono_posts") or params.get("kemono_posts")
     kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true")
+    kemono_path_template = kwargs.get("kemono_path_template") if "kemono_path_template" in kwargs else (params.get("kemono_path_template") == "true")
     pixiv_ugoira = kwargs.get("pixiv_ugoira") if "pixiv_ugoira" in kwargs else (params.get("pixiv_ugoira") != "false")
     twitter_retweets = kwargs.get("twitter_retweets") if "twitter_retweets" in kwargs else (params.get("twitter_retweets") == "true")
     twitter_replies = kwargs.get("twitter_replies") if "twitter_replies" in kwargs else (params.get("twitter_replies") == "true")
@@ -475,6 +476,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 command += f" -o extractor.kemono.posts={kemono_posts}"
             if kemono_revisions:
                 command += " -o extractor.kemono.revisions=true"
+            if kemono_path_template:
+                command += " -o extractor.kemono.directory=['{username}', '{title}']"
             if pixiv_ugoira is False:
                 command += " -o extractor.pixiv.ugoira=false"
             if twitter_retweets:
