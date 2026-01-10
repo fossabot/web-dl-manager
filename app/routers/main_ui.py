@@ -502,3 +502,10 @@ async def login_main(request: Request, username: str = Form(...), password: str 
     request.session["user"] = username
     request.session["last_activity"] = time.time()
     return RedirectResponse(url="/downloader", status_code=303)
+
+@router.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("session")
+    return response

@@ -374,13 +374,6 @@ async def get_server_status():
     })
 
 # --- Session Management ---
-@router.get("/logout", response_class=Response)
-async def logout(request: Request):
-    request.session.clear()
-    response = Response(content="You have been logged out.", media_type="text/plain")
-    response.delete_cookie("session")
-    return response
-
 @router.get("/set_language/{lang_code}")
 async def set_language(lang_code: str):
     response = RedirectResponse(url="/downloader", status_code=302)

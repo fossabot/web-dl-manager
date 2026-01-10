@@ -198,8 +198,8 @@
 
                     <div class="d-grid mt-4">
                         <button type="submit" class="btn btn-primary btn-lg" id="submit-button">
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
-                            <i class="bi bi-download"></i> {{ lang.start_download_button }}
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display: none;"></span>
+                            <span class="btn-text"><i class="bi bi-download"></i> {{ lang.start_download_button }}</span>
                         </button>
                     </div>
                 </div>
@@ -453,6 +453,7 @@
         document.getElementById('download-form').addEventListener('submit', function(e) {
             const button = document.getElementById('submit-button');
             const spinner = button.querySelector('.spinner-border');
+            const btnText = button.querySelector('.btn-text');
             
             // Handle MEGA rate limit conversion
             const downloader = document.getElementById('downloader').value;
@@ -472,6 +473,7 @@
 
             button.disabled = true;
             spinner.style.display = 'inline-block';
+            if (btnText) btnText.textContent = '{{ lang.processing }}';
         });
 
         const downloaderSelect = document.getElementById('downloader');

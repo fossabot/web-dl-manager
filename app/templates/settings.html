@@ -287,8 +287,9 @@
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="/downloader" class="btn btn-outline-secondary me-md-2">{{ lang.back_to_downloader }}</a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> {{ lang.save_settings_button }}
+                        <button type="submit" class="btn btn-primary" id="save-settings-btn">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display: none;"></span>
+                            <span class="btn-text"><i class="bi bi-save"></i> {{ lang.save_settings_button }}</span>
                         </button>
                     </div>
                 </form>
@@ -336,6 +337,22 @@
                     console.error("Base64 conversion failed", e);
                 }
             }
+        });
+
+        // Universal Form Loading Logic
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function() {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    const spinner = submitBtn.querySelector('.spinner-border');
+                    const btnText = submitBtn.querySelector('.btn-text');
+                    if (spinner && btnText) {
+                        submitBtn.disabled = true;
+                        spinner.style.display = 'inline-block';
+                        btnText.textContent = '{{ lang.processing }}';
+                    }
+                }
+            });
         });
 
         document.getElementById('clear-cache-btn').addEventListener('click', async function() {
