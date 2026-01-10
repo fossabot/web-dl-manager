@@ -5,7 +5,8 @@ set -e
 # Redirect errors to /dev/null to avoid permission denied spam in non-root environments
 if command -v cron &> /dev/null; then
     echo "Attempting to start cron daemon..."
-    cron -f > /dev/null 2>&1 & || echo "Notice: Could not start cron (missing permissions), scheduled updates will be skipped."
+    # Run in background and suppress all output to avoid permission errors noise
+    cron -f > /dev/null 2>&1 &
 else
     echo "Warning: 'cron' command not found. Scheduled updates will be skipped."
 fi
