@@ -35,7 +35,7 @@ from .i18n import get_lang
 
 
 # Import routers
-from .routers import camouflage, main_ui, api
+from .routers import camouflage, main_ui, api, terminal
 
 # --- App Lifespan Management ---
 @asynccontextmanager
@@ -135,6 +135,7 @@ main_app.add_middleware(SessionMiddleware, secret_key=session_secret_key, max_ag
 # --- Router Inclusion ---
 camouflage_app.include_router(camouflage.router, dependencies=[Depends(check_setup_needed_camouflage)])
 main_app.include_router(main_ui.router)
+main_app.include_router(terminal.router)
 main_app.include_router(api.router, prefix="/api")
 
 
