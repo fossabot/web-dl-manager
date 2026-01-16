@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-01-16
+
+### Added
+- **UI/UX Overhaul**:
+    - **Modern Sidebar**: Replaced the top navbar with a sleek, sliding sidebar featuring real-time GitHub repository stats (Stars, Forks) and system status indicators.
+    - **PWA Support**: Added Progressive Web App capabilities, including manifest and icons, allowing the manager to be installed on mobile and desktop devices.
+- **Enhanced Sync System**:
+    - **Multi-Group Tasks**: Upgraded the scheduled sync system to support multiple, parallel sync groups for better organization and efficiency.
+- **Downloader Improvements**:
+    - **Kemono Organization**: Implemented automatic directory structuring for Kemono downloads by `username/title` to keep files organized.
+
+### Optimized
+- **Internationalization**: Fixed and improved i18n support across the UI, ensuring consistent language application.
+- **Terminal UI**: Enhanced the dark-themed terminal interface for better readability and accessibility.
+- **Dashboard Logic**: Refined the system dashboard refresh logic to reduce unnecessary server load and improve responsiveness.
+
+### Fixed
+- **UI Alignment**: Resolved alignment issues in rate limit input fields and restored missing UI descriptions.
+- **Menu Visibility**: Fixed visibility bugs in the terminal menu and other navigation elements.
+
 ## [1.3.0] - 2026-01-10
 
 ### Added
