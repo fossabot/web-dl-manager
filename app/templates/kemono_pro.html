@@ -99,6 +99,20 @@
                         <input type="text" class="form-control" name="creator_id" required placeholder="e.g. 47335841">
                     </div>
                 </div>
+                <div class="mt-3 bg-light p-3 rounded-3">
+                    <h6 class="fw-bold small mb-3"><i class="bi bi-person-lock me-2"></i>Kemono Login (Alternative)</h6>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small text-muted">{{ lang.kemono_user_label }}</label>
+                            <input type="text" class="form-control form-control-sm" name="kemono_username">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted">{{ lang.kemono_pass_label }}</label>
+                            <input type="password" class="form-control form-control-sm" name="kemono_password">
+                        </div>
+                    </div>
+                    <div class="form-text x-small mt-2">{{ lang.kemono_login_help }}</div>
+                </div>
                 <div class="mt-3">
                     <label class="form-label small text-muted">{{ lang.cookies_label }}</label>
                     <textarea class="form-control" name="cookies" rows="3" placeholder="{{ lang.cookies_placeholder }}"></textarea>

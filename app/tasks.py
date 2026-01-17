@@ -802,9 +802,9 @@ async def fetch_kemono_posts(service: str, user_id: str, session):
             break
     return all_posts
 
-async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, upload_service: str, upload_path: str, params: dict, cookies: Optional[str] = None):
+async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, upload_service: str, upload_path: str, params: dict, cookies: Optional[str] = None, kemono_username: Optional[str] = None, kemono_password: Optional[str] = None):
     """Main background task for Kemono DL Pro."""
-    from .utils import SITE_BASE_URL, sanitize_filename, download_file
+    from .utils import SITE_BASE_URL, sanitize_filename, download_file, API_BASE_URL
     import uuid
     
     async with task_semaphore:
@@ -832,7 +832,7 @@ async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, up
                 'Accept': 'application/json, text/plain, */*'
             })
 
-            # Inject cookies if provided
+            # 1. Inject cookies if provided
             if cookies:
                 try:
                     cookie_dict = {}
@@ -841,9 +841,27 @@ async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, up
                             name, value = cookie.strip().split('=', 1)
                             cookie_dict[name] = value
                     scraper.cookies.update(cookie_dict)
-                    logger.info(f"[KemonoPro] Injected {len(cookie_dict)} cookies.")
+                    with open(status_file, "a") as f: f.write(f"Injected {len(cookie_dict)} cookies from form.\n")
                 except Exception as e:
                     logger.error(f"[KemonoPro] Failed to parse cookies: {e}")
+
+            # 2. Perform Login if credentials provided and session not yet valid
+            if kemono_username and kemono_password and not scraper.cookies.get('session'):
+                try:
+                    with open(status_file, "a") as f: f.write(f"Attempting automatic login for user: {kemono_username}...\n")
+                    login_url = f"{API_BASE_URL}/authentication/login"
+                    login_data = {"username": kemono_username, "password": kemono_password}
+                    
+                    # We run this in a thread because cloudscraper is blocking
+                    response = await asyncio.to_thread(scraper.post, login_url, json=login_data, timeout=30)
+                    response.raise_for_status()
+                    
+                    if scraper.cookies.get('session'):
+                        with open(status_file, "a") as f: f.write("Automatic login successful! Session cookie obtained.\n")
+                    else:
+                        with open(status_file, "a") as f: f.write("Login request sent, but no 'session' cookie received.\n")
+                except Exception as e:
+                    with open(status_file, "a") as f: f.write(f"Automatic login failed: {str(e)}\n")
             
             posts = await fetch_kemono_posts(service, creator_id, scraper)
             

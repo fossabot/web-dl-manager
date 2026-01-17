@@ -257,7 +257,9 @@ async def create_kemono_pro_job(
     creator_id: str = Form(...),
     upload_service: str = Form(...),
     upload_path: str = Form(None),
-    cookies: Optional[str] = Form(None)
+    cookies: Optional[str] = Form(None),
+    kemono_username: Optional[str] = Form(None),
+    kemono_password: Optional[str] = Form(None)
 ):
     from ..tasks import process_kemono_pro_job
     task_id = str(uuid.uuid4())
@@ -270,7 +272,8 @@ async def create_kemono_pro_job(
     
     asyncio.create_task(process_kemono_pro_job(
         task_id=task_id, service=service, creator_id=creator_id, upload_service=upload_service, upload_path=upload_path,
-        params=dict(params), cookies=cookies
+        params=dict(params), cookies=cookies,
+        kemono_username=kemono_username, kemono_password=kemono_password
     ))
     return JSONResponse(content={"status": "success", "message": "Kemono Pro task started.", "task_id": task_id})
 
