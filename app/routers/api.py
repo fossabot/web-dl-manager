@@ -261,7 +261,7 @@ async def create_kemono_pro_job(
     kemono_username: Optional[str] = Form(None),
     kemono_password: Optional[str] = Form(None)
 ):
-    from ..tasks import process_kemono_pro_job
+    from ..kemono_pro import process_kemono_pro_job
     task_id = str(uuid.uuid4())
     params = await request.form()
     
