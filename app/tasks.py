@@ -6,7 +6,8 @@ import random
 import time
 import logging
 from pathlib import Path
-
+import cloudscraper
+import json
 
 from . import openlist
 from .database import db_config
@@ -111,7 +112,6 @@ async def unified_periodic_sync():
 
         # Sleep for a short while before checking again
         await asyncio.sleep(30) # Tick every 30 seconds
-
 
 
 
@@ -235,7 +235,7 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                     raise openlist.OpenlistError(f"Openlist configuration missing.")
     
                 with open(status_file, "a") as f:
-                    f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---\n")
+                    f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---")
                 
                 token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, status_file)
                 
@@ -401,353 +401,459 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     async with task_semaphore:
         task_download_dir = DOWNLOADS_DIR / task_id
         archive_name = generate_archive_name(url)
-    status_file = STATUS_DIR / f"{task_id}.log"
-    upload_log_file = STATUS_DIR / f"{task_id}_upload.log"
-    archive_paths = []
-    rclone_config_path = None
-    
-    # Extract site specific options from kwargs or params
-    kemono_posts = kwargs.get("kemono_posts") or params.get("kemono_posts")
-    kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true" or kwargs.get("kemono_revisions") == "true")
-    kemono_path_template = kwargs.get("kemono_path_template") if "kemono_path_template" in kwargs else (params.get("kemono_path_template") == "true" or kwargs.get("kemono_path_template") == "true")
-    # Handle the specific case where it might be passed as a string "true" in kwargs
-    if isinstance(kemono_path_template, str):
-        kemono_path_template = kemono_path_template.lower() == "true"
-    if isinstance(kemono_revisions, str):
-        kemono_revisions = kemono_revisions.lower() == "true"
-
-    pixiv_ugoira = kwargs.get("pixiv_ugoira") if "pixiv_ugoira" in kwargs else (params.get("pixiv_ugoira") != "false")
-    twitter_retweets = kwargs.get("twitter_retweets") if "twitter_retweets" in kwargs else (params.get("twitter_retweets") == "true")
-    twitter_replies = kwargs.get("twitter_replies") if "twitter_replies" in kwargs else (params.get("twitter_replies") == "true")
-
-    try:
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 开始处理任务 {task_id}")
-            logger.debug(f"[WORKFLOW] URL: {url}")
-            logger.debug(f"[WORKFLOW] 下载器: {downloader}")
-            logger.debug(f"[WORKFLOW] 上传服务: {service}")
-            logger.debug(f"[WORKFLOW] 上传路径: {upload_path}")
-            logger.debug(f"[WORKFLOW] 启用压缩: {enable_compression}")
-            logger.debug(f"[WORKFLOW] 分卷压缩: {split_compression}")
-            logger.debug(f"[WORKFLOW] 分卷大小: {split_size}MB")
-            logger.debug(f"[WORKFLOW] Kemono 模板: {kemono_path_template}")
+        status_file = STATUS_DIR / f"{task_id}.log"
+        upload_log_file = STATUS_DIR / f"{task_id}_upload.log"
+        archive_paths = []
+        rclone_config_path = None
         
-        update_task_status(task_id, {"status": "running", "url": url, "downloader": downloader})
-        
-        with open(status_file, "w") as f:
-            f.write(f"Starting job {task_id} for URL: {url}\n")
+        # Extract site specific options from kwargs or params
+        kemono_posts = kwargs.get("kemono_posts") or params.get("kemono_posts")
+        kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true" or kwargs.get("kemono_revisions") == "true")
+        kemono_path_template = kwargs.get("kemono_path_template") if "kemono_path_template" in kwargs else (params.get("kemono_path_template") == "true" or kwargs.get("kemono_path_template") == "true")
+        # Handle the specific case where it might be passed as a string "true" in kwargs
+        if isinstance(kemono_path_template, str):
+            kemono_path_template = kemono_path_template.lower() == "true"
+        if isinstance(kemono_revisions, str):
+            kemono_revisions = kemono_revisions.lower() == "true"
 
-        proxy = params.get("proxy")
-        if params.get("auto_proxy"):
+        pixiv_ugoira = kwargs.get("pixiv_ugoira") if "pixiv_ugoira" in kwargs else (params.get("pixiv_ugoira") != "false")
+        twitter_retweets = kwargs.get("twitter_retweets") if "twitter_retweets" in kwargs else (params.get("twitter_retweets") == "true")
+        twitter_replies = kwargs.get("twitter_replies") if "twitter_replies" in kwargs else (params.get("twitter_replies") == "true")
+
+        try:
             if debug_enabled:
-                logger.debug(f"[WORKFLOW] 启用自动代理选择")
-            proxy = await get_working_proxy(status_file)
-        
-        downloader = params.get("downloader", "gallery-dl")
-
-        # Ensure task_download_dir exists
-        task_download_dir.mkdir(parents=True, exist_ok=True)
-
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 配置下载器: {downloader}")
-            logger.debug(f"[WORKFLOW] 代理设置: {proxy if proxy else '无'}")
-            logger.debug(f"[WORKFLOW] 速度限制: {params.get('rate_limit', '无')}")
-
-        if downloader == "megadl":
-            command = f"megadl --path {task_download_dir}"
-            if params.get("rate_limit"):
-                # Convert rate limit string to integer for megadl
-                rate_limit = params['rate_limit'].strip().upper()
-                try:
-                    if rate_limit.endswith('K'):
-                        bytes_per_second = int(float(rate_limit[:-1]) * 1000)
-                    elif rate_limit.endswith('M'):
-                        bytes_per_second = int(float(rate_limit[:-1]) * 1000000)
-                    elif rate_limit.endswith('G'):
-                        bytes_per_second = int(float(rate_limit[:-1]) * 1000000000)
-                    else:
-                        bytes_per_second = int(float(rate_limit))
-                    command += f" --limit-speed {bytes_per_second}"
-                except ValueError:
-                    # If conversion fails, use original value (will likely fail but preserve error)
-                    command += f" --limit-speed {params['rate_limit']}"
-            command += f" {url}"
-            command_log = command
-        else:
-            command = f"gallery-dl --verbose -D {task_download_dir}"
-            
-            # Site Specific Options
-            if kemono_posts:
-                command += f" -o extractor.kemono.posts={kemono_posts}"
-            if kemono_revisions:
-                command += " -o extractor.kemono.revisions=true"
-            if kemono_path_template:
-                # Use a standard path template string
-                command += ' -o extractor.kemono.directory="{username}/{title}"'
-            if pixiv_ugoira is False:
-                command += " -o extractor.pixiv.ugoira=false"
-            if twitter_retweets:
-                command += " -o extractor.twitter.retweets=true"
-            if twitter_replies:
-                command += " -o extractor.twitter.replies=true"
-
-            # Add custom arguments from database
-            extra_args = db_config.get_config("WDM_GALLERY_DL_ARGS", "")
-            if extra_args:
-                command += f" {extra_args}"
-                
-            if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
-                command += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret={params['deviantart_client_secret']}"
-            if proxy:
-                command += f" --proxy {proxy}"
-                if params.get("rate_limit"):
-                    command += f" --limit-rate {params['rate_limit']}"
-            command += f" {url}"
-
-            command_log = f"gallery-dl --verbose -D {task_download_dir}"
-            if proxy:
-                command_log += f" --proxy {proxy}"
-            command_log += f" {url}"
-        
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 执行下载命令: {command_log}")
-        
-        update_task_status(task_id, {"command": command_log})
-        await run_command(command, command_log, status_file, task_id)
-
-        if not enable_compression:
-            if debug_enabled:
-                logger.debug(f"[WORKFLOW] 跳过压缩，直接上传")
-            update_task_status(task_id, {"status": "uploading"})
-            with open(upload_log_file, "w") as f:
-                f.write(f"Starting uncompressed upload for job {task_id}\n")
-            await upload_uncompressed(task_id, service, upload_path, params, upload_log_file)
-            update_task_status(task_id, {"status": "completed"})
-            with open(status_file, "a") as f:
-                f.write("\nJob completed successfully (compression disabled).\n")
-            with open(upload_log_file, "a") as f:
-                f.write("\nUpload completed successfully.\n")
-            return
-
-        update_task_status(task_id, {"status": "compressing"})
-        
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 开始压缩文件")
-            logger.debug(f"[WORKFLOW] 分卷压缩: {split_compression}")
-            if split_compression:
+                logger.debug(f"[WORKFLOW] 开始处理任务 {task_id}")
+                logger.debug(f"[WORKFLOW] URL: {url}")
+                logger.debug(f"[WORKFLOW] 下载器: {downloader}")
+                logger.debug(f"[WORKFLOW] 上传服务: {service}")
+                logger.debug(f"[WORKFLOW] 上传路径: {upload_path}")
+                logger.debug(f"[WORKFLOW] 启用压缩: {enable_compression}")
+                logger.debug(f"[WORKFLOW] 分卷压缩: {split_compression}")
                 logger.debug(f"[WORKFLOW] 分卷大小: {split_size}MB")
-        
-        if split_compression:
-            archive_paths = await compress_in_chunks(task_id, task_download_dir, archive_name, split_size * 1024 * 1024, status_file)
-        else:
-            task_archive_path = ARCHIVES_DIR / f"{archive_name}.tar.zst"
-            source_to_compress = task_download_dir
-            compress_cmd = f"tar -cf - -C \"{source_to_compress}\" . | zstd -o \"{task_archive_path}\""
-            await run_command(compress_cmd, compress_cmd, status_file, task_id)
-            archive_paths = [task_archive_path]
-
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 压缩完成，生成 {len(archive_paths)} 个文件")
-            for archive_path in archive_paths:
-                logger.debug(f"[WORKFLOW] 压缩文件: {archive_path}")
-
-        update_task_status(task_id, {"status": "uploading"})
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 开始上传到 {service}")
-        
-        with open(upload_log_file, "w") as f:
-            f.write(f"Starting upload for job {task_id} to {service}\n")
-
-        # Initialize upload stats
-        total_upload_files = len(archive_paths)
-        update_task_status(task_id, {
-            "upload_stats": {
-                "total_files": total_upload_files,
-                "uploaded_files": 0,
-                "percent": 0
-            }
-        })
-
-        uploaded_count = 0
-        for archive_path in archive_paths:
-            if service == "gofile":
-                if debug_enabled:
-                    logger.debug(f"[WORKFLOW] 使用 gofile.io 上传: {archive_path}")
-                gofile_token = params.get("gofile_token") or db_config.get_config("WDM_GOFILE_TOKEN")
-                gofile_folder_id = params.get("gofile_folder_id") or db_config.get_config("WDM_GOFILE_FOLDER_ID")
-                if gofile_token and not gofile_folder_id:
-                    gofile_folder_id = "ad957716-3899-498a-bebc-716f616f9b16"
-                download_link = await upload_to_gofile(archive_path, upload_log_file, api_token=gofile_token, folder_id=gofile_folder_id)
-                
-                uploaded_count += 1
-                percent = int((uploaded_count / total_upload_files) * 100)
-                update_task_status(task_id, {
-                    "status": "completed" if uploaded_count == total_upload_files else "uploading",
-                    "gofile_link": download_link,
-                    "upload_stats": {
-                        "total_files": total_upload_files,
-                        "uploaded_files": uploaded_count,
-                        "percent": percent
-                    }
-                })
-                if debug_enabled:
-                    logger.debug(f"[WORKFLOW] gofile.io 上传完成，链接: {download_link}")
-
+                logger.debug(f"[WORKFLOW] Kemono 模板: {kemono_path_template}")
             
+            update_task_status(task_id, {"status": "running", "url": url, "downloader": downloader})
+            
+            with open(status_file, "w") as f:
+                f.write(f"Starting job {task_id} for URL: {url}\n")
 
-            elif service == "openlist":
+            proxy = params.get("proxy")
+            if params.get("auto_proxy"):
                 if debug_enabled:
-                    logger.debug(f"[WORKFLOW] 使用 Openlist 上传: {archive_path}")
-                openlist_url = params.get("openlist_url") or db_config.get_config("WDM_OPENLIST_URL")
-                openlist_user = params.get("openlist_user") or db_config.get_config("WDM_OPENLIST_USER")
-                openlist_pass = params.get("openlist_pass") or db_config.get_config("WDM_OPENLIST_PASS")
-                if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
-                    raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
-                with open(upload_log_file, "a") as f: f.write(f"\n--- Starting Openlist Upload ---\n")
-                token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, upload_log_file)
-                await asyncio.to_thread(openlist.create_directory, openlist_url, token, upload_path, upload_log_file)
-                
-                # Initialize tracking variables for archives
-                total_archives_size = sum(p.stat().st_size for p in archive_paths)
-                total_uploaded_archives_size = 0
-                last_update_time = 0
-                
-                def format_size(size):
-                    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-                        if size < 1024.0:
-                            return f"{size:.2f} {unit}"
-                        size /= 1024.0
-                    return f"{size:.2f} PB"
+                    logger.debug(f"[WORKFLOW] 启用自动代理选择")
+                proxy = await get_working_proxy(status_file)
+            
+            downloader = params.get("downloader", "gallery-dl")
 
-                # Single archive upload in openlist (could be multiple if split)
-                current_archive_size = archive_path.stat().st_size
+            # Ensure task_download_dir exists
+            task_download_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create temporary gallery-dl config for this specific task
+            task_gdl_config_path = STATUS_DIR / f"{task_id}_gdl.json"
+            gdl_config_data = {
+                "extractor": {
+                    "base-directory": str(task_download_dir),
+                    "directory": ["{user}", "{title}"] if kemono_path_template else ["{service}", "{user}", "{id}"]
+                }
+            }
+            with open(task_gdl_config_path, "w", encoding="utf-8") as f:
+                json.dump(gdl_config_data, f)
+
+            if debug_enabled:
+                logger.debug(f"[WORKFLOW] 配置下载器: {downloader}")
+                logger.debug(f"[WORKFLOW] 代理设置: {proxy if proxy else '无'}")
+                logger.debug(f"[WORKFLOW] 速度限制: {params.get('rate_limit', '无')}")
+
+            if downloader == "megadl":
+                command = f"megadl --path {task_download_dir}"
+                if params.get("rate_limit"):
+                    # Convert rate limit string to integer for megadl
+                    rate_limit = params['rate_limit'].strip().upper()
+                    try:
+                        if rate_limit.endswith('K'):
+                            bytes_per_second = int(float(rate_limit[:-1]) * 1000)
+                        elif rate_limit.endswith('M'):
+                            bytes_per_second = int(float(rate_limit[:-1]) * 1000000)
+                        elif rate_limit.endswith('G'):
+                            bytes_per_second = int(float(rate_limit[:-1]) * 1000000000)
+                        else:
+                            bytes_per_second = int(float(rate_limit))
+                        command += f" --limit-speed {bytes_per_second}"
+                    except ValueError:
+                        # If conversion fails, use original value (will likely fail but preserve error)
+                        command += f" --limit-speed {params['rate_limit']}"
+                command += f" {url}"
+                command_log = command
+            else:
+                # Use the temporary config file
+                command = f"gallery-dl --verbose -c \"{task_gdl_config_path}\""
                 
-                def progress_handler(current, total):
-                    nonlocal last_update_time
-                    now = time.time()
-                    if now - last_update_time < 0.5 and current < total:
-                        return
-                    last_update_time = now
+                # Site Specific Options
+                if kemono_posts:
+                    command += f" -o extractor.kemono.posts={kemono_posts}"
+                if kemono_revisions:
+                    command += " -o extractor.kemono.revisions=true"
+                
+                if pixiv_ugoira is False:
+                    command += " -o extractor.pixiv.ugoira=false"
+                if twitter_retweets:
+                    command += " -o extractor.twitter.retweets=true"
+                if twitter_replies:
+                    command += " -o extractor.twitter.replies=true"
+
+                # Add custom arguments from database
+                extra_args = db_config.get_config("WDM_GALLERY_DL_ARGS", "")
+                if extra_args:
+                    command += f" {extra_args}"
                     
-                    # Total progress (considering previously uploaded archives in the loop)
-                    # Note: uploaded_count is updated AFTER the file is done in the loop
-                    # So current_total includes size of already uploaded files + current progress
+                if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
+                    command += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret={params['deviantart_client_secret']}"
+                if proxy:
+                    command += f" --proxy {proxy}"
+                    if params.get("rate_limit"):
+                        command += f" --limit-rate {params['rate_limit']}"
+                command += f" {url}"
+
+                command_log = f"gallery-dl --verbose -c \"{task_gdl_config_path}\""
+                if proxy:
+                    command_log += f" --proxy {proxy}"
+                command_log += f" {url}"
+            
+            if debug_enabled:
+                logger.debug(f"[WORKFLOW] 执行下载命令: {command_log}")
+            
+            update_task_status(task_id, {"command": command_log})
+            await run_command(command, command_log, status_file, task_id)
+
+            if not enable_compression:
+                if debug_enabled:
+                    logger.debug(f"[WORKFLOW] 跳过压缩，直接上传")
+                update_task_status(task_id, {"status": "uploading"})
+                with open(upload_log_file, "w") as f:
+                    f.write(f"Starting uncompressed upload for job {task_id}\n")
+                await upload_uncompressed(task_id, service, upload_path, params, upload_log_file)
+                update_task_status(task_id, {"status": "completed"})
+                with open(status_file, "a") as f:
+                    f.write("\nJob completed successfully (compression disabled).\n")
+                with open(upload_log_file, "a") as f:
+                    f.write("\nUpload completed successfully.\n")
+                return
+
+            update_task_status(task_id, {"status": "compressing"})
+            
+            if debug_enabled:
+                logger.debug(f"[WORKFLOW] 开始压缩文件")
+                logger.debug(f"[WORKFLOW] 分卷压缩: {split_compression}")
+                if split_compression:
+                    logger.debug(f"[WORKFLOW] 分卷大小: {split_size}MB")
+            
+            if split_compression:
+                archive_paths = await compress_in_chunks(task_id, task_download_dir, archive_name, split_size * 1024 * 1024, status_file)
+            else:
+                task_archive_path = ARCHIVES_DIR / f"{archive_name}.tar.zst"
+                source_to_compress = task_download_dir
+                compress_cmd = f"tar -cf - -C \"{source_to_compress}\" . | zstd -o \"{task_archive_path}\""
+                await run_command(compress_cmd, compress_cmd, status_file, task_id)
+                archive_paths = [task_archive_path]
+
+            if debug_enabled:
+                logger.debug(f"[WORKFLOW] 压缩完成，生成 {len(archive_paths)} 个文件")
+                for archive_path in archive_paths:
+                    logger.debug(f"[WORKFLOW] 压缩文件: {archive_path}")
+
+            update_task_status(task_id, {"status": "uploading"})
+            if debug_enabled:
+                logger.debug(f"[WORKFLOW] 开始上传到 {service}")
+            
+            with open(upload_log_file, "w") as f:
+                f.write(f"Starting upload for job {task_id} to {service}\n")
+
+            # Initialize upload stats
+            total_upload_files = len(archive_paths)
+            update_task_status(task_id, {
+                "upload_stats": {
+                    "total_files": total_upload_files,
+                    "uploaded_files": 0,
+                    "percent": 0
+                }
+            })
+
+            uploaded_count = 0
+            for archive_path in archive_paths:
+                if service == "gofile":
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] 使用 gofile.io 上传: {archive_path}")
+                    gofile_token = params.get("gofile_token") or db_config.get_config("WDM_GOFILE_TOKEN")
+                    gofile_folder_id = params.get("gofile_folder_id") or db_config.get_config("WDM_GOFILE_FOLDER_ID")
+                    if gofile_token and not gofile_folder_id:
+                        gofile_folder_id = "ad957716-3899-498a-bebc-716f616f9b16"
+                    download_link = await upload_to_gofile(archive_path, upload_log_file, api_token=gofile_token, folder_id=gofile_folder_id)
                     
-                    # We need to calculate size of *previous* archives in this loop
-                    # The loop iterates 'archive_paths'. We can use 'uploaded_count' as index if we are careful,
-                    # but simpler to just track accumulated size.
+                    uploaded_count += 1
+                    percent = int((uploaded_count / total_upload_files) * 100)
+                    update_task_status(task_id, {
+                        "status": "completed" if uploaded_count == total_upload_files else "uploading",
+                        "gofile_link": download_link,
+                        "upload_stats": {
+                            "total_files": total_upload_files,
+                            "uploaded_files": uploaded_count,
+                            "percent": percent
+                        }
+                    })
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] gofile.io 上传完成，链接: {download_link}")
+
+                
+
+                elif service == "openlist":
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] 使用 Openlist 上传: {archive_path}")
+                    openlist_url = params.get("openlist_url") or db_config.get_config("WDM_OPENLIST_URL")
+                    openlist_user = params.get("openlist_user") or db_config.get_config("WDM_OPENLIST_USER")
+                    openlist_pass = params.get("openlist_pass") or db_config.get_config("WDM_OPENLIST_PASS")
+                    if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
+                        raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
+                    with open(upload_log_file, "a") as f: f.write(f"\n--- Starting Openlist Upload ---\n")
+                    token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, upload_log_file)
+                    await asyncio.to_thread(openlist.create_directory, openlist_url, token, upload_path, upload_log_file)
                     
-                    # Actually, 'uploaded_count' is incremented at the end of loop.
-                    # So 'total_uploaded_archives_size' tracks completed files.
+                    # Initialize tracking variables for archives
+                    total_archives_size = sum(p.stat().st_size for p in archive_paths)
+                    total_uploaded_archives_size = 0
+                    last_update_time = 0
                     
-                    current_total_uploaded = total_uploaded_archives_size + current
-                    total_percent = int((current_total_uploaded / total_archives_size) * 100) if total_archives_size > 0 else 0
-                    file_percent = int((current / total) * 100) if total > 0 else 0
+                    def format_size(size):
+                        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                            if size < 1024.0:
+                                return f"{size:.2f} {unit}"
+                            size /= 1024.0
+                        return f"{size:.2f} PB"
+
+                    # Single archive upload in openlist (could be multiple if split)
+                    current_archive_size = archive_path.stat().st_size
                     
+                    def progress_handler(current, total):
+                        nonlocal last_update_time
+                        now = time.time()
+                        if now - last_update_time < 0.5 and current < total:
+                            return
+                        last_update_time = now
+                        
+                        # Total progress (considering previously uploaded archives in the loop)
+                        # Note: uploaded_count is updated AFTER the file is done in the loop
+                        # So current_total includes size of already uploaded files + current progress
+                        
+                        # We need to calculate size of *previous* archives in this loop
+                        # The loop iterates 'archive_paths'. We can use 'uploaded_count' as index if we are careful,
+                        # but simpler to just track accumulated size.
+                        
+                        # Actually, 'uploaded_count' is incremented at the end of loop.
+                        # So 'total_uploaded_archives_size' tracks completed files.
+                        
+                        current_total_uploaded = total_uploaded_archives_size + current
+                        total_percent = int((current_total_uploaded / total_archives_size) * 100) if total_archives_size > 0 else 0
+                        file_percent = int((current / total) * 100) if total > 0 else 0
+                        
+                        update_task_status(task_id, {
+                            "upload_stats": {
+                                "total_files": total_upload_files,
+                                "uploaded_files": uploaded_count,
+                                "percent": total_percent,
+                                "file_percent": file_percent,
+                                "current_file": archive_path.name,
+                                "transferred": format_size(current_total_uploaded),
+                                "total": format_size(total_archives_size)
+                            }
+                        })
+
+                    await asyncio.to_thread(openlist.upload_file, openlist_url, token, archive_path, upload_path, upload_log_file, progress_handler)
+                    
+                    total_uploaded_archives_size += current_archive_size
+                    
+                    uploaded_count += 1
+                    percent = int((uploaded_count / total_upload_files) * 100)
                     update_task_status(task_id, {
                         "upload_stats": {
                             "total_files": total_upload_files,
                             "uploaded_files": uploaded_count,
-                            "percent": total_percent,
-                            "file_percent": file_percent,
-                            "current_file": archive_path.name,
-                            "transferred": format_size(current_total_uploaded),
-                            "total": format_size(total_archives_size)
+                            "percent": percent
                         }
                     })
-
-                await asyncio.to_thread(openlist.upload_file, openlist_url, token, archive_path, upload_path, upload_log_file, progress_handler)
-                
-                total_uploaded_archives_size += current_archive_size
-                
-                uploaded_count += 1
-                percent = int((uploaded_count / total_upload_files) * 100)
-                update_task_status(task_id, {
-                    "upload_stats": {
-                        "total_files": total_upload_files,
-                        "uploaded_files": uploaded_count,
-                        "percent": percent
-                    }
-                })
-                
-                if debug_enabled:
-                    logger.debug(f"[WORKFLOW] Openlist 上传完成")
-            else:
-                if debug_enabled:
-                    logger.debug(f"[WORKFLOW] 使用 rclone 上传到 {service}: {archive_path}")
-                rclone_config_path = create_rclone_config(task_id, service, params)
-                if not rclone_config_path:
-                    raise RuntimeError(f"Failed to create rclone configuration for {service}. Please check your settings in the Settings page.")
-                
-                remote_full_path = f"remote:{upload_path}"
-                upload_cmd = (
-                    f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
-                    f"-P --stats 1s --log-level=INFO --retries 5"
-                )
-                if params.get("upload_rate_limit"):
-                    upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
-                await run_command(upload_cmd, upload_cmd, upload_log_file, task_id)
-                
-                uploaded_count += 1
-                percent = int((uploaded_count / total_upload_files) * 100)
-                update_task_status(task_id, {
-                    "upload_stats": {
-                        "total_files": total_upload_files,
-                        "uploaded_files": uploaded_count,
-                        "percent": percent
-                    }
-                })
-                
-                if debug_enabled:
-                    logger.debug(f"[WORKFLOW] rclone 上传完成")
+                    
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] Openlist 上传完成")
+                else:
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] 使用 rclone 上传到 {service}: {archive_path}")
+                    rclone_config_path = create_rclone_config(task_id, service, params)
+                    if not rclone_config_path:
+                        raise RuntimeError(f"Failed to create rclone configuration for {service}. Please check your settings in the Settings page.")
+                    
+                    remote_full_path = f"remote:{upload_path}"
+                    upload_cmd = (
+                        f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
+                        f"-P --stats 1s --log-level=INFO --retries 5"
+                    )
+                    if params.get("upload_rate_limit"):
+                        upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
+                    await run_command(upload_cmd, upload_cmd, upload_log_file, task_id)
+                    
+                    uploaded_count += 1
+                    percent = int((uploaded_count / total_upload_files) * 100)
+                    update_task_status(task_id, {
+                        "upload_stats": {
+                            "total_files": total_upload_files,
+                            "uploaded_files": uploaded_count,
+                            "percent": percent
+                        }
+                    })
+                    
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] rclone 上传完成")
 
 
-        with open(status_file, "a") as f:
-            f.write("\nJob completed successfully!\n")
-        with open(upload_log_file, "a") as f:
-            f.write("\nUpload completed successfully!\n")
+            with open(status_file, "a") as f:
+                f.write("\nJob completed successfully!\n")
+            with open(upload_log_file, "a") as f:
+                f.write("\nUpload completed successfully!\n")
 
-    except Exception as e:
-        error_message = f"An error occurred: {str(e)}"
-        with open(status_file, "a") as f:
-            f.write(f"\n--- JOB FAILED ---\n{error_message}\n")
-        # Also write to upload log if it fails during upload
-        if os.path.exists(upload_log_file):
-             with open(upload_log_file, "a") as f:
-                f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
-        update_task_status(task_id, {"status": "failed", "error": error_message})
-    finally:
-        # --- MEMORY LEAK FIX ---
-        # Cleanup all temporary files and directories for this specific task.
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 开始清理任务资源")
-        
-        with open(status_file, "a") as f:
-            f.write("\n--- Cleaning up task resources... ---\n")
-        
-        # 1. Remove downloaded files
-        if os.path.exists(task_download_dir):
+        except Exception as e:
+            error_message = f"An error occurred: {str(e)}"
+            with open(status_file, "a") as f:
+                f.write(f"\n--- JOB FAILED ---\n{error_message}\n")
+            # Also write to upload log if it fails during upload
+            if os.path.exists(upload_log_file):
+                 with open(upload_log_file, "a") as f:
+                    f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
+            update_task_status(task_id, {"status": "failed", "error": error_message})
+        finally:
+            # --- MEMORY LEAK FIX ---
+            # Cleanup all temporary files and directories for this specific task.
             if debug_enabled:
-                logger.debug(f"[WORKFLOW] 删除下载目录: {task_download_dir}")
-            shutil.rmtree(task_download_dir)
-            with open(status_file, "a") as f: f.write(f"Removed directory: {task_download_dir}\n")
-
-        # 2. Remove created archives
-        for archive_path in archive_paths:
-            if os.path.exists(archive_path):
+                logger.debug(f"[WORKFLOW] 开始清理任务资源")
+            
+            with open(status_file, "a") as f:
+                f.write("\n--- Cleaning up task resources... ---")
+            
+            # 1. Remove downloaded files
+            if os.path.exists(task_download_dir):
                 if debug_enabled:
-                    logger.debug(f"[WORKFLOW] 删除压缩文件: {archive_path}")
-                os.remove(archive_path)
-                with open(status_file, "a") as f: f.write(f"Removed archive: {archive_path}\n")
+                    logger.debug(f"[WORKFLOW] 删除下载目录: {task_download_dir}")
+                shutil.rmtree(task_download_dir)
+                with open(status_file, "a") as f: f.write(f"Removed directory: {task_download_dir}\n")
 
-        # 3. Remove temporary rclone config
-        if rclone_config_path and os.path.exists(rclone_config_path):
+            # 2. Remove created archives
+            for archive_path in archive_paths:
+                if os.path.exists(archive_path):
+                    if debug_enabled:
+                        logger.debug(f"[WORKFLOW] 删除压缩文件: {archive_path}")
+                    os.remove(archive_path)
+                    with open(status_file, "a") as f: f.write(f"Removed archive: {archive_path}\n")
+
+            # 3. Remove temporary rclone config
+            if rclone_config_path and os.path.exists(rclone_config_path):
+                if debug_enabled:
+                    logger.debug(f"[WORKFLOW] 删除 rclone 配置: {rclone_config_path}")
+                os.remove(rclone_config_path)
+                with open(status_file, "a") as f: f.write(f"Removed rclone config: {rclone_config_path}\n")
+
+            # 4. Remove temporary gallery-dl config
+            if 'task_gdl_config_path' in locals() and os.path.exists(task_gdl_config_path):
+                if debug_enabled:
+                    logger.debug(f"[WORKFLOW] 删除 gallery-dl 配置: {task_gdl_config_path}")
+                os.remove(task_gdl_config_path)
+                with open(status_file, "a") as f: f.write(f"Removed gallery-dl config: {task_gdl_config_path}\n")
+            
+            with open(status_file, "a") as f: f.write("Cleanup complete.\n")
+            
             if debug_enabled:
-                logger.debug(f"[WORKFLOW] 删除 rclone 配置: {rclone_config_path}")
-            os.remove(rclone_config_path)
-            with open(status_file, "a") as f: f.write(f"Removed rclone config: {rclone_config_path}\n")
+                logger.debug(f"[WORKFLOW] 任务 {task_id} 清理完成")
+
+async def fetch_kemono_posts(service: str, user_id: str, session):
+    """Asynchronously fetch all post metadata for a creator using cloudscraper."""
+    from .utils import API_BASE_URL
+    all_posts, offset = [], 0
+    api_url = f"{API_BASE_URL}/{service}/user/{user_id}/posts"
+    
+    while True:
+        try:
+            request_url = f"{api_url}?o={offset}"
+            # Run in thread because cloudscraper/requests is blocking
+            response = await asyncio.to_thread(session.get, request_url, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            posts_chunk = data if isinstance(data, list) else data.get('results', [])
+            if not isinstance(posts_chunk, list) or not posts_chunk:
+                break
+            all_posts.extend(posts_chunk)
+            offset += 50
+            if len(posts_chunk) < 50:
+                break
+        except Exception as e:
+            logger.error(f"[KemonoPro] Failed to fetch posts: {e}")
+            break
+    return all_posts
+
+async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, upload_service: str, upload_path: str, params: dict):
+    """Main background task for Kemono DL Pro."""
+    from .utils import SITE_BASE_URL, sanitize_filename, download_file
+    import uuid
+    
+    async with task_semaphore:
+        task_download_dir = DOWNLOADS_DIR / task_id
+        task_download_dir.mkdir(parents=True, exist_ok=True)
+        status_file = STATUS_DIR / f"{task_id}.log"
+        upload_log_file = STATUS_DIR / f"{task_id}_upload.log"
         
-        with open(status_file, "a") as f: f.write("Cleanup complete.\n")
+        update_task_status(task_id, {"status": "running", "url": f"{service}/{creator_id} (Pro)"})
         
-        if debug_enabled:
-            logger.debug(f"[WORKFLOW] 任务 {task_id} 清理完成")
+        try:
+            scraper = cloudscraper.create_scraper()
+            posts = await fetch_kemono_posts(service, creator_id, scraper)
+            
+            with open(status_file, "w") as f:
+                f.write(f"Kemono Pro: Found {len(posts)} posts for {service}/{creator_id}\n")
+            
+            tasks_to_download = []
+            
+            for post in posts:
+                post_title = sanitize_filename(post.get('title', 'untitled'))
+                post_date = (post.get('published') or '0000-00-00').split('T')[0]
+                
+                for attachment in post.get('attachments', []):
+                    filename = sanitize_filename(attachment.get('name'))
+                    filepath = attachment.get('path')
+                    if filename and filepath:
+                        # Target structure: [Date] [Title]--Filename
+                        final_name = f"[{post_date}] [{post_title[:50]}]--{filename}"
+                        tasks_to_download.append({
+                            "url": SITE_BASE_URL + filepath,
+                            "dest": task_download_dir / final_name
+                        })
+            
+            total_files = len(tasks_to_download)
+            update_task_status(task_id, {"total_files": total_files})
+            
+            completed_count = 0
+            for dl_task in tasks_to_download:
+                success = await asyncio.to_thread(download_file, dl_task["url"], dl_task["dest"], scraper)
+                completed_count += 1
+                update_task_status(task_id, {"progress_count": f"{completed_count}/{total_files}"})
+                with open(status_file, "a") as f:
+                    status_msg = "Success" if success else "Failed"
+                    f.write(f"[{completed_count}/{total_files}] Download {dl_task['dest'].name}: {status_msg}\n")
+
+            # Upload
+            update_task_status(task_id, {"status": "uploading"})
+            await upload_uncompressed(task_id, upload_service, upload_path, params, upload_log_file)
+            update_task_status(task_id, {"status": "completed"})
+            
+        except Exception as e:
+            error_msg = f"Kemono Pro failed: {str(e)}"
+            logger.error(error_msg)
+            update_task_status(task_id, {"status": "failed", "error": error_msg})
+            with open(status_file, "a") as f:
+                f.write(f"\n[ERROR] {error_msg}\n")
+        finally:
+            if os.path.exists(task_download_dir):
+                shutil.rmtree(task_download_dir)

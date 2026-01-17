@@ -70,6 +70,16 @@ async def get_downloader(request: Request, current_user: User = Depends(get_curr
         "upload_configs": upload_configs
     })
 
+@router.get("/kemono-pro", response_class=HTMLResponse)
+async def get_kemono_pro(request: Request, current_user: User = Depends(get_current_user)):
+    lang = get_lang(request)
+    return templates.TemplateResponse("kemono_pro.html", {
+        "request": request, 
+        "lang": lang, 
+        "user": current_user.username, 
+        "avatar_url": db_config.get_config("AVATAR_URL", AVATAR_URL)
+    })
+
 
 
 @router.get("/tasks", response_class=HTMLResponse)

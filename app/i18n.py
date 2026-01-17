@@ -210,6 +210,11 @@ LANGUAGES = {
         "add_to_home_screen": "Add to Home Screen",
         "pwa_install_msg": "Add this site to your home screen for a better experience",
         "pwa_already_installed": "Already installed or not supported",
+        "kemono_pro_title": "Kemono DL Pro",
+        "kemono_pro_desc": "Advanced downloader for Kemono.cr with full creator scraping and Cloudflare bypass.",
+        "creator_id_label": "Creator ID",
+        "service_label": "Service",
+        "fetch_posts_button": "Fetch Posts & Start",
     },
     "zh": {
         "app_title": "Web-DL-Manager",
@@ -422,6 +427,11 @@ LANGUAGES = {
         "add_to_home_screen": "添加到主屏幕",
         "pwa_install_msg": "将本站添加到主屏幕，以获得更好的体验",
         "pwa_already_installed": "已安装或浏览器不支持",
+        "kemono_pro_title": "Kemono 增强版",
+        "kemono_pro_desc": "专为 Kemono.cr 设计的高级下载器，支持创作者全量抓取与 Cloudflare 绕过。",
+        "creator_id_label": "创作者 ID",
+        "service_label": "平台/服务",
+        "fetch_posts_button": "获取帖子并开始",
     }
 }
 

@@ -254,6 +254,7 @@
   <ul>
     {% if request.session.get('user') %}
     <li><a href="/downloader"><i class="bi bi-plus-circle"></i> {{ lang.start_download_button }}</a></li>
+    <li><a href="/kemono-pro"><i class="bi bi-lightning-charge"></i> {{ lang.kemono_pro_title }}</a></li>
     <li><a href="/tasks"><i class="bi bi-stack"></i> {{ lang.all_tasks_title }}</a></li>
     <li><a href="/updates"><i class="bi bi-arrow-up-circle"></i> {{ lang.updates_title if lang.updates_title else 'Updates' }}</a></li>
     <li><a href="/terminal"><i class="bi bi-terminal"></i> {{ lang.terminal_title }}</a></li>
