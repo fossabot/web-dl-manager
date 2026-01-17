@@ -11,29 +11,35 @@ from app.database import init_db
 
 async def test_pro():
     init_db()
-    task_id = "test-pro-task"
+    task_id = "test-pro-auth-task"
     service = "patreon"
     creator_id = "28444363"
-    upload_service = "gofile" # Use gofile for easier testing
+    upload_service = "gofile" 
     upload_path = ""
+    
+    # Provided credentials
+    kemono_user = "eyjafjalla-0214"
+    kemono_pass = "qw24561415"
+    
     params = {
         "upload_service": "gofile",
-        "gofile_token": "", # Public upload
+        "gofile_token": "", 
     }
     
-    print(f"[*] Starting local test for Kemono Pro...")
+    print(f"[*] Starting local AUTH test for Kemono Pro...")
+    print(f"[*] User: {kemono_user}")
     print(f"[*] Target: {service}/{creator_id}")
     
     try:
-        # We run the job. Note: it will try to fetch ALL posts.
-        # For a quick test, I'll rely on the fact that we can monitor the logs.
         await process_kemono_pro_job(
             task_id=task_id,
             service=service,
             creator_id=creator_id,
             upload_service=upload_service,
             upload_path=upload_path,
-            params=params
+            params=params,
+            kemono_username=kemono_user,
+            kemono_password=kemono_pass
         )
         print("[*] Job finished execution.")
     except Exception as e:

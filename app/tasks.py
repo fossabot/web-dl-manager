@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import cloudscraper
 import json
+from typing import Optional
 
 from . import openlist
 from .database import db_config
@@ -832,7 +833,6 @@ async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, up
                 'Accept': 'application/json, text/plain, */*'
             })
 
-            # 1. Inject cookies if provided
             if cookies:
                 try:
                     cookie_dict = {}
@@ -852,7 +852,6 @@ async def process_kemono_pro_job(task_id: str, service: str, creator_id: str, up
                     login_url = f"{API_BASE_URL}/authentication/login"
                     login_data = {"username": kemono_username, "password": kemono_password}
                     
-                    # We run this in a thread because cloudscraper is blocking
                     response = await asyncio.to_thread(scraper.post, login_url, json=login_data, timeout=30)
                     response.raise_for_status()
                     
