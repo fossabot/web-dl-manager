@@ -316,12 +316,11 @@ async def login_main(request: Request, username: str = Form(...), password: str 
     lang = get_lang(request)
     
     # Authenticate User
-    user = User.get_by_username(username)
-    if user and user.verify_password(password):
-        token = create_access_token(data={"sub": username})
-        response = RedirectResponse(url="/downloader", status_code=302)
-        response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
-        return response
+    user = User.get_user_by_username(username)
+    if user and verify_password(password, user.hashed_password):
+        request.session["user"] = username
+        request.session["last_activity"] = time.time()
+        return RedirectResponse(url="/downloader", status_code=302)
     
     return templates.TemplateResponse("login.html", {
         "request": request, 
