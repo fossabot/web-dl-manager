@@ -408,8 +408,14 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     
     # Extract site specific options from kwargs or params
     kemono_posts = kwargs.get("kemono_posts") or params.get("kemono_posts")
-    kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true")
-    kemono_path_template = kwargs.get("kemono_path_template") if "kemono_path_template" in kwargs else (params.get("kemono_path_template") == "true")
+    kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true" or kwargs.get("kemono_revisions") == "true")
+    kemono_path_template = kwargs.get("kemono_path_template") if "kemono_path_template" in kwargs else (params.get("kemono_path_template") == "true" or kwargs.get("kemono_path_template") == "true")
+    # Handle the specific case where it might be passed as a string "true" in kwargs
+    if isinstance(kemono_path_template, str):
+        kemono_path_template = kemono_path_template.lower() == "true"
+    if isinstance(kemono_revisions, str):
+        kemono_revisions = kemono_revisions.lower() == "true"
+
     pixiv_ugoira = kwargs.get("pixiv_ugoira") if "pixiv_ugoira" in kwargs else (params.get("pixiv_ugoira") != "false")
     twitter_retweets = kwargs.get("twitter_retweets") if "twitter_retweets" in kwargs else (params.get("twitter_retweets") == "true")
     twitter_replies = kwargs.get("twitter_replies") if "twitter_replies" in kwargs else (params.get("twitter_replies") == "true")
@@ -424,6 +430,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             logger.debug(f"[WORKFLOW] 启用压缩: {enable_compression}")
             logger.debug(f"[WORKFLOW] 分卷压缩: {split_compression}")
             logger.debug(f"[WORKFLOW] 分卷大小: {split_size}MB")
+            logger.debug(f"[WORKFLOW] Kemono 模板: {kemono_path_template}")
         
         update_task_status(task_id, {"status": "running", "url": url, "downloader": downloader})
         
@@ -475,7 +482,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             if kemono_revisions:
                 command += " -o extractor.kemono.revisions=true"
             if kemono_path_template:
-                command += " -o extractor.kemono.directory=['{username}', '{title}']"
+                # Use a standard path template string
+                command += ' -o extractor.kemono.directory="{username}/{title}"'
             if pixiv_ugoira is False:
                 command += " -o extractor.pixiv.ugoira=false"
             if twitter_retweets:
