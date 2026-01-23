@@ -18,7 +18,7 @@ from ..auth import get_current_user
 from ..database import User
 from ..config import BASE_DIR, STATUS_DIR, PROJECT_ROOT
 from ..tasks import process_download_job
-from ..utils import get_task_status_path, update_task_status
+from ..utils import get_task_status_path, update_task_status, get_net_speed
 
 
 router = APIRouter(
@@ -195,6 +195,7 @@ async def resume_task(task_id: str):
 async def delete_task(task_id: str):
     status_path = get_task_status_path(task_id)
     log_path = STATUS_DIR / f"{task_id}.log"
+    upload_log_path = STATUS_DIR / f"{task_id}_upload.log"
     oauth_log_path = STATUS_DIR / f"oauth_{task_id}.log"
 
     deleted = False
@@ -203,6 +204,9 @@ async def delete_task(task_id: str):
         deleted = True
     if log_path.exists():
         log_path.unlink()
+        deleted = True
+    if upload_log_path.exists():
+        upload_log_path.unlink()
         deleted = True
     if oauth_log_path.exists(): # Also clean up potential oauth logs
         oauth_log_path.unlink()
@@ -217,7 +221,8 @@ async def delete_task(task_id: str):
 @router.get("/status/{task_id}/json")
 async def get_status_json(task_id: str):
     status_path = get_task_status_path(task_id)
-    log_path = STATUS_DIR / f"{task_id}.log"
+    download_log_path = STATUS_DIR / f"{task_id}.log"
+    upload_log_path = STATUS_DIR / f"{task_id}_upload.log"
     status_data = {}
     if status_path.exists():
         with open(status_path, "r") as f:
@@ -226,12 +231,49 @@ async def get_status_json(task_id: str):
             except json.JSONDecodeError:
                 status_data = {"status": "error", "error": "Invalid status file"}
     
-    log_content = ""
-    if log_path.exists():
-        with open(log_path, "r") as f:
-            log_content = f.read()
+    download_log = ""
+    if download_log_path.exists():
+        with open(download_log_path, "r") as f:
+            download_log = f.read()
             
-    return JSONResponse({"status": status_data, "log": log_content})
+    upload_log = ""
+    if upload_log_path.exists():
+        with open(upload_log_path, "r") as f:
+            upload_log = f.read()
+            
+    # Parse rclone progress from upload_log if possible
+    progress_data = status_data.get("upload_stats", {})
+    if upload_log and "Transferred:" in upload_log:
+        import re
+        # Look for the last Transferred: ... line
+        transferred_matches = re.findall(r"Transferred:\s+([\d.]+)\s*(\w+)\s*/\s*([\d.]+)\s*(\w+),\s*(\d+)%", upload_log)
+        if transferred_matches:
+            last_match = transferred_matches[-1]
+            progress_data["percent"] = int(last_match[4])
+            progress_data["transferred"] = f"{last_match[0]} {last_match[1]}"
+            progress_data["total"] = f"{last_match[2]} {last_match[3]}"
+        
+        # Check for individual file progress (Transferred: 0 / 1, 0%)
+        file_matches = re.findall(r"Transferred:\s+(\d+)\s*/\s+(\d+),\s*(\d+)%", upload_log)
+        if file_matches:
+            last_file_match = file_matches[-1]
+            progress_data["uploaded_files"] = int(last_file_match[0])
+            progress_data["total_files"] = int(last_file_match[1])
+
+    # Get real-time net speed
+    speed_down, speed_up = get_net_speed()
+            
+    return JSONResponse({
+        "status": status_data, 
+        "log": download_log,
+        "download_log": download_log,
+        "upload_log": upload_log,
+        "progress": progress_data,
+        "net_speed": {
+            "up": speed_up,
+            "down": speed_down
+        }
+    })
 
 @router.get("/status/{task_id}/raw")
 async def get_status_raw(task_id: str):

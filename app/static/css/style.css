@@ -111,6 +111,19 @@ body {
     border: 2px solid var(--border-color);
 }
 
+.navbar-avatar-container {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-image: var(--wdm-avatar-url, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,0.1);
+    vertical-align: middle;
+}
+
 /* ===== 页面头部 ===== */
 .page-header {
     background-color: var(--primary-color);

@@ -11,10 +11,55 @@
         .log-header {
             cursor: pointer;
             user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .log-header:hover {
             color: var(--primary-color);
         }
+        .log-container-box {
+            background-color: #212529;
+            color: #f8f9fa;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.85rem;
+            border-radius: var(--border-radius-sm);
+            height: 40vh;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #333;
+        }
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .log-line:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .log-line.selected {
+            background-color: rgba(102, 126, 234, 0.3);
+        }
+        .progress-panel {
+            background: var(--white);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+        .speed-badge {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 20px;
+            background: #f0f2f5;
+            color: #495057;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .speed-up { color: #d63384; }
+        .speed-down { color: #0d6efd; }
     </style>
 </head>
 <body>
@@ -27,7 +72,33 @@
                 <h1 class="card-title mb-4">
                     <i class="bi bi-activity"></i> {{ lang.job_status_title }}
                 </h1>
-                <p class="text-muted">{{ lang.task_id_label }} <span class="font-monospace">{{ task_id }}</span></p>
+                
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <p class="text-muted mb-0">{{ lang.task_id_label }} <span class="font-monospace">{{ task_id }}</span></p>
+                    <div class="d-flex gap-2">
+                        <div class="speed-badge">
+                            <i class="bi bi-arrow-up speed-up"></i> <span id="net-speed-up">0 KB/s</span>
+                        </div>
+                        <div class="speed-badge">
+                            <i class="bi bi-arrow-down speed-down"></i> <span id="net-speed-down">0 KB/s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Panel -->
+                <div id="upload-progress-panel" class="progress-panel" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-cloud-arrow-up"></i> {{ lang.upload_progress_label }}</h6>
+                        <span id="upload-files-info" class="badge bg-light text-dark">0 / 0 {{ lang.files_count_label }}</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 12px;">
+                        <div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <small id="upload-percent-text" class="text-muted">0%</small>
+                        <small id="upload-size-info" class="text-muted"></small>
+                    </div>
+                </div>
                         
                         <div class="d-flex justify-content-end align-items-center mb-2">
                             <button class="btn btn-sm btn-outline-secondary me-2" id="decrease-font-size">A-</button>
@@ -36,11 +107,11 @@
 
                         <div class="mb-3">
                             <h5 class="log-header" data-bs-toggle="collapse" data-bs-target="#downloadLogCollapse" aria-expanded="true" aria-controls="downloadLogCollapse">
-                                <i class="bi bi-caret-down-fill"></i> Download Log
+                                <i class="bi bi-caret-down-fill"></i> {{ lang.download_log_label }}
                             </h5>
                             <div class="collapse show" id="downloadLogCollapse">
                                 <div class="position-relative">
-                                    <div id="log-container" class="p-3"><code>
+                                    <div id="log-container" class="p-3 log-container-box"><code>
                                         {% if log_content %}
                                             {% for line in log_content.split('\n') %}
                                                 <div class="log-line">{{ line }}</div>
@@ -48,6 +119,31 @@
                                         {% endif %}
                                     </code></div>
                                     <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-download-log-button" title="{{ lang.copy_button }}">
+                                        <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="log-header mb-0" data-bs-toggle="collapse" data-bs-target="#uploadLogCollapse" aria-expanded="false" aria-controls="uploadLogCollapse">
+                                    <i class="bi bi-caret-right-fill"></i> {{ lang.upload_log_label }}
+                                </h5>
+                                <button class="btn btn-sm btn-link text-decoration-none" id="toggle-upload-log-btn" data-bs-toggle="collapse" data-bs-target="#uploadLogCollapse">
+                                    {{ lang.show_logs_button }}
+                                </button>
+                            </div>
+                            <div class="collapse" id="uploadLogCollapse">
+                                <div class="position-relative">
+                                    <div id="upload-log-container" class="p-3 log-container-box"><code>
+                                        {% if upload_log_content %}
+                                            {% for line in upload_log_content.split('\n') %}
+                                                <div class="log-line">{{ line }}</div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </code></div>
+                                    <button class="btn btn-light btn-sm position-absolute top-0 end-0 m-2" id="copy-upload-log-button" title="{{ lang.copy_button }}">
                                         <i class="bi bi-clipboard"></i> {{ lang.copy_button }}
                                     </button>
                                 </div>
@@ -77,9 +173,20 @@
         const taskId = "{{ task_id }}";
         const downloadLogContainer = document.getElementById('log-container');
         const downloadLogContentElement = downloadLogContainer.querySelector('code');
+        const uploadLogContainer = document.getElementById('upload-log-container');
+        const uploadLogContentElement = uploadLogContainer.querySelector('code');
+
+        const uploadProgressPanel = document.getElementById('upload-progress-panel');
+        const uploadProgressBar = document.getElementById('upload-progress-bar');
+        const uploadPercentText = document.getElementById('upload-percent-text');
+        const uploadFilesInfo = document.getElementById('upload-files-info');
+        const uploadSizeInfo = document.getElementById('upload-size-info');
+        const netSpeedUpText = document.getElementById('net-speed-up');
+        const netSpeedDownText = document.getElementById('net-speed-down');
+        const toggleUploadLogBtn = document.getElementById('toggle-upload-log-btn');
 
         const copyDownloadLogButton = document.getElementById('copy-download-log-button');
-        const copyErrorLogButton = document.getElementById('copy-error-log-button');
+        const copyUploadLogButton = document.getElementById('copy-upload-log-button');
         const autoRefreshSwitch = document.getElementById('auto-refresh-switch');
         const decreaseFontSizeButton = document.getElementById('decrease-font-size');
         const increaseFontSizeButton = document.getElementById('increase-font-size');
@@ -88,7 +195,19 @@
         let scrollTimer = null;
         let isTaskCompleted = false;
 
+        function formatSpeed(bytesPerSec) {
+            if (bytesPerSec === 0) return '0 KB/s';
+            const k = 1024;
+            const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            const i = Math.floor(Math.log(bytesPerSec) / Math.log(k));
+            return parseFloat((bytesPerSec / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
         function renderLog(logElement, logContent) {
+            if (!logContent) {
+                logElement.innerHTML = '';
+                return;
+            }
             logElement.innerHTML = ''; // Clear previous content
             const lines = logContent.split('\n');
             lines.forEach(line => {
@@ -104,11 +223,46 @@
                 const response = await fetch(`/api/status/${taskId}/json?t=${new Date().getTime()}`);
                 if (response.ok) {
                     const data = await response.json();
-                    renderLog(downloadLogContentElement, data.log);
+                    renderLog(downloadLogContentElement, data.download_log);
+                    renderLog(uploadLogContentElement, data.upload_log);
+                    
+                    // Update network speeds
+                    if (data.net_speed) {
+                        netSpeedUpText.textContent = formatSpeed(data.net_speed.up);
+                        netSpeedDownText.textContent = formatSpeed(data.net_speed.down);
+                    }
+
+                    // Update upload progress
+                    if (data.progress && data.status.status === 'uploading') {
+                        uploadProgressPanel.style.display = 'block';
+                        const p = data.progress;
+                        uploadProgressBar.style.width = (p.percent || 0) + '%';
+                        uploadPercentText.textContent = (p.percent || 0) + '%';
+                        
+                        if (p.total_files) {
+                            uploadFilesInfo.textContent = `${p.uploaded_files || 0} / ${p.total_files} {{ lang.files_count_label }}`;
+                        }
+                        
+                        if (p.transferred && p.total) {
+                            uploadSizeInfo.textContent = `${p.transferred} / ${p.total}`;
+                        }
+                    } else if (data.status.status === 'completed') {
+                        uploadProgressPanel.style.display = 'block';
+                        uploadProgressBar.style.width = '100%';
+                        uploadProgressBar.classList.remove('progress-bar-animated');
+                        uploadPercentText.textContent = '100%';
+                    }
+
+                    // Auto-expand upload log if there's an error
+                    if (data.status.status === 'failed' && data.upload_log.includes('error')) {
+                        const bsCollapse = bootstrap.Collapse.getInstance(document.getElementById('uploadLogCollapse'));
+                        if (bsCollapse) bsCollapse.show();
+                    }
                     
                     // Auto-scroll only if user is not manually scrolling
                     if (!isUserScrolling) {
                         downloadLogContainer.scrollTop = downloadLogContainer.scrollHeight;
+                        uploadLogContainer.scrollTop = uploadLogContainer.scrollHeight;
                     }
 
                     // Check if task is completed
@@ -125,7 +279,15 @@
                                 ? 'alert alert-success mt-3' 
                                 : 'alert alert-danger mt-3';
                             statusDiv.innerHTML = `<i class="bi bi-info-circle"></i> Task ${taskStatus}. Auto-refresh stopped.`;
-                            downloadLogContentElement.appendChild(statusDiv);
+                            
+                            if (taskStatus === 'failed' && data.status.error) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'alert alert-danger mt-3';
+                                errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Error: ${data.status.error}`;
+                                downloadLogContentElement.appendChild(errorDiv);
+                            }
+                            downloadLogContentElement.appendChild(statusDiv.cloneNode(true));
+                            uploadLogContentElement.appendChild(statusDiv);
                         }
                     }
 
@@ -136,6 +298,18 @@
                 console.error('Error fetching logs:', error);
             }
         }
+
+        // Handle upload log toggle text
+        document.getElementById('uploadLogCollapse').addEventListener('show.bs.collapse', () => {
+            toggleUploadLogBtn.textContent = '{{ lang.hide_logs_button }}';
+            const icon = document.querySelector('[data-bs-target="#uploadLogCollapse"] i');
+            icon.classList.replace('bi-caret-right-fill', 'bi-caret-down-fill');
+        });
+        document.getElementById('uploadLogCollapse').addEventListener('hide.bs.collapse', () => {
+            toggleUploadLogBtn.textContent = '{{ lang.show_logs_button }}';
+            const icon = document.querySelector('[data-bs-target="#uploadLogCollapse"] i');
+            icon.classList.replace('bi-caret-down-fill', 'bi-caret-right-fill');
+        });
 
         function startAutoRefresh() {
             if (!intervalId) {
@@ -151,7 +325,7 @@
         }
 
         function changeFontSize(amount) {
-            const logContainers = [downloadLogContainer];
+            const logContainers = [downloadLogContainer, uploadLogContainer];
             logContainers.forEach(container => {
                 const currentSize = parseFloat(window.getComputedStyle(container, null).getPropertyValue('font-size'));
                 container.style.fontSize = (currentSize + amount) + 'px';
@@ -184,33 +358,7 @@
         }
 
         setupCopyButton(copyDownloadLogButton, downloadLogContentElement);
-
-        function setupCopyErrorButton(button, contentElement) {
-            button.addEventListener('click', () => {
-                const allText = contentElement.textContent;
-                const lines = allText.split('\n');
-                const errorLines = lines.filter(line => 
-                    line.includes('ERROR') || 
-                    line.includes('FAILED') || 
-                    line.includes('Exception') || 
-                    line.includes('Traceback') || 
-                    line.includes('错误') ||
-                    line.includes('失败')
-                );
-                const errorText = errorLines.join('\n');
-                navigator.clipboard.writeText(errorText).then(() => {
-                    const originalText = button.innerHTML;
-                    button.innerHTML = '<i class="bi bi-check-lg"></i> {{ lang.copied_button }}';
-                    setTimeout(() => {
-                        button.innerHTML = originalText;
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy text: ', err);
-                });
-            });
-        }
-
-        setupCopyErrorButton(copyErrorLogButton, downloadLogContentElement);
+        setupCopyButton(copyUploadLogButton, uploadLogContentElement);
 
         function handleLineClick(event) {
             const target = event.target;
@@ -226,6 +374,7 @@
         }
 
         downloadLogContentElement.addEventListener('click', handleLineClick);
+        uploadLogContentElement.addEventListener('click', handleLineClick);
 
         // User scrolling detection
         function handleLogScroll() {
@@ -243,6 +392,7 @@
         }
 
         downloadLogContainer.addEventListener('scroll', handleLogScroll);
+        uploadLogContainer.addEventListener('scroll', handleLogScroll);
 
         // Initial fetch and start auto-refresh
         fetchLogs();

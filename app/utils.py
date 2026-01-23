@@ -11,9 +11,54 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from . import openlist
+from .database import db_config
 from .config import STATUS_DIR, CONFIG_BACKUP_RCLONE_BASE64, CONFIG_BACKUP_REMOTE_PATH, GALLERY_DL_CONFIG_DIR
 
 logger = logging.getLogger(__name__)
+
+import time
+import psutil
+
+# Cache for network speed calculation
+_net_io_cache = {"last_time": time.time(), "last_recv": psutil.net_io_counters().bytes_recv, "last_sent": psutil.net_io_counters().bytes_sent}
+
+def get_net_speed():
+    """Calculates real-time network receive/send speeds (bytes/s)."""
+    global _net_io_cache
+    current_time = time.time()
+    current_io = psutil.net_io_counters()
+    
+    interval = current_time - _net_io_cache["last_time"]
+    if interval <= 0:
+        return 0, 0
+    
+    recv_speed = (current_io.bytes_recv - _net_io_cache["last_recv"]) / interval
+    sent_speed = (current_io.bytes_sent - _net_io_cache["last_sent"]) / interval
+    
+    _net_io_cache.update({
+        "last_time": current_time,
+        "last_recv": current_io.bytes_recv,
+        "last_sent": current_io.bytes_sent
+    })
+    
+    return max(0, recv_speed), max(0, sent_speed)
+
+def count_files_in_dir(directory: Path) -> Dict[str, Any]:
+    """Counts files and total size in a directory or single file."""
+    count = 0
+    total_size = 0
+    
+    if not directory.exists():
+        return {"count": 0, "size": 0}
+        
+    if directory.is_file():
+        return {"count": 1, "size": directory.stat().st_size}
+        
+    for item in directory.rglob("*"):
+        if item.is_file():
+            count += 1
+            total_size += item.stat().st_size
+    return {"count": count, "size": total_size}
 
 # --- Helper Functions ---
 
@@ -171,11 +216,20 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     config_content = f"[remote]\ntype = {service}\n"
     
     if service == "webdav":
-        config_content += f"url = {params['webdav_url']}\n"
+        webdav_url = params.get('webdav_url') or db_config.get_config("WDM_WEBDAV_URL")
+        webdav_user = params.get('webdav_user') or db_config.get_config("WDM_WEBDAV_USER")
+        webdav_pass = params.get('webdav_pass') or db_config.get_config("WDM_WEBDAV_PASS")
+        
+        if not all([webdav_url, webdav_user, webdav_pass]):
+            logger.error(f"WebDAV configuration missing for task {task_id}")
+            # We can't proceed without these
+            return None
+
+        config_content += f"url = {webdav_url}\n"
         config_content += f"vendor = other\n"
-        config_content += f"user = {params['webdav_user']}\n"
+        config_content += f"user = {webdav_user}\n"
         obscured_pass_process = subprocess.run(
-            ["rclone", "obscure", params['webdav_pass']],
+            ["rclone", "obscure", webdav_pass],
             capture_output=True,
             text=True
         )
@@ -183,14 +237,31 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
         config_content += f"pass = {obscured_pass}\n"
         
     elif service == "s3":
-        config_content += f"provider = {params.get('s3_provider', 'AWS')}\n"
-        config_content += f"access_key_id = {params['s3_access_key_id']}\n"
-        config_content += f"secret_access_key = {params['s3_secret_access_key']}\n"
-        config_content += f"region = {params['s3_region']}\n"
-        config_content += f"endpoint = {params.get('s3_endpoint', '')}\n"
+        s3_provider = params.get('s3_provider') or db_config.get_config("WDM_S3_PROVIDER", "AWS")
+        s3_access_key_id = params.get('s3_access_key_id') or db_config.get_config("WDM_S3_ACCESS_KEY_ID")
+        s3_secret_access_key = params.get('s3_secret_access_key') or db_config.get_config("WDM_S3_SECRET_ACCESS_KEY")
+        s3_region = params.get('s3_region') or db_config.get_config("WDM_S3_REGION")
+        s3_endpoint = params.get('s3_endpoint') or db_config.get_config("WDM_S3_ENDPOINT", "")
+
+        if not all([s3_access_key_id, s3_secret_access_key, s3_region]):
+            logger.error(f"S3 configuration missing for task {task_id}")
+            return None
+
+        config_content += f"provider = {s3_provider}\n"
+        config_content += f"access_key_id = {s3_access_key_id}\n"
+        config_content += f"secret_access_key = {s3_secret_access_key}\n"
+        config_content += f"region = {s3_region}\n"
+        config_content += f"endpoint = {s3_endpoint}\n"
     elif service == "b2":
-        config_content += f"account = {params['b2_account_id']}"
-        config_content += f"key = {params['b2_application_key']}"
+        b2_account_id = params.get('b2_account_id') or db_config.get_config("WDM_B2_ACCOUNT_ID")
+        b2_application_key = params.get('b2_application_key') or db_config.get_config("WDM_B2_APPLICATION_KEY")
+        
+        if not all([b2_account_id, b2_application_key]):
+            logger.error(f"B2 configuration missing for task {task_id}")
+            return None
+            
+        config_content += f"account = {b2_account_id}\n"
+        config_content += f"key = {b2_application_key}\n"
     
 
     with open(config_path, "w") as f:

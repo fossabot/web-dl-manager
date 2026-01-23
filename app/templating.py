@@ -15,3 +15,12 @@ else:
 
 # Global templates object to be imported by routers
 templates = Jinja2Templates(directory=str(template_dir))
+
+# Add global functions/variables to templates context
+def get_avatar_url():
+    from .database import db_config
+    from .config import AVATAR_URL as DEFAULT_AVATAR_URL
+    return db_config.get_config("AVATAR_URL", DEFAULT_AVATAR_URL)
+
+templates.env.globals["get_avatar_url"] = get_avatar_url
+

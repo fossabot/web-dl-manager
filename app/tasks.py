@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 from . import openlist
+from .database import db_config
 from .config import DOWNLOADS_DIR, ARCHIVES_DIR, STATUS_DIR
 from .utils import (
     get_working_proxy,
@@ -16,6 +17,7 @@ from .utils import (
     generate_archive_name,
     update_task_status,
     convert_rate_limit_to_kbps,
+    count_files_in_dir,
 )
 
 # 获取logger
@@ -119,42 +121,64 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
 
 
 async def upload_uncompressed(task_id: str, service: str, upload_path: str, params: dict, status_file: Path):
-    """Uploads the uncompressed files to the remote storage."""
+    """Uploads the uncompressed files to the remote storage with progress tracking."""
     if service == "gofile":
         with open(status_file, "a") as f:
             f.write("\nUncompressed upload is not supported for gofile.io.\n")
         return
     
     task_download_dir = DOWNLOADS_DIR / task_id
-    
+    stats = count_files_in_dir(task_download_dir)
+    update_task_status(task_id, {
+        "upload_stats": {
+            "total_files": stats["count"],
+            "total_size": stats["size"],
+            "uploaded_files": 0,
+            "uploaded_size": 0,
+            "percent": 0
+        }
+    })
+
     if service == "openlist":
             try:
-                openlist_url = params.get("openlist_url")
-                openlist_user = params.get("openlist_user")
-                openlist_pass = params.get("openlist_pass")
+                openlist_url = params.get("openlist_url") or db_config.get_config("WDM_OPENLIST_URL")
+                openlist_user = params.get("openlist_user") or db_config.get_config("WDM_OPENLIST_USER")
+                openlist_pass = params.get("openlist_pass") or db_config.get_config("WDM_OPENLIST_PASS")
     
                 if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
-                    raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
+                    raise openlist.OpenlistError(f"Openlist configuration missing.")
     
                 with open(status_file, "a") as f:
                     f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---\n")
                 
-                token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
+                token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, status_file)
                 
                 if "terabox" in upload_path:
                     remote_task_dir = upload_path
                 else:
                     remote_task_dir = f"{upload_path}/{task_id}"
-                openlist.create_directory(openlist_url, token, remote_task_dir, status_file)
+                await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_task_dir, status_file)
                 
+                uploaded_count = 0
                 async def upload_dir_contents(local_dir: Path, remote_dir: str):
+                    nonlocal uploaded_count
                     for item in local_dir.iterdir():
-                        remote_item_path = f"{remote_dir}/{item.name}"
                         if item.is_dir():
-                            openlist.create_directory(openlist_url, token, remote_item_path, status_file)
+                            remote_item_path = f"{remote_dir}/{item.name}"
+                            await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_item_path, status_file)
                             await upload_dir_contents(item, remote_item_path)
                         else:
-                            openlist.upload_file(openlist_url, token, item, remote_dir, status_file)
+                            await asyncio.to_thread(openlist.upload_file, openlist_url, token, item, remote_dir, status_file)
+                            uploaded_count += 1
+                            percent = int((uploaded_count / stats["count"]) * 100) if stats["count"] > 0 else 100
+                            update_task_status(task_id, {
+                                "upload_stats": {
+                                    "total_files": stats["count"],
+                                    "total_size": stats["size"],
+                                    "uploaded_files": uploaded_count,
+                                    "percent": percent
+                                }
+                            })
     
                 await upload_dir_contents(task_download_dir, remote_task_dir)
     
@@ -170,7 +194,13 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
             return
     
     rclone_config_path = create_rclone_config(task_id, service, params)
-    
+    if not rclone_config_path:
+        error_message = f"Failed to create rclone configuration for {service}."
+        with open(status_file, "a") as f:
+            f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
+        update_task_status(task_id, {"status": "failed", "error": error_message})
+        return
+
     if "terabox" in upload_path:
         remote_full_path = f"remote:{upload_path}"
     else:
@@ -178,7 +208,7 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
         
     upload_cmd = (
         f"rclone copy --config \"{rclone_config_path}\" \"{task_download_dir}\" \"{remote_full_path}\" "
-        f"-P --log-level=INFO --retries 5"
+        f"-P --stats 1s --log-level=INFO --retries 5"
     )
     if params.get("upload_rate_limit"):
         upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
@@ -244,6 +274,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     task_download_dir = DOWNLOADS_DIR / task_id
     archive_name = generate_archive_name(url)
     status_file = STATUS_DIR / f"{task_id}.log"
+    upload_log_file = STATUS_DIR / f"{task_id}_upload.log"
     archive_paths = []
     rclone_config_path = None
 
@@ -270,6 +301,9 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             proxy = await get_working_proxy(status_file)
         
         downloader = params.get("downloader", "gallery-dl")
+
+        # Ensure task_download_dir exists
+        task_download_dir.mkdir(parents=True, exist_ok=True)
 
         if debug_enabled:
             logger.debug(f"[WORKFLOW] 配置下载器: {downloader}")
@@ -321,10 +355,14 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             if debug_enabled:
                 logger.debug(f"[WORKFLOW] 跳过压缩，直接上传")
             update_task_status(task_id, {"status": "uploading"})
-            await upload_uncompressed(task_id, service, upload_path, params, status_file)
+            with open(upload_log_file, "w") as f:
+                f.write(f"Starting uncompressed upload for job {task_id}\n")
+            await upload_uncompressed(task_id, service, upload_path, params, upload_log_file)
             update_task_status(task_id, {"status": "completed"})
             with open(status_file, "a") as f:
                 f.write("\nJob completed successfully (compression disabled).\n")
+            with open(upload_log_file, "a") as f:
+                f.write("\nUpload completed successfully.\n")
             return
 
         update_task_status(task_id, {"status": "compressing"})
@@ -353,16 +391,41 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
         if debug_enabled:
             logger.debug(f"[WORKFLOW] 开始上传到 {service}")
         
+        with open(upload_log_file, "w") as f:
+            f.write(f"Starting upload for job {task_id} to {service}\n")
+
+        # Initialize upload stats
+        total_upload_files = len(archive_paths)
+        update_task_status(task_id, {
+            "upload_stats": {
+                "total_files": total_upload_files,
+                "uploaded_files": 0,
+                "percent": 0
+            }
+        })
+
+        uploaded_count = 0
         for archive_path in archive_paths:
             if service == "gofile":
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] 使用 gofile.io 上传: {archive_path}")
-                gofile_token = params.get("gofile_token")
-                gofile_folder_id = params.get("gofile_folder_id")
+                gofile_token = params.get("gofile_token") or db_config.get_config("WDM_GOFILE_TOKEN")
+                gofile_folder_id = params.get("gofile_folder_id") or db_config.get_config("WDM_GOFILE_FOLDER_ID")
                 if gofile_token and not gofile_folder_id:
                     gofile_folder_id = "ad957716-3899-498a-bebc-716f616f9b16"
-                download_link = await upload_to_gofile(archive_path, status_file, api_token=gofile_token, folder_id=gofile_folder_id)
-                update_task_status(task_id, {"status": "completed", "gofile_link": download_link})
+                download_link = await upload_to_gofile(archive_path, upload_log_file, api_token=gofile_token, folder_id=gofile_folder_id)
+                
+                uploaded_count += 1
+                percent = int((uploaded_count / total_upload_files) * 100)
+                update_task_status(task_id, {
+                    "status": "completed" if uploaded_count == total_upload_files else "uploading",
+                    "gofile_link": download_link,
+                    "upload_stats": {
+                        "total_files": total_upload_files,
+                        "uploaded_files": uploaded_count,
+                        "percent": percent
+                    }
+                })
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] gofile.io 上传完成，链接: {download_link}")
 
@@ -371,42 +434,73 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             elif service == "openlist":
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] 使用 Openlist 上传: {archive_path}")
-                openlist_url = params.get("openlist_url")
-                openlist_user = params.get("openlist_user")
-                openlist_pass = params.get("openlist_pass")
+                openlist_url = params.get("openlist_url") or db_config.get_config("WDM_OPENLIST_URL")
+                openlist_user = params.get("openlist_user") or db_config.get_config("WDM_OPENLIST_USER")
+                openlist_pass = params.get("openlist_pass") or db_config.get_config("WDM_OPENLIST_PASS")
                 if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
                     raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
-                with open(status_file, "a") as f: f.write(f"\n--- Starting Openlist Upload ---\n")
-                token = openlist.login(openlist_url, openlist_user, openlist_pass, status_file)
-                openlist.create_directory(openlist_url, token, upload_path, status_file)
-                for p in archive_paths:
-                    openlist.upload_file(openlist_url, token, p, upload_path, status_file)
-                update_task_status(task_id, {"status": "completed"})
+                with open(upload_log_file, "a") as f: f.write(f"\n--- Starting Openlist Upload ---\n")
+                token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, upload_log_file)
+                await asyncio.to_thread(openlist.create_directory, openlist_url, token, upload_path, upload_log_file)
+                
+                # Single archive upload in openlist (could be multiple if split)
+                await asyncio.to_thread(openlist.upload_file, openlist_url, token, archive_path, upload_path, upload_log_file)
+                
+                uploaded_count += 1
+                percent = int((uploaded_count / total_upload_files) * 100)
+                update_task_status(task_id, {
+                    "upload_stats": {
+                        "total_files": total_upload_files,
+                        "uploaded_files": uploaded_count,
+                        "percent": percent
+                    }
+                })
+                
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] Openlist 上传完成")
             else:
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] 使用 rclone 上传到 {service}: {archive_path}")
                 rclone_config_path = create_rclone_config(task_id, service, params)
+                if not rclone_config_path:
+                    raise RuntimeError(f"Failed to create rclone configuration for {service}. Please check your settings in the Settings page.")
+                
                 remote_full_path = f"remote:{upload_path}"
                 upload_cmd = (
                     f"rclone copyto --config \"{rclone_config_path}\" \"{archive_path}\" \"{remote_full_path}/{archive_path.name}\" "
-                    f"-P --log-level=INFO --retries 5"
+                    f"-P --stats 1s --log-level=INFO --retries 5"
                 )
                 if params.get("upload_rate_limit"):
                     upload_cmd += f" --bwlimit {params['upload_rate_limit']}"
-                await run_command(upload_cmd, upload_cmd, status_file, task_id)
-                update_task_status(task_id, {"status": "completed"})
+                await run_command(upload_cmd, upload_cmd, upload_log_file, task_id)
+                
+                uploaded_count += 1
+                percent = int((uploaded_count / total_upload_files) * 100)
+                update_task_status(task_id, {
+                    "upload_stats": {
+                        "total_files": total_upload_files,
+                        "uploaded_files": uploaded_count,
+                        "percent": percent
+                    }
+                })
+                
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] rclone 上传完成")
 
+
         with open(status_file, "a") as f:
             f.write("\nJob completed successfully!\n")
+        with open(upload_log_file, "a") as f:
+            f.write("\nUpload completed successfully!\n")
 
     except Exception as e:
         error_message = f"An error occurred: {str(e)}"
         with open(status_file, "a") as f:
             f.write(f"\n--- JOB FAILED ---\n{error_message}\n")
+        # Also write to upload log if it fails during upload
+        if os.path.exists(upload_log_file):
+             with open(upload_log_file, "a") as f:
+                f.write(f"\n--- UPLOAD FAILED ---\n{error_message}\n")
         update_task_status(task_id, {"status": "failed", "error": error_message})
     finally:
         # --- MEMORY LEAK FIX ---
