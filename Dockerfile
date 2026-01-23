@@ -40,6 +40,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get purge -y --auto-remove wget \
     && rm -rf /var/lib/apt/lists/*
 
+# 可选：安装 Node.js 22 LTS (用于全量包)
+ARG INSTALL_NODE=false
+RUN if [ "$INSTALL_NODE" = "true" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # 全局安装必须的外部工具（gallery-dl, yt-dlp）
 RUN pip install --no-cache-dir gallery-dl yt-dlp
 

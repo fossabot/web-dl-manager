@@ -120,6 +120,42 @@
                                         </div>
                                         <div class="alert alert-secondary small py-2">{{ lang.disclaimer_text }}</div>
                                         <hr class="my-4">
+
+                                        <!-- Site Specific Options -->
+                                        <div class="mb-4">
+                                            <h5 class="mb-3">
+                                                <i class="bi bi-browser-chrome"></i> {{ lang.site_specific_options_title }}
+                                            </h5>
+                                            <div class="row">
+                                                <div class="col-md-4 mb-3">
+                                                    <label for="kemono_posts" class="form-label">{{ lang.kemono_posts_label }}</label>
+                                                    <input type="number" class="form-control" id="kemono_posts" name="kemono_posts" placeholder="e.g. 50">
+                                                </div>
+                                                <div class="col-md-8 d-flex align-items-end mb-3">
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="kemono_revisions" name="kemono_revisions" value="true">
+                                                        <label class="form-check-label" for="kemono_revisions">{{ lang.kemono_revisions_label }}</label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="pixiv_ugoira" name="pixiv_ugoira" value="true" checked>
+                                                        <label class="form-check-label" for="pixiv_ugoira">{{ lang.pixiv_ugoira_label }}</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="twitter_retweets" name="twitter_retweets" value="true">
+                                                        <label class="form-check-label" for="twitter_retweets">{{ lang.twitter_retweets_label }}</label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="twitter_replies" name="twitter_replies" value="true">
+                                                        <label class="form-check-label" for="twitter_replies">{{ lang.twitter_replies_label }}</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <hr class="my-4">
                                     </div>
 
                                     <!-- Rate Limit -->
@@ -162,8 +198,8 @@
 
                     <div class="d-grid mt-4">
                         <button type="submit" class="btn btn-primary btn-lg" id="submit-button">
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
-                            <i class="bi bi-download"></i> {{ lang.start_download_button }}
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display: none;"></span>
+                            <span class="btn-text"><i class="bi bi-download"></i> {{ lang.start_download_button }}</span>
                         </button>
                     </div>
                 </div>
@@ -417,6 +453,7 @@
         document.getElementById('download-form').addEventListener('submit', function(e) {
             const button = document.getElementById('submit-button');
             const spinner = button.querySelector('.spinner-border');
+            const btnText = button.querySelector('.btn-text');
             
             // Handle MEGA rate limit conversion
             const downloader = document.getElementById('downloader').value;
@@ -436,6 +473,7 @@
 
             button.disabled = true;
             spinner.style.display = 'inline-block';
+            if (btnText) btnText.textContent = '{{ lang.processing }}';
         });
 
         const downloaderSelect = document.getElementById('downloader');

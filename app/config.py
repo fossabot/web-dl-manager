@@ -1,8 +1,8 @@
 import os
+import shutil
 from pathlib import Path
 
 import sys
-from pathlib import Path
 
 # --- Configuration ---
 if getattr(sys, 'frozen', False):
@@ -16,9 +16,23 @@ else:
     BASE_DIR = Path(__file__).resolve().parent
     PROJECT_ROOT = BASE_DIR.parent
 
-DOWNLOADS_DIR = Path("/data/downloads")
-ARCHIVES_DIR = Path("/data/archives")
-STATUS_DIR = Path("/data/status")
+# Set local tmp and data root inside the app directory
+TMP_DIR = BASE_DIR / "tmp"
+DATA_ROOT = TMP_DIR / "data"
+
+# Auto cleanup the tmp directory on startup to ensure "read and burn" for downloads
+if TMP_DIR.exists():
+    shutil.rmtree(TMP_DIR, ignore_errors=True)
+
+DOWNLOADS_DIR = DATA_ROOT / "downloads"
+ARCHIVES_DIR = DATA_ROOT / "archives"
+STATUS_DIR = DATA_ROOT / "status"
+
+# Create directories
+os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+os.makedirs(ARCHIVES_DIR, exist_ok=True)
+os.makedirs(STATUS_DIR, exist_ok=True)
+
 PRIVATE_MODE = os.getenv("PRIVATE_MODE", "false").lower() == "true"
 
 # --- User Authentication ---
@@ -27,9 +41,8 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 AVATAR_URL = os.getenv("AVATAR_URL", "https://github.com/Jyf0214.png")
 
 # --- Database Configuration ---
-# Use a MySQL connection string, e.g., "mysql://user:password@host:port/database"
-# For local development, a SQLite database can be used for simplicity.
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{PROJECT_ROOT / 'webdl-manager.db'}")
+# Database is placed at the same level as TMP_DIR (inside BASE_DIR) so it is NOT cleared
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'webdl-manager.db'}")
 
 # --- Redis Configuration ---
 # Upstash Redis Connection String, e.g., "rediss://:password@endpoint:port"
@@ -39,18 +52,3 @@ REDIS_URL = os.getenv("REDIS_URL")
 CONFIG_BACKUP_RCLONE_BASE64 = os.getenv("WDM_CONFIG_BACKUP_RCLONE_BASE64")
 CONFIG_BACKUP_REMOTE_PATH = os.getenv("WDM_CONFIG_BACKUP_REMOTE_PATH", "remote:config-backup/gallery-dl")
 GALLERY_DL_CONFIG_DIR = Path.home() / ".config" / "gallery-dl"
-
-# Create directories if they don't exist
-try:
-    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
-    os.makedirs(ARCHIVES_DIR, exist_ok=True)
-    os.makedirs(STATUS_DIR, exist_ok=True)
-except PermissionError:
-    print("Permission denied to create /data directories. Creating them locally inside the project.")
-    # Redefine paths to be relative to the project root
-    DOWNLOADS_DIR = PROJECT_ROOT / "data" / "downloads"
-    ARCHIVES_DIR = PROJECT_ROOT / "data" / "archives"
-    STATUS_DIR = PROJECT_ROOT / "data" / "status"
-    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
-    os.makedirs(ARCHIVES_DIR, exist_ok=True)
-    os.makedirs(STATUS_DIR, exist_ok=True)

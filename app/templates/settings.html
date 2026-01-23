@@ -7,6 +7,21 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .accordion-button:not(.collapsed) {
+            background-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary-color);
+        }
+        .accordion-item {
+            border: 1px solid rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+            border-radius: 0.5rem !important;
+            overflow: hidden;
+        }
+        .accordion-header {
+            border-radius: 0.5rem !important;
+        }
+    </style>
 </head>
 <body>
     {% include 'components/navbar.html' %}
@@ -33,188 +48,248 @@
                 {% endif %}
 
                 <form action="/settings" method="POST">
-                    <!-- General Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-sliders"></i> {{ lang.general_settings_section }}
-                        </h5>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="TUNNEL_TOKEN" class="form-label">{{ lang.cloudflared_token_label }}</label>
-                                <input type="text" class="form-control" id="TUNNEL_TOKEN" name="TUNNEL_TOKEN" value="{{ config.TUNNEL_TOKEN }}" placeholder="Cloudflare Tunnel Token">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="login_domain" class="form-label">{{ lang.login_domain_label }}</label>
-                                <input type="text" class="form-control" id="login_domain" name="login_domain" value="{{ config.login_domain }}" placeholder="e.g., login.example.com">
+                    <div class="accordion" id="settingsAccordion">
+                        
+                        <!-- Section 1: General Settings -->
+                        <div class="accordion-item shadow-sm">
+                            <h2 class="accordion-header" id="headingGeneral">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneral" aria-expanded="false" aria-controls="collapseGeneral">
+                                    <i class="bi bi-sliders me-2"></i> {{ lang.general_settings_section }}
+                                </button>
+                            </h2>
+                            <div id="collapseGeneral" class="accordion-collapse collapse" aria-labelledby="headingGeneral" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="TUNNEL_TOKEN" class="form-label">{{ lang.cloudflared_token_label }}</label>
+                                            <input type="text" class="form-control" id="TUNNEL_TOKEN" name="TUNNEL_TOKEN" value="{{ config.TUNNEL_TOKEN }}" placeholder="Cloudflare Tunnel Token">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="login_domain" class="form-label">{{ lang.login_domain_label }}</label>
+                                            <input type="text" class="form-control" id="login_domain" name="login_domain" value="{{ config.login_domain }}" placeholder="e.g., login.example.com">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="AVATAR_URL_INPUT" class="form-label">{{ lang.avatar_url_label }}</label>
+                                            <input type="text" class="form-control" id="AVATAR_URL_INPUT" name="AVATAR_URL_INPUT" value="{{ config.AVATAR_URL }}" placeholder="https://github.com/your-username.png">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="GITHUB_TOKEN" class="form-label">{{ lang.github_token_label }}</label>
+                                            <input type="password" class="form-control" id="GITHUB_TOKEN" name="GITHUB_TOKEN" value="{{ config.GITHUB_TOKEN }}">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="PRIVATE_MODE" class="form-label">{{ lang.private_mode_label }}</label>
+                                            <select class="form-select" id="PRIVATE_MODE" name="PRIVATE_MODE">
+                                                <option value="true" {% if config.PRIVATE_MODE == 'true' %}selected{% endif %}>True</option>
+                                                <option value="false" {% if config.PRIVATE_MODE != 'true' %}selected{% endif %}>False</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="TERMINAL_ENABLED" class="form-label">{{ lang.get('terminal_enabled_config_label', 'Terminal Enabled') }}</label>
+                                            <select class="form-select" id="TERMINAL_ENABLED" name="TERMINAL_ENABLED">
+                                                <option value="true" {% if config.TERMINAL_ENABLED == 'true' %}selected{% endif %}>True</option>
+                                                <option value="false" {% if config.TERMINAL_ENABLED != 'true' %}selected{% endif %}>False</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="DEBUG_MODE" class="form-label">{{ lang.debug_mode_label }}</label>
+                                            <select class="form-select" id="DEBUG_MODE" name="DEBUG_MODE">
+                                                <option value="true" {% if config.DEBUG_MODE == 'true' %}selected{% endif %}>True</option>
+                                                <option value="false" {% if config.DEBUG_MODE != 'true' %}selected{% endif %}>False</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="WDM_GALLERY_DL_ARGS" class="form-label">{{ lang.gallery_dl_args_label }}</label>
+                                        <input type="text" class="form-control" id="WDM_GALLERY_DL_ARGS" name="WDM_GALLERY_DL_ARGS" value="{{ config.WDM_GALLERY_DL_ARGS }}" placeholder="{{ lang.gallery_dl_args_placeholder }}">
+                                        <div class="form-text">{{ lang.gallery_dl_args_text }}</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="REDIS_URL" class="form-label">{{ lang.redis_url_label }}</label>
+                                        <input type="text" class="form-control" id="REDIS_URL" name="REDIS_URL" value="{{ config.REDIS_URL }}" placeholder="rediss://:password@endpoint:port">
+                                        <div class="form-text">{{ lang.redis_url_text }}</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="AVATAR_URL_INPUT" class="form-label">{{ lang.avatar_url_label }}</label>
-                                <input type="text" class="form-control" id="AVATAR_URL_INPUT" name="AVATAR_URL_INPUT" value="{{ config.AVATAR_URL }}" placeholder="https://github.com/your-username.png">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="GITHUB_TOKEN" class="form-label">{{ lang.github_token_label }}</label>
-                                <input type="password" class="form-control" id="GITHUB_TOKEN" name="GITHUB_TOKEN" value="{{ config.GITHUB_TOKEN }}">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="PRIVATE_MODE" class="form-label">{{ lang.private_mode_label }}</label>
-                                <select class="form-select" id="PRIVATE_MODE" name="PRIVATE_MODE">
-                                    <option value="true" {% if config.PRIVATE_MODE == 'true' %}selected{% endif %}>True</option>
-                                    <option value="false" {% if config.PRIVATE_MODE != 'true' %}selected{% endif %}>False</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="TERMINAL_ENABLED" class="form-label">{{ lang.terminal_enabled_config_label }}</label>
-                                <select class="form-select" id="TERMINAL_ENABLED" name="TERMINAL_ENABLED">
-                                    <option value="true" {% if config.TERMINAL_ENABLED == 'true' %}selected{% endif %}>True</option>
-                                    <option value="false" {% if config.TERMINAL_ENABLED != 'true' %}selected{% endif %}>False</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="DEBUG_MODE" class="form-label">{{ lang.debug_mode_label }}</label>
-                                <select class="form-select" id="DEBUG_MODE" name="DEBUG_MODE">
-                                    <option value="true" {% if config.DEBUG_MODE == 'true' %}selected{% endif %}>True</option>
-                                    <option value="false" {% if config.DEBUG_MODE != 'true' %}selected{% endif %}>False</option>
-                                </select>
-                            </div>
-                        <div class="mb-3">
-                            <label for="REDIS_URL" class="form-label">{{ lang.redis_url_label }}</label>
-                            <input type="text" class="form-control" id="REDIS_URL" name="REDIS_URL" value="{{ config.REDIS_URL }}" placeholder="rediss://:password@endpoint:port">
-                            <div class="form-text">{{ lang.redis_url_text }}</div>
-                        </div>
-                    </div>
 
-                    <!-- WebDAV Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-folder-symlink"></i> {{ lang.webdav_settings_title }}
-                        </h5>
-                        <div class="mb-3">
-                            <label for="WDM_WEBDAV_URL" class="form-label">{{ lang.webdav_url_label }}</label>
-                            <input type="text" class="form-control" id="WDM_WEBDAV_URL" name="WDM_WEBDAV_URL" value="{{ config.WDM_WEBDAV_URL }}" placeholder="{{ lang.webdav_url_placeholder }}">
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_WEBDAV_USER" class="form-label">{{ lang.webdav_username_label }}</label>
-                                <input type="text" class="form-control" id="WDM_WEBDAV_USER" name="WDM_WEBDAV_USER" value="{{ config.WDM_WEBDAV_USER }}">
+                        <!-- Section 2: Storage Services -->
+                        <div class="accordion-item shadow-sm">
+                            <h2 class="accordion-header" id="headingStorage">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStorage" aria-expanded="false" aria-controls="collapseStorage">
+                                    <i class="bi bi-cloud-arrow-up me-2"></i> {{ lang.storage_services_section }}
+                                </button>
+                            </h2>
+                            <div id="collapseStorage" class="accordion-collapse collapse" aria-labelledby="headingStorage" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-4">
+                                        <h6 class="fw-bold mb-3"><i class="bi bi-folder-symlink"></i> {{ lang.webdav_settings_title }}</h6>
+                                        <div class="mb-2">
+                                            <input type="text" class="form-control" name="WDM_WEBDAV_URL" value="{{ config.WDM_WEBDAV_URL }}" placeholder="{{ lang.webdav_url_placeholder }}">
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_WEBDAV_USER" value="{{ config.WDM_WEBDAV_USER }}" placeholder="WebDAV Username"></div>
+                                            <div class="col-md-6 mb-2"><input type="password" class="form-control" name="WDM_WEBDAV_PASS" value="{{ config.WDM_WEBDAV_PASS }}" placeholder="WebDAV Password"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-4 pt-3 border-top">
+                                        <h6 class="fw-bold mb-3"><i class="bi bi-cloud"></i> {{ lang.s3_settings_title }}</h6>
+                                        <div class="row mb-2">
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_S3_PROVIDER" value="{{ config.WDM_S3_PROVIDER }}" placeholder="S3 Provider (e.g., AWS)"></div>
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_S3_REGION" value="{{ config.WDM_S3_REGION }}" placeholder="S3 Region"></div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <input type="text" class="form-control" name="WDM_S3_ENDPOINT" value="{{ config.WDM_S3_ENDPOINT }}" placeholder="S3 Endpoint URL">
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_S3_ACCESS_KEY_ID" value="{{ config.WDM_S3_ACCESS_KEY_ID }}" placeholder="Access Key ID"></div>
+                                            <div class="col-md-6 mb-2"><input type="password" class="form-control" name="WDM_S3_SECRET_ACCESS_KEY" value="{{ config.WDM_S3_SECRET_ACCESS_KEY }}" placeholder="Secret Access Key"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-4 pt-3 border-top">
+                                        <h6 class="fw-bold mb-3"><i class="bi bi-hdd"></i> {{ lang.b2_settings_title }}</h6>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_B2_ACCOUNT_ID" value="{{ config.WDM_B2_ACCOUNT_ID }}" placeholder="B2 Account ID"></div>
+                                            <div class="col-md-6 mb-2"><input type="password" class="form-control" name="WDM_B2_APPLICATION_KEY" value="{{ config.WDM_B2_APPLICATION_KEY }}" placeholder="B2 Application Key"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-4 pt-3 border-top">
+                                        <h6 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up"></i> Gofile.io Settings</h6>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_GOFILE_TOKEN" value="{{ config.WDM_GOFILE_TOKEN }}" placeholder="API Token"></div>
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_GOFILE_FOLDER_ID" value="{{ config.WDM_GOFILE_FOLDER_ID }}" placeholder="Folder ID"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-0 pt-3 border-top">
+                                        <h6 class="fw-bold mb-3"><i class="bi bi-hdd-network"></i> Openlist Settings</h6>
+                                        <div class="mb-2">
+                                            <input type="text" class="form-control" name="WDM_OPENLIST_URL" value="{{ config.WDM_OPENLIST_URL }}" placeholder="Openlist API URL">
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-2"><input type="text" class="form-control" name="WDM_OPENLIST_USER" value="{{ config.WDM_OPENLIST_USER }}" placeholder="Username"></div>
+                                            <div class="col-md-6 mb-2"><input type="password" class="form-control" name="WDM_OPENLIST_PASS" value="{{ config.WDM_OPENLIST_PASS }}" placeholder="Password"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_WEBDAV_PASS" class="form-label">{{ lang.webdav_password_label }}</label>
-                                <input type="password" class="form-control" id="WDM_WEBDAV_PASS" name="WDM_WEBDAV_PASS" value="{{ config.WDM_WEBDAV_PASS }}">
-                            </div>
                         </div>
-                    </div>
 
-                    <!-- S3 Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-cloud"></i> {{ lang.s3_settings_title }}
-                        </h5>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_S3_PROVIDER" class="form-label">{{ lang.s3_provider_label }}</label>
-                                <input type="text" class="form-control" id="WDM_S3_PROVIDER" name="WDM_S3_PROVIDER" value="{{ config.WDM_S3_PROVIDER }}" placeholder="{{ lang.s3_provider_placeholder }}">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_S3_REGION" class="form-label">{{ lang.region_label }}</label>
-                                <input type="text" class="form-control" id="WDM_S3_REGION" name="WDM_S3_REGION" value="{{ config.WDM_S3_REGION }}" placeholder="{{ lang.region_placeholder }}">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="WDM_S3_ENDPOINT" class="form-label">{{ lang.endpoint_url_label }}</label>
-                            <input type="text" class="form-control" id="WDM_S3_ENDPOINT" name="WDM_S3_ENDPOINT" value="{{ config.WDM_S3_ENDPOINT }}" placeholder="{{ lang.endpoint_url_placeholder }}">
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_S3_ACCESS_KEY_ID" class="form-label">{{ lang.access_key_id_label }}</label>
-                                <input type="text" class="form-control" id="WDM_S3_ACCESS_KEY_ID" name="WDM_S3_ACCESS_KEY_ID" value="{{ config.WDM_S3_ACCESS_KEY_ID }}">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_S3_SECRET_ACCESS_KEY" class="form-label">{{ lang.secret_access_key_label }}</label>
-                                <input type="password" class="form-control" id="WDM_S3_SECRET_ACCESS_KEY" name="WDM_S3_SECRET_ACCESS_KEY" value="{{ config.WDM_S3_SECRET_ACCESS_KEY }}">
+                        <!-- Section 3: Rclone Backup -->
+                        <div class="accordion-item shadow-sm">
+                            <h2 class="accordion-header" id="headingBackup">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBackup" aria-expanded="false" aria-controls="collapseBackup">
+                                    <i class="bi bi-shield-lock me-2"></i> {{ lang.backup_settings_section }}
+                                </button>
+                            </h2>
+                            <div id="collapseBackup" class="accordion-collapse collapse" aria-labelledby="headingBackup" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label for="RCLONE_RAW_CONFIG" class="form-label text-primary">{{ lang.rclone_raw_config_label }}</label>
+                                        <textarea class="form-control border-primary" id="RCLONE_RAW_CONFIG" rows="3" placeholder="{{ lang.rclone_raw_config_placeholder }}"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="WDM_CONFIG_BACKUP_RCLONE_BASE64" class="form-label">{{ lang.backup_rclone_base64_label }}</label>
+                                        <textarea class="form-control" id="WDM_CONFIG_BACKUP_RCLONE_BASE64" name="WDM_CONFIG_BACKUP_RCLONE_BASE64" rows="3">{{ config.WDM_CONFIG_BACKUP_RCLONE_BASE64 }}</textarea>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label for="WDM_CONFIG_BACKUP_REMOTE_PATH" class="form-label">{{ lang.backup_remote_path_label }}</label>
+                                        <input type="text" class="form-control" id="WDM_CONFIG_BACKUP_REMOTE_PATH" name="WDM_CONFIG_BACKUP_REMOTE_PATH" value="{{ config.WDM_CONFIG_BACKUP_REMOTE_PATH }}" placeholder="remote:config-backup/gallery-dl">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- B2 Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-hdd"></i> {{ lang.b2_settings_title }}
-                        </h5>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_B2_ACCOUNT_ID" class="form-label">{{ lang.account_id_label }}</label>
-                                <input type="text" class="form-control" id="WDM_B2_ACCOUNT_ID" name="WDM_B2_ACCOUNT_ID" value="{{ config.WDM_B2_ACCOUNT_ID }}">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_B2_APPLICATION_KEY" class="form-label">{{ lang.application_key_label }}</label>
-                                <input type="password" class="form-control" id="WDM_B2_APPLICATION_KEY" name="WDM_B2_APPLICATION_KEY" value="{{ config.WDM_B2_APPLICATION_KEY }}">
+                        <!-- Section 4: Scheduled Sync -->
+                        <div class="accordion-item shadow-sm">
+                            <h2 class="accordion-header" id="headingSync">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSync" aria-expanded="false" aria-controls="collapseSync">
+                                    <i class="bi bi-clock-history me-2"></i> {{ lang.custom_sync_settings_section }}
+                                </button>
+                            </h2>
+                            <div id="collapseSync" class="accordion-collapse collapse" aria-labelledby="headingSync" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label for="WDM_CUSTOM_SYNC_ENABLED" class="form-label">{{ lang.custom_sync_enabled_label }}</label>
+                                        <select class="form-select" id="WDM_CUSTOM_SYNC_ENABLED" name="WDM_CUSTOM_SYNC_ENABLED">
+                                            <option value="true" {% if config.WDM_CUSTOM_SYNC_ENABLED == 'true' %}selected{% endif %}>True</option>
+                                            <option value="false" {% if config.WDM_CUSTOM_SYNC_ENABLED != 'true' %}selected{% endif %}>False</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="WDM_CUSTOM_SYNC_LOCAL_PATH" class="form-label">{{ lang.custom_sync_local_path_label }}</label>
+                                        <input type="text" class="form-control" id="WDM_CUSTOM_SYNC_LOCAL_PATH" name="WDM_CUSTOM_SYNC_LOCAL_PATH" value="{{ config.WDM_CUSTOM_SYNC_LOCAL_PATH }}" placeholder="{{ lang.custom_sync_local_path_placeholder }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="WDM_CUSTOM_SYNC_REMOTE_PATH" class="form-label">{{ lang.custom_sync_remote_path_label }}</label>
+                                        <input type="text" class="form-control" id="WDM_CUSTOM_SYNC_REMOTE_PATH" name="WDM_CUSTOM_SYNC_REMOTE_PATH" value="{{ config.WDM_CUSTOM_SYNC_REMOTE_PATH }}" placeholder="{{ lang.custom_sync_remote_path_placeholder }}">
+                                    </div>
+                                    <div class="mb-0">
+                                        <label for="WDM_CUSTOM_SYNC_INTERVAL" class="form-label">{{ lang.custom_sync_interval_label }}</label>
+                                        <input type="number" class="form-control" id="WDM_CUSTOM_SYNC_INTERVAL" name="WDM_CUSTOM_SYNC_INTERVAL" value="{{ config.WDM_CUSTOM_SYNC_INTERVAL }}" placeholder="60">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Gofile.io Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-cloud-arrow-up"></i> {{ lang.gofile_settings_title }}
-                        </h5>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_GOFILE_TOKEN" class="form-label">{{ lang.api_token_label }}</label>
-                                <input type="text" class="form-control" id="WDM_GOFILE_TOKEN" name="WDM_GOFILE_TOKEN" value="{{ config.WDM_GOFILE_TOKEN }}">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_GOFILE_FOLDER_ID" class="form-label">{{ lang.gofile_folder_id_label }}</label>
-                                <input type="text" class="form-control" id="WDM_GOFILE_FOLDER_ID" name="WDM_GOFILE_FOLDER_ID" value="{{ config.WDM_GOFILE_FOLDER_ID }}">
+                        <!-- Section 5: Verification -->
+                        <div class="accordion-item shadow-sm">
+                            <h2 class="accordion-header" id="headingVerify">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVerify" aria-expanded="false" aria-controls="collapseVerify">
+                                    <i class="bi bi-shield-check me-2"></i> {{ lang.verification_settings_section }}
+                                </button>
+                            </h2>
+                            <div id="collapseVerify" class="accordion-collapse collapse" aria-labelledby="headingVerify" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label for="WDM_VERIFICATION_TYPE" class="form-label">{{ lang.verification_type_label }}</label>
+                                        <select class="form-select" id="WDM_VERIFICATION_TYPE" name="WDM_VERIFICATION_TYPE">
+                                            <option value="none" {% if config.WDM_VERIFICATION_TYPE == 'none' %}selected{% endif %}>{{ lang.verification_none }}</option>
+                                            <option value="local" {% if config.WDM_VERIFICATION_TYPE == 'local' %}selected{% endif %}>{{ lang.verification_local }}</option>
+                                            <option value="cloudflare" {% if config.WDM_VERIFICATION_TYPE == 'cloudflare' %}selected{% endif %}>{{ lang.verification_cloudflare }}</option>
+                                            <option value="google" {% if config.WDM_VERIFICATION_TYPE == 'google' %}selected{% endif %}>{{ lang.verification_google }}</option>
+                                            <option value="geetest" {% if config.WDM_VERIFICATION_TYPE == 'geetest' %}selected{% endif %}>{{ lang.verification_geetest }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="WDM_VERIFICATION_SITE_KEY" class="form-label">{{ lang.verification_site_key_label }}</label>
+                                            <input type="text" class="form-control" id="WDM_VERIFICATION_SITE_KEY" name="WDM_VERIFICATION_SITE_KEY" value="{{ config.WDM_VERIFICATION_SITE_KEY }}">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="WDM_VERIFICATION_SECRET_KEY" class="form-label">{{ lang.verification_secret_key_label }}</label>
+                                            <input type="password" class="form-control" id="WDM_VERIFICATION_SECRET_KEY" name="WDM_VERIFICATION_SECRET_KEY" value="{{ config.WDM_VERIFICATION_SECRET_KEY }}">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="WDM_VERIFICATION_ID" class="form-label">{{ lang.verification_id_label }}</label>
+                                            <input type="text" class="form-control" id="WDM_VERIFICATION_ID" name="WDM_VERIFICATION_ID" value="{{ config.WDM_VERIFICATION_ID }}">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="WDM_VERIFICATION_GEETEST_DEMO_TYPE" class="form-label">{{ lang.verification_geetest_demo_type_label }}</label>
+                                            <select class="form-select" id="WDM_VERIFICATION_GEETEST_DEMO_TYPE" name="WDM_VERIFICATION_GEETEST_DEMO_TYPE">
+                                                <option value="slide" {% if config.WDM_VERIFICATION_GEETEST_DEMO_TYPE == 'slide' %}selected{% endif %}>{{ lang.geetest_type_slide }}</option>
+                                                <option value="click" {% if config.WDM_VERIFICATION_GEETEST_DEMO_TYPE == 'click' %}selected{% endif %}>{{ lang.geetest_type_click }}</option>
+                                                <option value="fullpage" {% if config.WDM_VERIFICATION_GEETEST_DEMO_TYPE == 'fullpage' %}selected{% endif %}>{{ lang.geetest_type_fullpage }}</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Openlist Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-hdd-network"></i> {{ lang.openlist_settings_title }}
-                        </h5>
-                        <div class="mb-3">
-                            <label for="WDM_OPENLIST_URL" class="form-label">{{ lang.webdav_url_label }} (Openlist API)</label>
-                            <input type="text" class="form-control" id="WDM_OPENLIST_URL" name="WDM_OPENLIST_URL" value="{{ config.WDM_OPENLIST_URL }}">
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_OPENLIST_USER" class="form-label">{{ lang.webdav_username_label }}</label>
-                                <input type="text" class="form-control" id="WDM_OPENLIST_USER" name="WDM_OPENLIST_USER" value="{{ config.WDM_OPENLIST_USER }}">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="WDM_OPENLIST_PASS" class="form-label">{{ lang.webdav_password_label }}</label>
-                                <input type="password" class="form-control" id="WDM_OPENLIST_PASS" name="WDM_OPENLIST_PASS" value="{{ config.WDM_OPENLIST_PASS }}">
-                            </div>
-                        </div>
-                    </div>
+                    </div> <!-- End Accordion -->
 
-                    <!-- Backup Settings -->
-                    <div class="mb-4">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-shield-lock"></i> {{ lang.backup_settings_section }}
-                        </h5>
-                        <div class="mb-3">
-                            <label for="WDM_CONFIG_BACKUP_RCLONE_BASE64" class="form-label">{{ lang.backup_rclone_base64_label }}</label>
-                            <textarea class="form-control" id="WDM_CONFIG_BACKUP_RCLONE_BASE64" name="WDM_CONFIG_BACKUP_RCLONE_BASE64" rows="3">{{ config.WDM_CONFIG_BACKUP_RCLONE_BASE64 }}</textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="WDM_CONFIG_BACKUP_REMOTE_PATH" class="form-label">{{ lang.backup_remote_path_label }}</label>
-                            <input type="text" class="form-control" id="WDM_CONFIG_BACKUP_REMOTE_PATH" name="WDM_CONFIG_BACKUP_REMOTE_PATH" value="{{ config.WDM_CONFIG_BACKUP_REMOTE_PATH }}" placeholder="remote:config-backup/gallery-dl">
-                        </div>
-                    </div>
-
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="/downloader" class="btn btn-outline-secondary me-md-2">{{ lang.back_to_downloader }}</a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> {{ lang.save_settings_button }}
+                        <button type="submit" class="btn btn-primary" id="save-settings-btn">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display: none;"></span>
+                            <span class="btn-text"><i class="bi bi-save"></i> {{ lang.save_settings_button }}</span>
                         </button>
                     </div>
                 </form>
@@ -250,6 +325,36 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Rclone Raw to Base64 conversion
+        document.getElementById('RCLONE_RAW_CONFIG').addEventListener('input', function() {
+            const rawValue = this.value.trim();
+            if (rawValue) {
+                try {
+                    // Use btoa for base64 encoding, handling potential UTF-8 characters properly
+                    const base64Value = btoa(unescape(encodeURIComponent(rawValue)));
+                    document.getElementById('WDM_CONFIG_BACKUP_RCLONE_BASE64').value = base64Value;
+                } catch (e) {
+                    console.error("Base64 conversion failed", e);
+                }
+            }
+        });
+
+        // Universal Form Loading Logic
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function() {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    const spinner = submitBtn.querySelector('.spinner-border');
+                    const btnText = submitBtn.querySelector('.btn-text');
+                    if (spinner && btnText) {
+                        submitBtn.disabled = true;
+                        spinner.style.display = 'inline-block';
+                        btnText.textContent = '{{ lang.processing }}';
+                    }
+                }
+            });
+        });
+
         document.getElementById('clear-cache-btn').addEventListener('click', async function() {
             const btn = this;
             const statusDiv = document.getElementById('cache-status');

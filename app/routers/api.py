@@ -130,7 +130,13 @@ async def create_download_job(
     upload_path: str = Form(None),
     enable_compression: Optional[str] = Form(None),
     split_compression: bool = Form(False),
-    split_size: int = Form(1000)
+    split_size: int = Form(1000),
+    # Site Specific Options
+    kemono_posts: Optional[int] = Form(None),
+    kemono_revisions: Optional[str] = Form(None),
+    pixiv_ugoira: Optional[str] = Form("true"),
+    twitter_retweets: Optional[str] = Form(None),
+    twitter_replies: Optional[str] = Form(None)
 ):
     task_id = str(uuid.uuid4())
     params = await request.form()
@@ -144,7 +150,12 @@ async def create_download_job(
     asyncio.create_task(process_download_job(
         task_id=task_id, url=url, downloader=downloader, service=upload_service, upload_path=upload_path,
         params=params, enable_compression=(enable_compression == "true") ,
-        split_compression=split_compression, split_size=split_size
+        split_compression=split_compression, split_size=split_size,
+        kemono_posts=kemono_posts,
+        kemono_revisions=(kemono_revisions == "true"),
+        pixiv_ugoira=(pixiv_ugoira == "true"),
+        twitter_retweets=(twitter_retweets == "true"),
+        twitter_replies=(twitter_replies == "true")
     ))
     return RedirectResponse("/tasks", status_code=303)
 
@@ -363,13 +374,6 @@ async def get_server_status():
     })
 
 # --- Session Management ---
-@router.get("/logout", response_class=Response)
-async def logout(request: Request):
-    request.session.clear()
-    response = Response(content="You have been logged out.", media_type="text/plain")
-    response.delete_cookie("session")
-    return response
-
 @router.get("/set_language/{lang_code}")
 async def set_language(lang_code: str):
     response = RedirectResponse(url="/downloader", status_code=302)

@@ -26,13 +26,12 @@ from starlette.middleware.sessions import SessionMiddleware
 from .database import init_db, User, db_config
 from . import redis_client  # Initialize Redis client
 from .logging_handler import MySQLLogHandler, cleanup_old_logs, update_log_handlers
-from .utils import restore_gallery_dl_config
+from .utils import restore_gallery_dl_config, backup_gallery_dl_config
 from .config import BASE_DIR, APP_USERNAME, APP_PASSWORD, PROJECT_ROOT
 from .auth import get_password_hash
 from .templating import templates
 from .i18n import get_lang
-
-
+from .tasks import periodic_config_backup, periodic_custom_sync
 
 # Import routers
 from .routers import camouflage, main_ui, api, terminal
@@ -80,10 +79,20 @@ async def lifespan(app: FastAPI):
         else:
             logging.error(f"Failed to create admin user '{APP_USERNAME}'.")
     
-    # Start periodic background task for log cleanup
+    # Start periodic background tasks
     cleanup_task = asyncio.create_task(periodic_log_cleanup())
+    backup_task = asyncio.create_task(periodic_config_backup())
+    sync_task = asyncio.create_task(periodic_custom_sync())
+    
     yield
+    
+    # Shutdown logic
+    logging.info("Shutting down: performing final gallery-dl config backup...")
+    await backup_gallery_dl_config()
+    
     cleanup_task.cancel()
+    backup_task.cancel()
+    sync_task.cancel()
 
 async def periodic_log_cleanup():
     while True:

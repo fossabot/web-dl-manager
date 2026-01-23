@@ -28,6 +28,65 @@ logger = logging.getLogger(__name__)
 debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
 
 
+async def periodic_config_backup():
+    """Periodically backups gallery-dl config to remote storage."""
+    from .utils import backup_gallery_dl_config
+    while True:
+        await asyncio.sleep(600)  # Every 10 minutes
+        try:
+            await backup_gallery_dl_config()
+        except Exception as e:
+            logger.error(f"Error in periodic config backup: {e}")
+
+async def periodic_custom_sync():
+    """Periodically syncs a custom local path to a remote storage via rclone."""
+    from .utils import _run_rclone_command
+    import base64
+    import tempfile
+    
+    while True:
+        enabled = db_config.get_config("WDM_CUSTOM_SYNC_ENABLED", "false").lower() == "true"
+        local_path = db_config.get_config("WDM_CUSTOM_SYNC_LOCAL_PATH")
+        remote_path = db_config.get_config("WDM_CUSTOM_SYNC_REMOTE_PATH")
+        interval_min = db_config.get_config("WDM_CUSTOM_SYNC_INTERVAL", "60")
+        rclone_base64 = db_config.get_config("WDM_CONFIG_BACKUP_RCLONE_BASE64")
+        
+        try:
+            interval = int(interval_min) * 60
+            if interval < 60: interval = 60 # Min 1 minute
+        except ValueError:
+            interval = 3600
+
+        if enabled and local_path and remote_path and rclone_base64:
+            if os.path.exists(local_path):
+                logger.info(f"[Custom Sync] Starting scheduled sync task: {local_path} -> {remote_path}")
+                try:
+                    rclone_config_content = base64.b64decode(rclone_base64).decode('utf-8')
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
+                        tmp_config_path = tmp_file.name
+                        tmp_file.write(rclone_config_content)
+                    
+                    try:
+                        rclone_cmd = (f"rclone copy \"{local_path}\" \"{remote_path}\" "
+                                      f"--config \"{tmp_config_path}\" "
+                                      f"--log-level=INFO")
+                        # 运行并捕获结果
+                        success = await _run_rclone_command(rclone_cmd)
+                        if success:
+                            logger.info(f"[Custom Sync] Success: Synced {local_path} to {remote_path}")
+                        else:
+                            logger.error(f"[Custom Sync] Failed: Rclone execution error during sync.")
+                    finally:
+                        if os.path.exists(tmp_config_path):
+                            os.unlink(tmp_config_path)
+                except Exception as e:
+                    logger.error(f"[Custom Sync] Error during sync: {e}")
+            else:
+                logger.warning(f"[Custom Sync] Local path does not exist: {local_path}")
+        
+        await asyncio.sleep(interval)
+
+
 
 
 
@@ -317,7 +376,7 @@ async def compress_in_chunks(task_id: str, source_dir: Path, archive_name_base: 
     return archive_paths
 
 
-async def process_download_job(task_id: str, url: str, downloader: str, service: str, upload_path: str, params: dict, enable_compression: bool = True, split_compression: bool = False, split_size: int = 1000):
+async def process_download_job(task_id: str, url: str, downloader: str, service: str, upload_path: str, params: dict, enable_compression: bool = True, split_compression: bool = False, split_size: int = 1000, **kwargs):
     """The main background task for a download job."""
     task_download_dir = DOWNLOADS_DIR / task_id
     archive_name = generate_archive_name(url)
@@ -325,6 +384,13 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     upload_log_file = STATUS_DIR / f"{task_id}_upload.log"
     archive_paths = []
     rclone_config_path = None
+    
+    # Extract site specific options from kwargs or params
+    kemono_posts = kwargs.get("kemono_posts") or params.get("kemono_posts")
+    kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true")
+    pixiv_ugoira = kwargs.get("pixiv_ugoira") if "pixiv_ugoira" in kwargs else (params.get("pixiv_ugoira") != "false")
+    twitter_retweets = kwargs.get("twitter_retweets") if "twitter_retweets" in kwargs else (params.get("twitter_retweets") == "true")
+    twitter_replies = kwargs.get("twitter_replies") if "twitter_replies" in kwargs else (params.get("twitter_replies") == "true")
 
     try:
         if debug_enabled:
@@ -380,6 +446,24 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             command_log = command
         else:
             command = f"gallery-dl --verbose -D {task_download_dir}"
+            
+            # Site Specific Options
+            if kemono_posts:
+                command += f" -o extractor.kemono.posts={kemono_posts}"
+            if kemono_revisions:
+                command += " -o extractor.kemono.revisions=true"
+            if pixiv_ugoira is False:
+                command += " -o extractor.pixiv.ugoira=false"
+            if twitter_retweets:
+                command += " -o extractor.twitter.retweets=true"
+            if twitter_replies:
+                command += " -o extractor.twitter.replies=true"
+
+            # Add custom arguments from database
+            extra_args = db_config.get_config("WDM_GALLERY_DL_ARGS", "")
+            if extra_args:
+                command += f" {extra_args}"
+                
             if params.get("deviantart_client_id") and params.get("deviantart_client_secret"):
                 command += f" -o extractor.deviantart.client-id={params['deviantart_client_id']} -o extractor.deviantart.client-secret={params['deviantart_client_secret']}"
             if proxy:
