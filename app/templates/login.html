@@ -76,12 +76,6 @@
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(var(--primary-rgb), 0.4);
         }
-        #verification-container {
-            background: rgba(255,255,255,0.03);
-            padding: 15px;
-            border-radius: 12px;
-            margin-top: 1.5rem;
-        }
         /* Mobile adjustment */
         @media (max-width: 576px) {
             .login-content {
@@ -113,37 +107,6 @@
                 <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="{{ lang.password_placeholder if lang.password_placeholder else 'Enter password' }}">
             </div>
 
-            <!-- Verification Widget -->
-            {% if v_type != 'none' %}
-            <div id="verification-container" class="mb-4">
-                {% if v_type == 'local' %}
-                    <div class="text-start">
-                        <label for="math_answer" class="form-label px-1">
-                            <i class="bi bi-calculator"></i> {{ math_challenge }}
-                        </label>
-                        <input type="number" class="form-control form-control-lg" id="math_answer" name="math_answer" required>
-                    </div>
-                {% elif v_type == 'cloudflare' %}
-                    <div class="cf-turnstile" data-sitekey="{{ v_site_key }}" data-callback="onCaptchaSuccess"></div>
-                    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-                {% elif v_type == 'google' %}
-                    <div class="g-recaptcha" data-sitekey="{{ v_site_key }}" data-callback="onCaptchaSuccess"></div>
-                    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-                {% elif v_type == 'geetest' %}
-                    <div id="captcha"></div>
-                    {% if v_gt_v3_config %}
-                        <script src="https://static.geetest.com/static/tools/gt.js"></script>
-                    {% else %}
-                        <script src="https://static.geetest.com/v4/gt4.js"></script>
-                    {% endif %}
-                    <input type="hidden" name="lot_number" id="lot_number">
-                    <input type="hidden" name="captcha_output" id="captcha_output">
-                    <input type="hidden" name="pass_token" id="pass_token">
-                    <input type="hidden" name="gen_time" id="gen_time">
-                {% endif %}
-            </div>
-            {% endif %}
-
             <div class="d-grid">
                 <button type="submit" class="btn btn-primary btn-login" id="login-btn">
                     <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display: none;"></span>
@@ -157,59 +120,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Global callback for Turnstile/reCAPTCHA
-        function onCaptchaSuccess() {
-            document.getElementById('login-btn').disabled = false;
-        }
-
-        // Initialize based on type
-        const vType = "{{ v_type }}";
-        if (vType === 'cloudflare' || vType === 'google' || vType === 'geetest') {
-             document.getElementById('login-btn').disabled = true;
-        }
-
-        if (vType === 'geetest') {
-            const v3Config = {{ v_gt_v3_config | tojson | safe if v_gt_v3_config else 'null' }};
-            if (v3Config) {
-                initGeetest({
-                    gt: v3Config.gt,
-                    challenge: v3Config.challenge,
-                    offline: !v3Config.success,
-                    new_captcha: v3Config.new_captcha,
-                    product: "float",
-                    width: "100%"
-                }, function (captchaObj) {
-                    captchaObj.appendTo("#captcha");
-                    captchaObj.onSuccess(function () {
-                        onCaptchaSuccess();
-                    });
-                });
-            } else {
-                initGeetest4({
-                    captchaId: "{{ v_geetest_id }}",
-                    product: 'float',
-                    language: '{{ lang.get("lang_code", "en") }}'
-                }, function (captchaObj) {
-                    captchaObj.appendTo("#captcha");
-                    captchaObj.onSuccess(function () {
-                        const result = captchaObj.getValidate();
-                        document.getElementById('lot_number').value = result.lot_number;
-                        document.getElementById('captcha_output').value = result.captcha_output;
-                        document.getElementById('pass_token').value = result.pass_token;
-                        document.getElementById('gen_time').value = result.gen_time;
-                        onCaptchaSuccess();
-                    });
-                });
-            }
-        }
-
         document.getElementById('login-form').addEventListener('submit', function() {
             const btn = document.getElementById('login-btn');
             const spinner = btn.querySelector('.spinner-border');
             const btnText = btn.querySelector('.btn-text');
             btn.disabled = true;
             spinner.style.display = 'inline-block';
-            btnText.textContent = '{{ lang.logging_in }}';
+            btnText.textContent = 'Logging in...';
         });
     </script>
 </body>

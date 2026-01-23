@@ -361,19 +361,7 @@ async def _run_rclone_command(command: str, log_file: Optional[Path] = None):
 
 def generate_math_challenge(request: Request):
     """Generates a simple math challenge and stores the result in session."""
-    a = random.randint(1, 10)
-    b = random.randint(1, 10)
-    op = random.choice(['+', '-'])
-    
-    if op == '+':
-        res = a + b
-    else:
-        # Ensure result is positive
-        if a < b: a, b = b, a
-        res = a - b
-        
-    request.session["math_challenge_result"] = str(res)
-    return f"{a} {op} {b} = ?"
+    return ""
 
 async def restore_gallery_dl_config():
 

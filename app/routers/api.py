@@ -139,27 +139,31 @@ async def create_download_job(
     twitter_retweets: Optional[str] = Form(None),
     twitter_replies: Optional[str] = Form(None)
 ):
-    task_id = str(uuid.uuid4())
     params = await request.form()
     if not url or not upload_service:
         raise HTTPException(status_code=400, detail="URL and Upload Service are required.")
     if upload_service != "gofile" and not upload_path:
         raise HTTPException(status_code=400, detail="Upload Path is required for this service.")
 
-    update_task_status(task_id, {"id": task_id, "status": "queued", "original_params": dict(params), "created_by": current_user.username})
+    # Split URLs by newline and filter empty ones
+    urls = [u.strip() for u in url.splitlines() if u.strip()]
     
-    asyncio.create_task(process_download_job(
-        task_id=task_id, url=url, downloader=downloader, service=upload_service, upload_path=upload_path,
-        params=params, enable_compression=(enable_compression == "true") ,
-        split_compression=split_compression, split_size=split_size,
-        kemono_posts=kemono_posts,
-        kemono_revisions=(kemono_revisions == "true"),
-        kemono_path_template=(kemono_path_template == "true"),
-        pixiv_ugoira=(pixiv_ugoira == "true"),
-        twitter_retweets=(twitter_retweets == "true"),
-        twitter_replies=(twitter_replies == "true")
-    ))
-    return RedirectResponse("/tasks", status_code=303)
+    for single_url in urls:
+        task_id = str(uuid.uuid4())
+        update_task_status(task_id, {"id": task_id, "status": "queued", "original_params": dict(params), "created_by": current_user.username, "url": single_url})
+        
+        asyncio.create_task(process_download_job(
+            task_id=task_id, url=single_url, downloader=downloader, service=upload_service, upload_path=upload_path,
+            params=params, enable_compression=(enable_compression == "true") ,
+            split_compression=split_compression, split_size=split_size,
+            kemono_posts=kemono_posts,
+            kemono_revisions=(kemono_revisions == "true"),
+            kemono_path_template=(kemono_path_template == "true"),
+            pixiv_ugoira=(pixiv_ugoira == "true"),
+            twitter_retweets=(twitter_retweets == "true"),
+            twitter_replies=(twitter_replies == "true")
+        ))
+    return JSONResponse(content={"status": "success", "message": f"Started {len(urls)} task(s).", "task_count": len(urls)})
 
 @router.post("/retry/{task_id}", response_class=RedirectResponse)
 async def retry_task(task_id: str, current_user: User = Depends(get_current_user)):

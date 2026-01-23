@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 # 检查是否启用DEBUG模式
 debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
 
+# 全局并发控制：同时最多运行2个任务
+task_semaphore = asyncio.Semaphore(2)
+
 
 async def unified_periodic_sync():
     """Periodically syncs multiple tasks (including gallery-dl) to remote storage via rclone."""
@@ -236,10 +239,7 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                 
                 token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, status_file)
                 
-                if "terabox" in upload_path:
-                    remote_task_dir = upload_path
-                else:
-                    remote_task_dir = f"{upload_path}/{task_id}"
+                remote_task_dir = upload_path
                 await asyncio.to_thread(openlist.create_directory, openlist_url, token, remote_task_dir, status_file)
                 
                 uploaded_count = 0
@@ -331,10 +331,7 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
         update_task_status(task_id, {"status": "failed", "error": error_message})
         return
 
-    if "terabox" in upload_path:
-        remote_full_path = f"remote:{upload_path}"
-    else:
-        remote_full_path = f"remote:{upload_path}/{task_id}"
+    remote_full_path = f"remote:{upload_path}"
         
     upload_cmd = (
         f"rclone copy --config \"{rclone_config_path}\" \"{task_download_dir}\" \"{remote_full_path}\" "
@@ -401,8 +398,9 @@ async def compress_in_chunks(task_id: str, source_dir: Path, archive_name_base: 
 
 async def process_download_job(task_id: str, url: str, downloader: str, service: str, upload_path: str, params: dict, enable_compression: bool = True, split_compression: bool = False, split_size: int = 1000, **kwargs):
     """The main background task for a download job."""
-    task_download_dir = DOWNLOADS_DIR / task_id
-    archive_name = generate_archive_name(url)
+    async with task_semaphore:
+        task_download_dir = DOWNLOADS_DIR / task_id
+        archive_name = generate_archive_name(url)
     status_file = STATUS_DIR / f"{task_id}.log"
     upload_log_file = STATUS_DIR / f"{task_id}_upload.log"
     archive_paths = []

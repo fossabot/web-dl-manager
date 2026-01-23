@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-01-17
+
+### Added
+- **Batch Download Support**: 
+    - Users can now input multiple URLs (one per line) in the downloader page to create multiple tasks at once.
+- **Concurrency Control**: 
+    - Implemented a global task queue that limits concurrent active downloads to **2 tasks** to ensure system stability and avoid IP bans.
+- **Non-Intrusive Notifications**:
+    - Replaced page redirection after task creation with a modern AJAX submission and **Toast notifications**.
+    - Users can now stay on the downloader page to continue creating tasks without interruption.
+- **PWA & Mobile Optimization**:
+    - Enhanced PWA metadata for a better "native-like" experience on mobile devices.
+    - Added a **Floating Action Button (FAB)** on the mobile UI for quick access to the task list.
+
+### Optimized
+- **File Upload Logic**: 
+    - Removed the redundant UUID sub-directory in remote storage for uncompressed uploads. Files are now uploaded directly to the user-specified path.
+
+### Removed
+- **Login Verification (CAPTCHA)**: 
+    - Completely removed the math challenge and third-party captcha services (Cloudflare, Google, GeeTest) due to compatibility issues and to streamline the login process.
+
 ## [1.4.0] - 2026-01-16
 
 ### Added

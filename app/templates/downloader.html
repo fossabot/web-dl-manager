@@ -2,8 +2,14 @@
 <html lang="{{ lang.get('lang_code', 'en') }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ lang.app_title }} - {{ lang.downloader_label }}</title>
+    <!-- PWA Meta -->
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Web-DL">
+    <link rel="apple-touch-icon" href="/static/img/icon-192.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
@@ -103,7 +109,7 @@
                     </div>
                     <div class="col-md-8">
                         <label class="form-label d-none">URL</label>
-                        <input type="url" class="form-control" id="url" name="url" required placeholder="{{ lang.url_placeholder }}">
+                        <textarea class="form-control" id="url" name="url" required placeholder="{{ lang.url_placeholder }}" rows="5"></textarea>
                     </div>
                 </div>
             </div>
@@ -221,6 +227,25 @@
                 </button>
             </div>
         </form>
+
+        <!-- Toast Notification -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div id="taskToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <span id="toastMessage">Task started successfully!</span>
+                        <a href="/tasks" class="btn btn-sm btn-outline-light ms-2">View Tasks</a>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button for Tasks (PWA Friendly) -->
+        <a href="/tasks" class="btn btn-primary btn-lg rounded-circle shadow-lg position-fixed bottom-0 start-0 m-4 d-md-none" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; z-index: 1050;">
+            <i class="bi bi-list-task fs-4"></i>
+        </a>
 
         <!-- Flat Server Status -->
         <div class="pt-5 border-top">
@@ -359,19 +384,60 @@
             document.getElementById('upload-path-container').style.display = (selected === 'gofile' ? 'none' : 'block');
         }
 
-        document.getElementById('download-form').addEventListener('submit', function() {
+        document.getElementById('download-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
             const downloader = document.getElementById('downloader').value;
+            const finalRateLimit = document.getElementById('final_rate_limit');
+            const rateLimitInput = document.getElementById('rate_limit');
+
             if (downloader === 'megadl') {
                 const limit = document.getElementById('mega_rate_limit').value;
-                document.getElementById('final_rate_limit').value = Math.round(parseFloat(limit) * 1024 * 1024);
-                document.getElementById('rate_limit').disabled = true;
+                finalRateLimit.value = Math.round(parseFloat(limit) * 1024 * 1024);
+                finalRateLimit.disabled = false;
+                rateLimitInput.disabled = true;
             } else {
-                document.getElementById('final_rate_limit').disabled = true;
+                finalRateLimit.disabled = true;
+                rateLimitInput.disabled = false;
             }
+
             const btn = document.getElementById('submit-button');
+            const spinner = btn.querySelector('.spinner-border');
+            const btnText = btn.querySelector('.btn-text');
+            
             btn.disabled = true;
-            btn.querySelector('.spinner-border').style.display = 'inline-block';
-            btn.querySelector('.btn-text').textContent = '{{ lang.processing }}';
+            spinner.style.display = 'inline-block';
+            const originalText = btnText.textContent;
+            btnText.textContent = '{{ lang.processing }}';
+
+            try {
+                const formData = new FormData(this);
+                const response = await fetch('/api/download', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Show Toast
+                    const toastMsg = document.getElementById('toastMessage');
+                    toastMsg.textContent = result.message || 'Task(s) started successfully!';
+                    const toastEl = document.getElementById('taskToast');
+                    const toast = new bootstrap.Toast(toastEl);
+                    toast.show();
+                    
+                    // Clear only the URL textarea to allow more tasks
+                    document.getElementById('url').value = '';
+                } else {
+                    alert('Error: ' + (result.detail || 'Failed to start task'));
+                }
+            } catch (err) {
+                alert('Connection error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+                btnText.textContent = originalText;
+            }
         });
 
         const dlSelect = document.getElementById('downloader');
