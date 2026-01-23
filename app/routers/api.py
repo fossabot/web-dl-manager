@@ -249,7 +249,6 @@ async def delete_task(task_id: str):
     
     return RedirectResponse("/tasks", status_code=303)
 
-# --- Status & Logs ---
 @router.get("/status/{task_id}/json")
 async def get_status_json(task_id: str):
     status_path = get_task_status_path(task_id)

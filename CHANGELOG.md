@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-01-23
+
+### Added
+- **Complete Web UI Overhaul**:
+    - **Modern Aesthetics**: Rebuilt the entire interface using **Bootstrap 5** and a custom "Modern Slate" theme, featuring soft shadows, rounded corners, and a clean professional look.
+    - **Inter Font Integration**: Switched to the **Inter** typeface for improved legibility across all devices.
+    - **Native Dark Mode**: Implemented automatic dark mode support that respects system-wide color scheme preferences.
+- **Improved Navigation**:
+    - **Sticky Top Navbar**: Replaced the sliding sidebar with a modern, fixed-top navigation bar for better accessibility on desktop and mobile.
+    - **User Profile Dropdown**: Grouped settings, password management, and logout into a clean user dropdown menu.
+- **Redesigned Login Experience**:
+    - **Glassmorphism Design**: New centered login card with a frosted-glass effect and refined typography.
+    - **Brand Identity**: Prominent display of user avatars and application branding during the sign-in process.
+
+### Optimized
+- **Layout & Spacing**: Standardized containers and margins across all pages for a more balanced and comfortable viewing experience.
+- **Component Styling**: Uniformly styled cards, buttons, and form elements for better visual consistency.
+- **Responsive Design**: Enhanced mobile-first approach, ensuring the interface remains functional and beautiful on small screens.
+
 ## [1.5.0] - 2026-01-17
 
 ### Added

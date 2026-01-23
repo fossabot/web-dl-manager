@@ -52,7 +52,11 @@ async def lifespan(app: FastAPI):
         
     # Configure logging
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
-    log_level = logging.DEBUG if debug_enabled else logging.INFO
+    is_hf_space = os.getenv("SPACE_ID") is not None
+    if is_hf_space:
+        log_level = logging.CRITICAL
+    else:
+        log_level = logging.DEBUG if debug_enabled else logging.INFO
     logging.getLogger().setLevel(log_level)
     
     # Ensure logs directory exists
@@ -158,7 +162,7 @@ def run_camouflage_app():
     # 创建日志配置，始终写入文件，控制台日志级别根据DEBUG_MODE变化
     log_config = {
         "version": 1,
-        "disable_existing_loggers": False,
+        "disable_existing_loggers": is_hf_space,
         "formatters": {
             "default": {
                 "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -190,7 +194,7 @@ def run_camouflage_app():
         }
         log_config["root"]["handlers"].append("console")
     
-    log_level = "debug"
+    log_level = "critical" if is_hf_space else "debug"
     uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_config=log_config, log_level=log_level)
 
 def run_main_app():
@@ -204,7 +208,7 @@ def run_main_app():
     # 创建日志配置，始终写入文件，控制台日志仅在DEBUG模式下启用
     log_config = {
         "version": 1,
-        "disable_existing_loggers": False,
+        "disable_existing_loggers": is_hf_space,
         "formatters": {
             "default": {
                 "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -236,7 +240,7 @@ def run_main_app():
         }
         log_config["root"]["handlers"].append("console")
     
-    uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config, log_level="debug")
+    uvicorn.run(main_app, host="127.0.0.1", port=6275, log_config=log_config, log_level="critical" if is_hf_space else "debug")
 
 def start_tunnel_if_env():
     if tunnel_token := os.getenv("TUNNEL_TOKEN"):

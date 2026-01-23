@@ -49,8 +49,9 @@ RUN if [ "$INSTALL_NODE" = "true" ]; then \
     && rm -rf /var/lib/apt/lists/*; \
     fi
 
-# 全局安装必须的外部工具（gallery-dl, yt-dlp）
-RUN pip install --no-cache-dir gallery-dl yt-dlp
+# 全局安装必须的外部工具（gallery-dl, yt-dlp, kemono-dl）
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir gallery-dl yt-dlp git+https://github.com/AlphaSlayer1964/kemono-dl.git
 
 # 创建非 root 用户
 RUN useradd -m -u 1000 user

@@ -37,3 +37,7 @@ logs/pm2-3.log
 logs/pm2_error-3.log
 logs/pm2_out-3.log
 
+TEST_VERIFY/
+ultimate_test.py
+*.log
+*.json

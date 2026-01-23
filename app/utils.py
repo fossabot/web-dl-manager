@@ -15,7 +15,7 @@ from . import openlist
 from .database import db_config
 from .config import STATUS_DIR, CONFIG_BACKUP_RCLONE_BASE64, CONFIG_BACKUP_REMOTE_PATH, GALLERY_DL_CONFIG_DIR
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) 
 
 import time
 import psutil
@@ -357,300 +357,95 @@ async def _run_rclone_command(command: str, log_file: Optional[Path] = None):
     return process.returncode == 0
 
 
-
-
 def generate_math_challenge(request: Request):
     """Generates a simple math challenge and stores the result in session."""
     return ""
 
 async def restore_gallery_dl_config():
-
-
-
-
     """Restore gallery-dl configuration files at startup."""
-
-
-
-
     if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
-
-
-
-
         logger.info("Configuration restore not configured. Skipping.")
-
-
-
-
         return
-
-
-
-
-
-
-
-
 
     logger.info("Attempting to restore gallery-dl config from rclone remote...")
-
-
-
-
     GALLERY_DL_CONFIG_DIR.mkdir(exist_ok=True, parents=True)
 
-
-
-
-
-
-
-
-
     try:
-
-
-
-
         rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
-
-
-
-
     except Exception as e:
-
-
-
-
         logger.error(f"Failed to decode base64 rclone config for restore: {str(e)}")
-
-
-
-
         return
 
-
-
-
-
-
-
-
-
     with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
-
-
-
-
         tmp_config_path = tmp_file.name
-
-
-
-
         tmp_file.write(rclone_config_content)
 
-
-
-
-
-
-
-
-
     try:
-
-
-
-
         # Use copy instead of sync to avoid deleting local files if remote is empty
-
-
-
-
         rclone_cmd = (f"rclone copy \"{CONFIG_BACKUP_REMOTE_PATH}\" \"{GALLERY_DL_CONFIG_DIR}\" "
-
-
-
-
                       f"--config \"{tmp_config_path}\" "
-
-
-
-
                       f"-P --log-level=INFO")
-
-
-
-
         await _run_rclone_command(rclone_cmd)
-
-
-
-
         logger.info("Finished attempt to restore gallery-dl config.")
-
-
-
-
     finally:
-
-
-
-
         if os.path.exists(tmp_config_path):
-
-
-
-
             os.unlink(tmp_config_path)
-
-
-
-
-
-
-
-
 
 async def backup_gallery_dl_config():
-
-
-
-
     """Backup gallery-dl configuration files to rclone remote."""
-
-
-
-
     if not CONFIG_BACKUP_RCLONE_BASE64 or not CONFIG_BACKUP_REMOTE_PATH:
-
-
-
-
         return
-
-
-
-
-
-
-
-
 
     if not GALLERY_DL_CONFIG_DIR.exists():
-
-
-
-
         return
-
-
-
-
-
-
-
-
 
     logger.info("Backing up gallery-dl config to rclone remote...")
-
-
-
-
     try:
-
-
-
-
         rclone_config_content = base64.b64decode(CONFIG_BACKUP_RCLONE_BASE64).decode('utf-8')
-
-
-
-
     except Exception as e:
-
-
-
-
         logger.error(f"Failed to decode base64 rclone config for backup: {str(e)}")
-
-
-
-
         return
 
-
-
-
-
-
-
-
-
     with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
-
-
-
-
         tmp_config_path = tmp_file.name
-
-
-
-
         tmp_file.write(rclone_config_content)
 
-
-
-
-
-
-
-
-
     try:
-
-
-
-
         # Use copy to ensure new tokens/configs are pushed to remote
-
-
-
-
         rclone_cmd = (f"rclone copy \"{GALLERY_DL_CONFIG_DIR}\" \"{CONFIG_BACKUP_REMOTE_PATH}\" "
-
-
-
-
                       f"--config \"{tmp_config_path}\" "
-
-
-
-
                       f"--log-level=INFO")
-
-
-
-
         await _run_rclone_command(rclone_cmd)
-
-
-
-
         logger.info("Gallery-dl config backup successful.")
-
-
-
-
     finally:
-
-
-
-
         if os.path.exists(tmp_config_path):
-
-
-
-
             os.unlink(tmp_config_path)
+
+# --- Kemono DL Pro Constants & Helpers ---
+SITE_BASE_URL = "https://kemono.cr"
+API_BASE_URL = "https://kemono.cr/api/v1"
+
+def sanitize_filename(filename):
+    if not filename:
+        return "untitled"
+    import re
+    sanitized = re.sub(r'[/*?:\"<>|]', "_", filename)
+    return re.sub(r'\s+', ' ', sanitized).strip()
+
+def download_file(url, destination_path, session):
+    """Synchronous file download with retry logic, designed to be run in a thread."""
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            with session.get(url, stream=True, timeout=300) as r:
+                r.raise_for_status()
+                with open(destination_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+            return True
+        except Exception as e:
+            if attempt + 1 == max_retries:
+                return False
+            time.sleep(5)
+    return False

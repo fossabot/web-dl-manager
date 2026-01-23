@@ -104,6 +104,7 @@
                         <label class="form-label d-none">Downloader</label>
                         <select class="form-select" id="downloader" name="downloader">
                             <option value="gallery-dl">{{ lang.downloader_gallery_dl }}</option>
+                            <option value="kemono-dl">Kemono-DL (Pro)</option>
                             <option value="megadl">{{ lang.downloader_megadl }}</option>
                         </select>
                     </div>
@@ -207,11 +208,23 @@
                                     <div class="form-check"><input class="form-check-input" type="checkbox" name="kemono_revisions" value="true"><label class="form-check-label x-small">{{ lang.kemono_revisions_label }}</label></div>
                                 </div>
                             </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <input type="text" class="form-control form-control-sm" name="kemono_username" placeholder="Kemono User (Optional)">
+                                </div>
+                                <div class="col-6">
+                                    <input type="password" class="form-control form-control-sm" name="kemono_password" placeholder="Kemono Pass (Optional)">
+                                </div>
+                            </div>
                             <div class="d-flex flex-wrap gap-2">
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="kemono_path_template" value="true" checked><label class="form-check-label x-small">{{ lang.kemono_path_template_label }}</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="pixiv_ugoira" value="true" checked><label class="form-check-label x-small">{{ lang.pixiv_ugoira_label }}</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="twitter_retweets" value="true"><label class="form-check-label x-small">X Retweets</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="twitter_replies" value="true"><label class="form-check-label x-small">X Replies</label></div>
+                            </div>
+                            <div class="mt-2">
+                                <label class="form-label x-small text-muted mb-1">Cookies (Optional, for Kemono/Coomer/Pixiv/etc)</label>
+                                <textarea class="form-control form-control-sm" name="cookies" rows="2" placeholder="name1=value1; name2=value2"></textarea>
                             </div>
                         </div>
                     </div>

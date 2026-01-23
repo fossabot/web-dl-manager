@@ -1,363 +1,129 @@
-<!-- 侧面栏导航组件 -->
-<style>
-  /* 半透明菜单按钮样式 */
-  #menuButton {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    background: var(--primary-color, #007bff); /* Theme primary color */
-    opacity: 0.8;
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 14px;
-    cursor: pointer;
-    font-size: 20px;
-    z-index: 1001;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-  }
+<nav class="navbar navbar-expand-lg navbar-custom fixed-top">
+    <div class="container-fluid px-4">
+        <!-- Brand -->
+        <a class="navbar-brand" href="/">
+            <i class="bi bi-cloud-arrow-down-fill"></i>
+            {{ lang.app_title }}
+        </a>
 
-  #menuButton:hover {
-    opacity: 1;
-    transform: scale(1.05);
-  }
+        <!-- Mobile Toggle -->
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-  /* 菜单样式 */
-  #menu {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 280px;
-    height: 100%;
-    background-color: var(--bg-card, #f8f9fa);
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-  }
+        <!-- Navbar Content -->
+        <div class="collapse navbar-collapse" id="navbarContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                {% if request.session.get('user') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/downloader">
+                        <i class="bi bi-plus-lg me-1"></i> {{ lang.start_download_button }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/tasks">
+                        <i class="bi bi-list-task me-1"></i> {{ lang.all_tasks_title }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/updates">
+                        <i class="bi bi-arrow-up-circle me-1"></i> {{ lang.updates_title if lang.updates_title else 'Updates' }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/terminal">
+                        <i class="bi bi-terminal me-1"></i> {{ lang.terminal_title }}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
 
-  #menu.open {
-    transform: translateX(0);
-  }
+            <!-- Right Side -->
+            <ul class="navbar-nav align-items-center gap-2">
+                <!-- PWA Install Button (Hidden by default) -->
+                <li class="nav-item" id="pwa-install-item" style="display: none;">
+                    <button class="btn btn-sm btn-outline-primary" id="btn-install-pwa">
+                        <i class="bi bi-phone"></i> App
+                    </button>
+                </li>
 
-  #menu .menu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.05));
-  }
+                <!-- Language Switcher -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-translate"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
+                        <li><a class="dropdown-item" href="#" onclick="setLanguage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="setLanguage('zh')">简体中文</a></li>
+                    </ul>
+                </li>
 
-  #menu .app-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--primary-color, #007bff);
-    text-decoration: none;
-  }
-
-  #menu ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    flex-grow: 1;
-    overflow-y: auto;
-  }
-
-  #menu ul li {
-    padding: 5px 0;
-  }
-
-  #menu ul li a {
-    text-decoration: none;
-    color: var(--text-main, #334155);
-    font-size: 1.1rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    padding: 10px 15px;
-    border-radius: 10px;
-    transition: all 0.2s ease;
-  }
-
-  #menu ul li a i {
-    margin-right: 12px;
-    font-size: 1.25rem;
-    width: 24px;
-    text-align: center;
-  }
-
-  #menu ul li a:hover {
-    background-color: var(--primary-subtle, rgba(0, 123, 255, 0.1));
-    color: var(--primary-color, #007bff);
-  }
-
-  #menu ul li a.text-danger:hover {
-    background-color: rgba(220, 38, 38, 0.1);
-  }
-
-  /* 关闭按钮样式 */
-  #closeMenu {
-    background: transparent;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--text-muted, #64748b);
-    transition: color 0.2s ease;
-  }
-
-  #closeMenu:hover {
-    color: var(--text-main, #333);
-  }
-
-  #menu .github-info {
-    margin-top: auto;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color, rgba(0,0,0,0.05));
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .github-user-container {
-    display: flex;
-    align-items: center;
-  }
-
-  #menu .github-info img {
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    margin-right: 12px;
-    border: 2px solid var(--primary-subtle, #eee);
-  }
-
-  #githubUsername {
-    font-weight: 600;
-    color: var(--text-main);
-    font-size: 0.95rem;
-  }
-
-  /* 提示框样式 */
-  #installPrompt {
-    display: none;
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%) translateY(100px);
-    padding: 20px;
-    background: var(--bg-card, #ffffff);
-    border: 1px solid var(--border-color, #cccccc);
-    border-radius: 15px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    text-align: center;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    opacity: 0;
-    z-index: 3000;
-    max-width: 90%;
-    width: 350px;
-  }
-
-  #installPrompt.visible {
-    display: block;
-    transform: translateX(-50%) translateY(0);
-    opacity: 1;
-  }
-
-  #installPrompt p {
-    margin-bottom: 15px;
-    font-weight: 500;
-  }
-
-  #installPrompt button {
-    padding: 10px 20px;
-    background-color: var(--primary-color, #007bff);
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s ease;
-  }
-
-  #installPrompt button:hover {
-    opacity: 0.9;
-    transform: scale(1.02);
-  }
-
-  #installPrompt button:active {
-    transform: scale(0.95);
-  }
-
-  /* 遮罩层 */
-  #menuOverlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(2px);
-    z-index: 1999;
-    display: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  #menuOverlay.visible {
-    display: block;
-    opacity: 1;
-  }
-
-  .lang-switcher {
-    display: flex;
-    gap: 10px;
-  }
-
-  .lang-btn {
-    font-size: 0.8rem;
-    padding: 4px 8px;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    background: var(--bg-input);
-    cursor: pointer;
-    color: var(--text-muted);
-  }
-
-  .lang-btn:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-  }
-</style>
-
-<!-- 半透明菜单按钮 -->
-<button id="menuButton" title="Menu"><i class="bi bi-list"></i></button>
-
-<!-- 遮罩层 -->
-<div id="menuOverlay"></div>
-
-<!-- 菜单 -->
-<div id="menu">
-  <div class="menu-header">
-    <a class="app-title" href="/">
-      <i class="bi bi-cloud-arrow-down-fill me-2"></i>{{ lang.app_title }}
-    </a>
-    <button id="closeMenu">&times;</button>
-  </div>
-  
-  <ul>
-    {% if request.session.get('user') %}
-    <li><a href="/downloader"><i class="bi bi-plus-circle"></i> {{ lang.start_download_button }}</a></li>
-    <li><a href="/tasks"><i class="bi bi-stack"></i> {{ lang.all_tasks_title }}</a></li>
-    <li><a href="/updates"><i class="bi bi-arrow-up-circle"></i> {{ lang.updates_title if lang.updates_title else 'Updates' }}</a></li>
-    <li><a href="/terminal"><i class="bi bi-terminal"></i> {{ lang.terminal_title }}</a></li>
-    <li><a href="/settings"><i class="bi bi-gear"></i> {{ lang.settings_title }}</a></li>
-    <li><a href="/change_password"><i class="bi bi-shield-lock"></i> {{ lang.change_password_title }}</a></li>
-    <li><a href="#" id="addToHome"><i class="bi bi-phone"></i> {{ lang.add_to_home_screen if lang.add_to_home_screen else 'Add to Home Screen' }}</a></li>
-    <li><a href="/logout" class="text-danger"><i class="bi bi-box-arrow-right"></i> {{ lang.logout_label if lang.logout_label else 'Logout' }}</a></li>
-    {% else %}
-    <li><a href="/login"><i class="bi bi-box-arrow-in-right"></i> {{ lang.login_label if lang.login_label else 'Login' }}</a></li>
-    {% endif %}
-  </ul>
-
-  <div class="github-info">
-    <div class="github-user-container">
-      <img id="githubAvatar" src="{{ get_avatar_url() }}" alt="Avatar" />
-      <span id="githubUsername">{{ user if user else 'Guest' }}</span>
+                <!-- User Profile / Login -->
+                {% if request.session.get('user') %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="{{ get_avatar_url() }}" alt="Avatar" class="rounded-circle border" width="32" height="32">
+                        <span class="d-none d-lg-inline">{{ user if user else 'User' }}</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
+                        <li><h6 class="dropdown-header">Signed in as {{ user }}</h6></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear me-2"></i> {{ lang.settings_title }}</a></li>
+                        <li><a class="dropdown-item" href="/change_password"><i class="bi bi-shield-lock me-2"></i> {{ lang.change_password_title }}</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="/logout"><i class="bi bi-box-arrow-right me-2"></i> {{ lang.logout_label if lang.logout_label else 'Logout' }}</a></li>
+                    </ul>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="btn btn-primary btn-sm" href="/login">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> {{ lang.login_label if lang.login_label else 'Login' }}
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
     </div>
-    
-    <div class="lang-switcher">
-        <span class="lang-btn" onclick="setLanguage('en')">EN</span>
-        <span class="lang-btn" onclick="setLanguage('zh')">ZH</span>
-    </div>
-  </div>
-</div>
-
-<!-- 提示框 -->
-<div id="installPrompt">
-  <p>{{ lang.pwa_install_msg if lang.pwa_install_msg else 'Add this site to your home screen for a better experience' }}</p>
-  <button id="installButton">{{ lang.add_to_home_screen if lang.add_to_home_screen else 'Add to Home Screen' }}</button>
-</div>
+</nav>
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const menuButton = document.getElementById('menuButton');
-    const menu = document.getElementById('menu');
-    const closeMenu = document.getElementById('closeMenu');
-    const menuOverlay = document.getElementById('menuOverlay');
+    function setLanguage(langCode) {
+        document.cookie = `lang=${langCode}; path=/; max-age=31536000`;
+        location.reload();
+    }
 
-    const toggleMenu = () => {
-      menu.classList.toggle('open');
-      if (menu.classList.contains('open')) {
-        menuOverlay.style.display = 'block';
-        setTimeout(() => menuOverlay.classList.add('visible'), 10);
-      } else {
-        menuOverlay.classList.remove('visible');
-        setTimeout(() => { if (!menu.classList.contains('open')) menuOverlay.style.display = 'none'; }, 300);
-      }
-    };
-
-    menuButton.addEventListener('click', toggleMenu);
-    closeMenu.addEventListener('click', toggleMenu);
-    menuOverlay.addEventListener('click', toggleMenu);
-
-    // 获取 GitHub 头像和用户名
-    const githubAvatar = document.getElementById('githubAvatar');
-    const githubUsername = document.getElementById('githubUsername');
-
-    fetch('https://api.github.com/users/Jyf0214')
-      .then(response => response.json())
-      .then(data => {
-        if (data.avatar_url) githubAvatar.src = data.avatar_url;
-        if (data.login) githubUsername.textContent = data.login;
-      })
-      .catch(error => console.error('GitHub 用户信息加载失败:', error));
-
-    // 安装提示
+    // PWA Install Logic
     let deferredPrompt;
-    const installPrompt = document.getElementById('installPrompt');
-    const installButton = document.getElementById('installButton');
-    const addToHome = document.getElementById('addToHome');
-
-    if (addToHome) {
-      window.addEventListener('beforeinstallprompt', (e) => {
+    window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-      });
+        const installItem = document.getElementById('pwa-install-item');
+        if (installItem) installItem.style.display = 'block';
+    });
 
-      addToHome.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (deferredPrompt) {
-          installPrompt.classList.add('visible');
-          toggleMenu(); // Close sidebar
-        } else {
-          alert('{{ lang.pwa_already_installed if lang.pwa_already_installed else "Already installed or not supported" }}');
-        }
-      });
-
-      installButton.addEventListener('click', () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-              localStorage.setItem('pwaAdded', 'true');
+    const installBtn = document.getElementById('btn-install-pwa');
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User accepted the PWA prompt');
+                }
+                deferredPrompt = null;
+                document.getElementById('pwa-install-item').style.display = 'none';
             }
-            installPrompt.classList.remove('visible');
-            deferredPrompt = null;
-          });
-        }
-      });
+        });
     }
-  });
 
-  function setLanguage(langCode) {
-    document.cookie = `lang=${langCode}; path=/; max-age=31536000`;
-    location.reload();
-  }
+    // Set active link based on URL
+    document.addEventListener('DOMContentLoaded', () => {
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+        navLinks.forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+            }
+        });
+    });
 </script>

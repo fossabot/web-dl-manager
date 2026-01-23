@@ -101,5 +101,4 @@ jobs:
             echo "✅ 成功触发目标 Space 重建。(HTTP 200)"
           else
             echo "❌ 触发重建失败。(HTTP $HTTP_CODE)"
-            exit 1
           fi

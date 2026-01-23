@@ -17,7 +17,8 @@ from ..logging_handler import update_log_handlers
 SECRET_KEYS = [
     "GITHUB_TOKEN", "WDM_GOFILE_TOKEN", "WDM_OPENLIST_PASS", 
     "WDM_WEBDAV_PASS", "WDM_S3_SECRET_ACCESS_KEY", "WDM_B2_APPLICATION_KEY", 
-    "REDIS_URL", "WDM_CONFIG_BACKUP_RCLONE_BASE64", "TUNNEL_TOKEN"
+    "REDIS_URL", "WDM_CONFIG_BACKUP_RCLONE_BASE64", "TUNNEL_TOKEN",
+    "WDM_KEMONO_USERNAME", "WDM_KEMONO_PASSWORD"
 ]
 
 def mask_secret(value: str) -> str:
@@ -72,6 +73,7 @@ async def get_downloader(request: Request, current_user: User = Depends(get_curr
 
 
 
+
 @router.get("/tasks", response_class=HTMLResponse)
 async def get_tasks(request: Request, current_user: User = Depends(get_current_user)):
     lang = get_lang(request)
@@ -109,6 +111,7 @@ async def settings_page(request: Request, current_user: User = Depends(get_curre
         "WDM_VERIFICATION_TYPE", "WDM_VERIFICATION_SITE_KEY", "WDM_VERIFICATION_SECRET_KEY", "WDM_VERIFICATION_ID",
         "WDM_VERIFICATION_GEETEST_DEMO_TYPE",
         "WDM_GALLERY_DL_ARGS",
+        "WDM_KEMONO_USERNAME", "WDM_KEMONO_PASSWORD",
         "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN",
         "REDIS_URL", "TERMINAL_ENABLED"
     ]
@@ -148,6 +151,7 @@ async def save_settings(
         "WDM_VERIFICATION_TYPE", "WDM_VERIFICATION_SITE_KEY", "WDM_VERIFICATION_SECRET_KEY", "WDM_VERIFICATION_ID",
         "WDM_VERIFICATION_GEETEST_DEMO_TYPE",
         "WDM_GALLERY_DL_ARGS",
+        "WDM_KEMONO_USERNAME", "WDM_KEMONO_PASSWORD",
         "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN",
         "REDIS_URL", "TERMINAL_ENABLED"
     ]
@@ -316,12 +320,11 @@ async def login_main(request: Request, username: str = Form(...), password: str 
     lang = get_lang(request)
     
     # Authenticate User
-    user = User.get_by_username(username)
-    if user and user.verify_password(password):
-        token = create_access_token(data={"sub": username})
-        response = RedirectResponse(url="/downloader", status_code=302)
-        response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
-        return response
+    user = User.get_user_by_username(username)
+    if user and verify_password(password, user.hashed_password):
+        request.session["user"] = username
+        request.session["last_activity"] = time.time()
+        return RedirectResponse(url="/downloader", status_code=302)
     
     return templates.TemplateResponse("login.html", {
         "request": request, 
