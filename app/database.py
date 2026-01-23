@@ -11,11 +11,15 @@ from .config import DATABASE_URL, BASE_DIR
 
 # Configure basic logging for this module
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+is_hf_space = os.getenv("SPACE_ID") is not None
+if is_hf_space:
+    logger.setLevel(logging.CRITICAL)
+else:
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 # Determine DB URL
 # If config provided a specific URL, use it. Otherwise default to local SQLite.
