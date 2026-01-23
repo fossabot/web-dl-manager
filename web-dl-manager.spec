@@ -22,6 +22,8 @@ hidden_imports = [
     'app.routers.main_ui',
     'app.routers.api',
     'app.log_endpoint',
+    'app.redis_client',
+    'redis',
 ]
 
 a = Analysis(

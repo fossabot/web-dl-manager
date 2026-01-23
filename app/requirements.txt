@@ -15,3 +15,4 @@ passlib[argon2]
 pymysql
 cryptography
 sqlalchemy
+redis

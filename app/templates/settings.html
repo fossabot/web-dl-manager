@@ -74,6 +74,11 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label for="REDIS_URL" class="form-label">Redis URL (Upstash/Standard)</label>
+                            <input type="text" class="form-control" id="REDIS_URL" name="REDIS_URL" value="{{ config.REDIS_URL }}" placeholder="rediss://:password@endpoint:port">
+                            <div class="form-text">Used for centralized logging. Leave empty to disable.</div>
+                        </div>
                     </div>
 
                     <!-- WebDAV Settings -->
@@ -217,6 +222,21 @@
                     </button>
                     <div id="cache-status" class="mt-2 small"></div>
                 </div>
+
+                <!-- Database Management -->
+                <div class="mt-4 pt-4 border-top">
+                    <h5 class="mb-3">
+                        <i class="bi bi-database-gear"></i> Database Maintenance
+                    </h5>
+                    <p class="text-muted small">
+                        Clean up unused tables and configuration keys that are no longer used by the current version of the application.
+                        This is safe to run and helps keep the database clean.
+                    </p>
+                    <button id="cleanup-db-btn" class="btn btn-outline-danger">
+                        <i class="bi bi-eraser"></i> Cleanup Database
+                    </button>
+                    <div id="db-status" class="mt-2 small"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -250,6 +270,37 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-trash"></i> {{ lang.clear_cache_button }}';
+            }
+        });
+
+        document.getElementById('cleanup-db-btn').addEventListener('click', async function() {
+            const btn = this;
+            const statusDiv = document.getElementById('db-status');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cleaning...';
+            
+            try {
+                const response = await fetch('/api/database/cleanup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    statusDiv.className = 'mt-2 small text-success';
+                    statusDiv.innerHTML = `<i class="bi bi-check-circle"></i> ${result.message}`;
+                } else {
+                    throw new Error(result.message || 'Failed to cleanup database');
+                }
+            } catch (error) {
+                statusDiv.className = 'mt-2 small text-danger';
+                statusDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> Error: ' + error.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-eraser"></i> Cleanup Database';
             }
         });
     </script>

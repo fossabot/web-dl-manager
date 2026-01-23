@@ -94,6 +94,18 @@
                     <div class="progress mb-2" style="height: 12px;">
                         <div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                     </div>
+                    
+                    <!-- Current File Progress -->
+                    <div id="current-file-progress-container" class="mb-2" style="display: none;">
+                         <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small id="current-file-name" class="text-muted text-truncate" style="max-width: 70%;">...</small>
+                            <small id="current-file-percent" class="text-muted">0%</small>
+                         </div>
+                         <div class="progress" style="height: 6px;">
+                            <div id="current-file-progress-bar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                         </div>
+                    </div>
+
                     <div class="d-flex justify-content-between">
                         <small id="upload-percent-text" class="text-muted">0%</small>
                         <small id="upload-size-info" class="text-muted"></small>
@@ -181,6 +193,12 @@
         const uploadPercentText = document.getElementById('upload-percent-text');
         const uploadFilesInfo = document.getElementById('upload-files-info');
         const uploadSizeInfo = document.getElementById('upload-size-info');
+        
+        const currentFileContainer = document.getElementById('current-file-progress-container');
+        const currentFileName = document.getElementById('current-file-name');
+        const currentFilePercent = document.getElementById('current-file-percent');
+        const currentFileProgressBar = document.getElementById('current-file-progress-bar');
+
         const netSpeedUpText = document.getElementById('net-speed-up');
         const netSpeedDownText = document.getElementById('net-speed-down');
         const toggleUploadLogBtn = document.getElementById('toggle-upload-log-btn');
@@ -246,11 +264,25 @@
                         if (p.transferred && p.total) {
                             uploadSizeInfo.textContent = `${p.transferred} / ${p.total}`;
                         }
+
+                        // Current File Progress
+                        if (p.file_percent !== undefined) {
+                            currentFileContainer.style.display = 'block';
+                            currentFileProgressBar.style.width = p.file_percent + '%';
+                            currentFilePercent.textContent = p.file_percent + '%';
+                            if (p.current_file) {
+                                currentFileName.textContent = p.current_file;
+                            }
+                        } else {
+                            currentFileContainer.style.display = 'none';
+                        }
+
                     } else if (data.status.status === 'completed') {
                         uploadProgressPanel.style.display = 'block';
                         uploadProgressBar.style.width = '100%';
                         uploadProgressBar.classList.remove('progress-bar-animated');
                         uploadPercentText.textContent = '100%';
+                        currentFileContainer.style.display = 'none';
                     }
 
                     // Auto-expand upload log if there's an error

@@ -24,7 +24,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from .database import init_db, User, db_config
-from .logging_handler import MySQLLogHandler, cleanup_old_logs
+from . import redis_client  # Initialize Redis client
+from .logging_handler import MySQLLogHandler, cleanup_old_logs, update_log_handlers
 from .utils import restore_gallery_dl_config
 from .config import BASE_DIR, APP_USERNAME, APP_PASSWORD, PROJECT_ROOT
 from .auth import get_password_hash
@@ -71,6 +72,9 @@ async def lifespan(app: FastAPI):
     logging.getLogger().addHandler(file_handler)
     logging.info("File logging configured for startup logs.")
     
+    # Configure Redis logging if available
+    update_log_handlers()
+
     # Auto-create admin user from environment variables if no users exist
     if APP_USERNAME and APP_PASSWORD and User.count_users() == 0:
         logging.info(f"Creating admin user '{APP_USERNAME}' from environment variables.")

@@ -89,7 +89,38 @@ def list_files(base_url: str, token: str, remote_dir: str, status_file: Path = N
         _log(status_file, f"Request to list files failed: {e}")
         raise OpenlistError(f"File listing request failed: {e}")
 
-def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, status_file: Path = None) -> str:
+class ProgressFileReader:
+    def __init__(self, filename, callback=None):
+        self._f = open(filename, 'rb')
+        self._callback = callback
+        self._total_size = os.path.getsize(filename)
+        self._read_so_far = 0
+
+    def read(self, size=-1):
+        data = self._f.read(size)
+        if data:
+            self._read_so_far += len(data)
+            if self._callback:
+                self._callback(self._read_so_far, self._total_size)
+        return data
+
+    def __getattr__(self, name):
+        return getattr(self._f, name)
+    
+    def __len__(self):
+        return self._total_size
+
+    def close(self):
+        if self._f:
+            self._f.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, status_file: Path = None, progress_callback=None) -> str:
     """
     Uploads a file using the /api/fs/put endpoint with retries.
     """
@@ -101,6 +132,9 @@ def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, st
         remote_files = list_files(base_url, token, remote_dir, status_file)
         if filename in remote_files:
             _log(status_file, f"File '{filename}' already exists in '{remote_dir}', skipping upload.")
+            if progress_callback:
+                file_size = os.path.getsize(local_file)
+                progress_callback(file_size, file_size) # Mark as 100%
             return full_path
     except OpenlistError as e:
         _log(status_file, f"Could not verify file existence, proceeding with upload anyway: {e}")
@@ -119,7 +153,7 @@ def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, st
     last_exception = None
     for attempt in range(50):
         try:
-            with open(local_file, 'rb') as f:
+            with ProgressFileReader(local_file, progress_callback) as f:
                 resp = requests.put(url, data=f, headers=headers, timeout=300)
 
             resp.raise_for_status()

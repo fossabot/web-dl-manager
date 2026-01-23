@@ -100,6 +100,21 @@ async def update_page_library_api():
     result = updater.update_page_library()
     return JSONResponse(content=result)
 
+@router.post("/database/cleanup")
+async def cleanup_database_api(current_user: User = Depends(get_current_user)):
+    """
+    Cleans up unused database tables and configuration keys.
+    Requires admin privileges.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    
+    from ..database import cleanup_database
+    result = cleanup_database()
+    if result.get("status") == "error":
+        return JSONResponse(content=result, status_code=500)
+    return JSONResponse(content=result)
+
 
 
 
