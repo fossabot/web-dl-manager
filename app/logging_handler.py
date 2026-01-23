@@ -14,6 +14,10 @@ class RedisLogHandler(logging.Handler):
         self.redis = get_redis_client()
 
     def emit(self, record):
+        # Only log records from the download tasks (app.tasks)
+        if not record.name.startswith("app.tasks"):
+            return
+
         if not self.redis:
             # Try to get client again in case it was initialized later
             from .redis_client import get_redis_client

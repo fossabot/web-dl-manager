@@ -106,7 +106,7 @@ async def settings_page(request: Request, current_user: User = Depends(get_curre
         "WDM_B2_ACCOUNT_ID", "WDM_B2_APPLICATION_KEY",
         "WDM_CONFIG_BACKUP_RCLONE_BASE64", "WDM_CONFIG_BACKUP_REMOTE_PATH",
         "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN",
-        "REDIS_URL"
+        "REDIS_URL", "TERMINAL_ENABLED"
     ]
     
     current_config = {}
@@ -141,7 +141,7 @@ async def save_settings(
         "WDM_B2_ACCOUNT_ID", "WDM_B2_APPLICATION_KEY",
         "WDM_CONFIG_BACKUP_RCLONE_BASE64", "WDM_CONFIG_BACKUP_REMOTE_PATH",
         "AVATAR_URL", "login_domain", "PRIVATE_MODE", "DEBUG_MODE", "GITHUB_TOKEN",
-        "REDIS_URL"
+        "REDIS_URL", "TERMINAL_ENABLED"
     ]
     
     try:

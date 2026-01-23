@@ -50,7 +50,7 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="AVATAR_URL_INPUT" class="form-label">Avatar URL</label>
+                                <label for="AVATAR_URL_INPUT" class="form-label">{{ lang.avatar_url_label }}</label>
                                 <input type="text" class="form-control" id="AVATAR_URL_INPUT" name="AVATAR_URL_INPUT" value="{{ config.AVATAR_URL }}" placeholder="https://github.com/your-username.png">
                             </div>
                             <div class="col-md-6 mb-3">
@@ -67,17 +67,25 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
+                                <label for="TERMINAL_ENABLED" class="form-label">{{ lang.terminal_enabled_config_label }}</label>
+                                <select class="form-select" id="TERMINAL_ENABLED" name="TERMINAL_ENABLED">
+                                    <option value="true" {% if config.TERMINAL_ENABLED == 'true' %}selected{% endif %}>True</option>
+                                    <option value="false" {% if config.TERMINAL_ENABLED != 'true' %}selected{% endif %}>False</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
                                 <label for="DEBUG_MODE" class="form-label">{{ lang.debug_mode_label }}</label>
                                 <select class="form-select" id="DEBUG_MODE" name="DEBUG_MODE">
                                     <option value="true" {% if config.DEBUG_MODE == 'true' %}selected{% endif %}>True</option>
                                     <option value="false" {% if config.DEBUG_MODE != 'true' %}selected{% endif %}>False</option>
                                 </select>
                             </div>
-                        </div>
                         <div class="mb-3">
-                            <label for="REDIS_URL" class="form-label">Redis URL (Upstash/Standard)</label>
+                            <label for="REDIS_URL" class="form-label">{{ lang.redis_url_label }}</label>
                             <input type="text" class="form-control" id="REDIS_URL" name="REDIS_URL" value="{{ config.REDIS_URL }}" placeholder="rediss://:password@endpoint:port">
-                            <div class="form-text">Used for centralized logging. Leave empty to disable.</div>
+                            <div class="form-text">{{ lang.redis_url_text }}</div>
                         </div>
                     </div>
 
@@ -226,14 +234,13 @@
                 <!-- Database Management -->
                 <div class="mt-4 pt-4 border-top">
                     <h5 class="mb-3">
-                        <i class="bi bi-database-gear"></i> Database Maintenance
+                        <i class="bi bi-database-gear"></i> {{ lang.db_maintenance_label }}
                     </h5>
                     <p class="text-muted small">
-                        Clean up unused tables and configuration keys that are no longer used by the current version of the application.
-                        This is safe to run and helps keep the database clean.
+                        {{ lang.db_maintenance_text }}
                     </p>
                     <button id="cleanup-db-btn" class="btn btn-outline-danger">
-                        <i class="bi bi-eraser"></i> Cleanup Database
+                        <i class="bi bi-eraser"></i> {{ lang.cleanup_db_button }}
                     </button>
                     <div id="db-status" class="mt-2 small"></div>
                 </div>
@@ -247,7 +254,7 @@
             const btn = this;
             const statusDiv = document.getElementById('cache-status');
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cleaning...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ lang.cleaning_placeholder }}';
             
             try {
                 const response = await fetch('/api/cache/clear', {
@@ -262,11 +269,11 @@
                     statusDiv.innerHTML = '<i class="bi bi-check-circle"></i> {{ lang.cache_cleared_success }}';
                     setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
                 } else {
-                    throw new Error('Failed to clear cache');
+                    throw new Error('{{ lang.clear_cache_failed }}');
                 }
             } catch (error) {
                 statusDiv.className = 'mt-2 small text-danger';
-                statusDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> Error: ' + error.message;
+                statusDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> {{ lang.error_prefix }}' + error.message;
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-trash"></i> {{ lang.clear_cache_button }}';
@@ -277,7 +284,7 @@
             const btn = this;
             const statusDiv = document.getElementById('db-status');
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cleaning...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ lang.cleaning_placeholder }}';
             
             try {
                 const response = await fetch('/api/database/cleanup', {
@@ -293,14 +300,14 @@
                     statusDiv.className = 'mt-2 small text-success';
                     statusDiv.innerHTML = `<i class="bi bi-check-circle"></i> ${result.message}`;
                 } else {
-                    throw new Error(result.message || 'Failed to cleanup database');
+                    throw new Error(result.message || '{{ lang.cleanup_db_failed }}');
                 }
             } catch (error) {
                 statusDiv.className = 'mt-2 small text-danger';
-                statusDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> Error: ' + error.message;
+                statusDiv.innerHTML = '<i class="bi bi-exclamation-circle"></i> {{ lang.error_prefix }}' + error.message;
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-eraser"></i> Cleanup Database';
+                btn.innerHTML = '<i class="bi bi-eraser"></i> {{ lang.cleanup_db_button }}';
             }
         });
     </script>

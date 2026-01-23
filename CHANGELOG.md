@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-10
+
+### Added
+- **Web Terminal**:
+    - **Interactive Shell**: Integrated a full-featured, real-time interactive terminal (via `xterm.js`) allowing administrators to execute shell commands directly from the browser.
+    - **Pseudo-terminal (PTY)**: Implemented `ptyprocess` on the backend to provide a robust terminal experience with support for ANSI colors, interactive CLI tools, and proper signal handling.
+    - **WebSocket Support**: Leveraged asynchronous WebSockets for low-latency bidirectional communication between the browser and the server's shell.
+    - **Security Confirmation**: Introduced a mandatory risk acknowledgement workflow. The terminal is disabled by default and requires explicit user confirmation of risks before activation.
+    - **Management UI**: Added a dedicated "Enable Web Terminal" toggle in the system settings and a beautifully designed terminal interface with modern aesthetics.
+    - **Session-bound**: Terminal access is strictly bound to the authenticated user's session, ensuring no unauthorized access.
+
+### Optimized
+- **Terminal UI**: Designed a沉浸式 (immersive) terminal interface with a modern slate-blue gradient header, glassmorphism effects, and responsive layout.
+- **Error Handling**: Enhanced PTY spawn logic with stringified environment variables to prevent common unhashable type errors in complex environments.
+
 ## [1.1.1] - 2026-01-09
 
 ### Fixed

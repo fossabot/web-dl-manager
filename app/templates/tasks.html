@@ -18,14 +18,8 @@
                 <i class="bi bi-list-task"></i> {{ lang.all_tasks_title }}
             </h1>
             <div class="d-flex align-items-center">
-                <span id="current-version" class="me-2"></span>
-                <button id="cleanup-logs-button" class="btn btn-warning btn-sm me-2">
-                    <i class="bi bi-trash"></i> 清理日志
-                </button>
-                <button id="update-button" class="btn btn-success btn-sm me-2">
-                    <i class="bi bi-arrow-clockwise"></i> 更新
-                </button>
-                <a href="/downloader" class="btn btn-primary ms-3">
+                <span id="current-version" class="me-2 text-muted small"></span>
+                <a href="/downloader" class="btn btn-primary btn-sm btn-header">
                     <i class="bi bi-plus-circle"></i> {{ lang.start_new_job_button }}
                 </a>
             </div>
@@ -77,21 +71,21 @@
                 <div class="card-footer text-end">
                     {% if task.status == 'running' %}
                     <form action="/api/pause/{{ task.id }}" method="post" style="display: inline;">
-                        <button type-="submit" class="btn btn-info btn-sm">{{ lang.pause_button }}</button>
+                        <button type="submit" class="btn btn-info btn-sm btn-task">{{ lang.pause_button }}</button>
                     </form>
                     {% elif task.status == 'paused' %}
                     <form action="/api/resume/{{ task.id }}" method="post" style="display: inline;">
-                        <button type="submit" class="btn btn-success btn-sm">{{ lang.resume_button }}</button>
+                        <button type="submit" class="btn btn-success btn-sm btn-task">{{ lang.resume_button }}</button>
                     </form>
                     {% endif %}
                     {% if task.status == 'failed' %}
                     <form action="/api/retry/{{ task.id }}" method="post" style="display: inline;">
-                        <button type="submit" class="btn btn-warning btn-sm">{{ lang.retry_button }}</button>
+                        <button type="submit" class="btn btn-warning btn-sm btn-task">{{ lang.retry_button }}</button>
                     </form>
                     {% endif %}
-                    <a href="/status/{{ task.id }}" class="btn btn-secondary btn-sm">{{ lang.view_log_button }}</a>
+                    <a href="/status/{{ task.id }}" class="btn btn-secondary btn-sm btn-task">{{ lang.view_log_button }}</a>
                     <form action="/api/delete/{{ task.id }}" method="post" style="display: inline;" onsubmit="return confirm('{{ lang.delete_task_confirm }}');">
-                        <button type="submit" class="btn btn-danger btn-sm">{{ lang.delete_button }}</button>
+                        <button type="submit" class="btn btn-danger btn-sm btn-task">{{ lang.delete_button }}</button>
                     </form>
                 </div>
             </div>
@@ -120,65 +114,6 @@
                     document.getElementById('current-version').innerText = `当前版本: ${data.version}`;
                 })
                 .catch(error => console.error('Error fetching version:', error));
-
-            // Handle update button click
-            document.getElementById('update-button').addEventListener('click', function() {
-                if (confirm('确定要更新应用程序吗？更新后应用将重启。')) {
-                    this.disabled = true;
-                    this.innerText = '更新中...';
-                    fetch('/api/update', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        alert(data.message);
-                        if (data.status === 'success') {
-                            // Give some time for the server to restart
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 5000);
-                        } else {
-                            this.disabled = false;
-                            this.innerText = '更新';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error during update:', error);
-                        alert('更新失败: ' + error.message);
-                        this.disabled = false;
-                        this.innerText = '更新';
-                    });
-                }
-            });
-
-            // Handle cleanup logs button click
-            document.getElementById('cleanup-logs-button').addEventListener('click', function() {
-                if (confirm('确定要清理旧日志吗？这将删除数据库中最旧的20%日志记录。')) {
-                    this.disabled = true;
-                    this.innerText = '清理中...';
-                    fetch('/api/cleanup-logs', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        alert(data.message);
-                        this.disabled = false;
-                        this.innerText = '清理日志';
-                    })
-                    .catch(error => {
-                        console.error('Error during log cleanup:', error);
-                        alert('日志清理失败: ' + error.message);
-                        this.disabled = false;
-                        this.innerText = '清理日志';
-                    });
-                }
-            });
         });
     </script>
 </body>

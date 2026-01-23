@@ -236,6 +236,14 @@ a:hover {
     font-size: 1.1rem;
 }
 
+.btn-header {
+    min-width: 100px;
+}
+
+.btn-task {
+    min-width: 85px;
+}
+
 .btn-primary {
     background-color: var(--primary-color);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);

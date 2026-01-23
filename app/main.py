@@ -35,7 +35,7 @@ from .i18n import get_lang
 
 
 # Import routers
-from .routers import camouflage, main_ui, api
+from .routers import camouflage, main_ui, api, terminal
 
 # --- App Lifespan Management ---
 @asynccontextmanager
@@ -51,14 +51,10 @@ async def lifespan(app: FastAPI):
     if not changelog_file.exists():
         changelog_file.write_text("# Changelog\n\nNo changelog information available yet.", encoding="utf-8")
         
-    # Configure database logging
-    db_handler = MySQLLogHandler()
+    # Configure logging
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
     log_level = logging.DEBUG if debug_enabled else logging.INFO
-    db_handler.setLevel(log_level)
-    logging.getLogger().addHandler(db_handler)
     logging.getLogger().setLevel(log_level)
-    logging.info(f"Database logging configured with {logging.getLevelName(log_level)} level.")
     
     # Ensure logs directory exists
     logs_dir = PROJECT_ROOT / "logs"
@@ -139,6 +135,7 @@ main_app.add_middleware(SessionMiddleware, secret_key=session_secret_key, max_ag
 # --- Router Inclusion ---
 camouflage_app.include_router(camouflage.router, dependencies=[Depends(check_setup_needed_camouflage)])
 main_app.include_router(main_ui.router)
+main_app.include_router(terminal.router)
 main_app.include_router(api.router, prefix="/api")
 
 

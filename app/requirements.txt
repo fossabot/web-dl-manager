@@ -16,3 +16,4 @@ pymysql
 cryptography
 sqlalchemy
 redis
+ptyprocess
