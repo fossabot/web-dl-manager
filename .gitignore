@@ -1,0 +1,39 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Python build artifacts
+__pycache__/
+*.pyc
+dist/
+build/
+.tmp_build/
+
+# Binary and build related files
+cloudflared
+build_new.py
+build.py
+gallery-dl-web.spec
+requirements-build.txt
+run_binary.py
+run_and_test.sh
+replace_rules.txt
+webdl-manager.db
+# Temporary test files
+gofile_test.py
+gofile_auth_test.py
+web-dl-manager.spec
+
+# Node.js / Next.js
+node_modules/
+.next/
+frontend/
+next-env.d.ts
+
+# Logs
+logs/*.log
+logs/pm2-3.log
+logs/pm2_error-3.log
+logs/pm2_out-3.log
+

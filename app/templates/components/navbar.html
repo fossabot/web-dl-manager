@@ -1,0 +1,78 @@
+<!-- 统一导航栏组件 -->
+<nav class="navbar navbar-expand-lg navbar-light navbar-custom">
+    <div class="container-fluid container-main">
+        <a class="navbar-brand" href="/">
+            {{ lang.app_title }}
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                {% if request.session.get('user') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/downloader">
+                        <i class="bi bi-download"></i> {{ lang.start_download_button }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/tasks">
+                        <i class="bi bi-list-task"></i> {{ lang.all_tasks_title }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/updates">
+                        <i class="bi bi-cloud-arrow-up"></i> 更新管理
+                    </a>
+                </li>
+
+                {% endif %}
+            </ul>
+            
+            <div class="d-flex align-items-center">
+                <!-- 服务器状态按钮 -->
+                {% if request.endpoint == 'downloader' or request.endpoint == 'tasks' %}
+                <button onclick="toggleServerStatus()" class="btn btn-outline-info me-3">
+                    <i class="bi bi-hdd-stack"></i> Server Status
+                </button>
+                {% endif %}
+                
+                <!-- 语言选择器 -->
+                <div class="dropdown me-3">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-translate"></i>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="languageDropdown">
+                        <li><a class="dropdown-item" href="javascript:void(0);" onclick="setLanguage('en')">English</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0);" onclick="setLanguage('zh')">中文</a></li>
+                    </ul>
+                </div>
+                
+                <!-- 用户菜单 -->
+                {% if user %}
+                <div class="dropdown">
+                    <a href="javascript:void(0);" class="d-block link-dark text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="{{ avatar_url }}" alt="Avatar" class="rounded-circle navbar-avatar" width="32" height="32">
+                    </a>
+                    <ul class="dropdown-menu text-small dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><span class="dropdown-item-text">Signed in as <strong>{{ user }}</strong></span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear me-2"></i>{{ lang.settings_title }}</a></li>
+                        <li><a class="dropdown-item" href="/change_password"><i class="bi bi-key me-2"></i>Change Password</a></li>
+                        <li><a class="dropdown-item" href="/logout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+function setLanguage(langCode) {
+    document.cookie = `lang=${langCode}; path=/; max-age=31536000`;
+    location.reload();
+}
+</script>

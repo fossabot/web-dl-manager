@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+gallery-dl
+aiohttp
+aiofiles
+itsdangerous
+httpx
+starlette
+python-jose
+gofilepy-api
+psutil
+passlib[argon2]
+pymysql
+cryptography
+sqlalchemy
