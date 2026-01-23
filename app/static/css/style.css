@@ -61,7 +61,7 @@ body {
     color: var(--text-main);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-    padding-top: 80px; /* Space for fixed navbar */
+    padding-top: 20px; /* Reduced space for floating menu button */
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -127,64 +127,7 @@ a:hover {
     padding: 1rem 1.5rem;
 }
 
-/* ===== Navbar ===== */
-.navbar-custom {
-    background-color: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.75rem 0;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    z-index: 1000;
-}
-
-@media (prefers-color-scheme: dark) {
-    .navbar-custom {
-        background-color: rgba(30, 41, 59, 0.85);
-    }
-}
-
-.navbar-brand {
-    font-weight: 800;
-    font-size: 1.5rem;
-    color: var(--primary-color) !important;
-    letter-spacing: -0.05em;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.nav-link {
-    font-weight: 500;
-    color: var(--text-muted) !important;
-    padding: 0.5rem 1rem !important;
-    border-radius: var(--border-radius-sm);
-    transition: var(--transition-base);
-}
-
-.nav-link:hover, .nav-link.active {
-    color: var(--primary-color) !important;
-    background-color: var(--primary-subtle);
-}
-
-.navbar-avatar-container {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background-color: var(--border-color);
-    background-size: cover;
-    background-position: center;
-    border: 2px solid var(--bg-card);
-    box-shadow: 0 0 0 2px var(--primary-color);
-    transition: var(--transition-base);
-}
-
-.navbar-avatar-container:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 3px var(--primary-hover);
-}
+/* ===== Cards & Containers ===== */
 
 /* ===== Forms ===== */
 .form-label {

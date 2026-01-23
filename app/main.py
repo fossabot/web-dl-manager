@@ -31,7 +31,7 @@ from .config import BASE_DIR, APP_USERNAME, APP_PASSWORD, PROJECT_ROOT
 from .auth import get_password_hash
 from .templating import templates
 from .i18n import get_lang
-from .tasks import periodic_config_backup, periodic_custom_sync
+from .tasks import unified_periodic_sync
 
 # Import routers
 from .routers import camouflage, main_ui, api, terminal
@@ -81,8 +81,7 @@ async def lifespan(app: FastAPI):
     
     # Start periodic background tasks
     cleanup_task = asyncio.create_task(periodic_log_cleanup())
-    backup_task = asyncio.create_task(periodic_config_backup())
-    sync_task = asyncio.create_task(periodic_custom_sync())
+    sync_task = asyncio.create_task(unified_periodic_sync())
     
     yield
     
@@ -91,7 +90,6 @@ async def lifespan(app: FastAPI):
     await backup_gallery_dl_config()
     
     cleanup_task.cancel()
-    backup_task.cancel()
     sync_task.cancel()
 
 async def periodic_log_cleanup():

@@ -28,63 +28,86 @@ logger = logging.getLogger(__name__)
 debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
 
 
-async def periodic_config_backup():
-    """Periodically backups gallery-dl config to remote storage."""
-    from .utils import backup_gallery_dl_config
-    while True:
-        await asyncio.sleep(600)  # Every 10 minutes
-        try:
-            await backup_gallery_dl_config()
-        except Exception as e:
-            logger.error(f"Error in periodic config backup: {e}")
-
-async def periodic_custom_sync():
-    """Periodically syncs a custom local path to a remote storage via rclone."""
-    from .utils import _run_rclone_command
+async def unified_periodic_sync():
+    """Periodically syncs multiple tasks (including gallery-dl) to remote storage via rclone."""
+    from .utils import _run_rclone_command, GALLERY_DL_CONFIG_DIR, CONFIG_BACKUP_REMOTE_PATH
     import base64
     import tempfile
+    import json
     
+    # Store last run times for each task to manage intervals
+    # Key: task identifier, Value: timestamp
+    last_run_times = {}
+
     while True:
-        enabled = db_config.get_config("WDM_CUSTOM_SYNC_ENABLED", "false").lower() == "true"
-        local_path = db_config.get_config("WDM_CUSTOM_SYNC_LOCAL_PATH")
-        remote_path = db_config.get_config("WDM_CUSTOM_SYNC_REMOTE_PATH")
-        interval_min = db_config.get_config("WDM_CUSTOM_SYNC_INTERVAL", "60")
+        # 1. Load Custom Tasks from JSON
+        tasks_json = db_config.get_config("WDM_SYNC_TASKS_JSON", "[]")
+        try:
+            custom_tasks = json.loads(tasks_json)
+        except Exception as e:
+            logger.error(f"[Sync] Failed to parse sync tasks JSON: {e}")
+            custom_tasks = []
+
+        # 2. Add System Task (Gallery-dl Config)
+        system_task = {
+            "name": "System: Gallery-dl Config",
+            "local_path": str(GALLERY_DL_CONFIG_DIR),
+            "remote_path": CONFIG_BACKUP_REMOTE_PATH,
+            "interval": 10, # Minutes
+            "enabled": True,
+            "is_system": True
+        }
+        
+        # Merge all tasks
+        all_tasks = [system_task] + custom_tasks
         rclone_base64 = db_config.get_config("WDM_CONFIG_BACKUP_RCLONE_BASE64")
         
-        try:
-            interval = int(interval_min) * 60
-            if interval < 60: interval = 60 # Min 1 minute
-        except ValueError:
-            interval = 3600
+        if rclone_base64:
+            current_time = time.time()
+            
+            for task in all_tasks:
+                task_name = task.get("name", "Unnamed Task")
+                enabled = str(task.get("enabled", "false")).lower() == "true"
+                local_path = task.get("local_path")
+                remote_path = task.get("remote_path")
+                interval_min = task.get("interval", 60)
+                
+                if not enabled or not local_path or not remote_path:
+                    continue
+                
+                # Check interval
+                interval_sec = int(interval_min) * 60
+                last_run = last_run_times.get(task_name, 0)
+                
+                if current_time - last_run >= interval_sec:
+                    if os.path.exists(local_path):
+                        logger.info(f"[Sync] Running task: {task_name} ({local_path} -> {remote_path})")
+                        try:
+                            rclone_config_content = base64.b64decode(rclone_base64).decode('utf-8')
+                            with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
+                                tmp_config_path = tmp_file.name
+                                tmp_file.write(rclone_config_content)
+                            
+                            try:
+                                rclone_cmd = (f"rclone copy \"{local_path}\" \"{remote_path}\" "
+                                              f"--config \"{tmp_config_path}\" "
+                                              f"--log-level=INFO")
+                                success = await _run_rclone_command(rclone_cmd)
+                                if success:
+                                    logger.info(f"[Sync] Success: {task_name}")
+                                    last_run_times[task_name] = current_time
+                                else:
+                                    logger.error(f"[Sync] Failed: {task_name} (Rclone error)")
+                            finally:
+                                if os.path.exists(tmp_config_path):
+                                    os.unlink(tmp_config_path)
+                        except Exception as e:
+                            logger.error(f"[Sync] Error in {task_name}: {e}")
+                    else:
+                        logger.warning(f"[Sync] Local path not found for {task_name}: {local_path}")
 
-        if enabled and local_path and remote_path and rclone_base64:
-            if os.path.exists(local_path):
-                logger.info(f"[Custom Sync] Starting scheduled sync task: {local_path} -> {remote_path}")
-                try:
-                    rclone_config_content = base64.b64decode(rclone_base64).decode('utf-8')
-                    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as tmp_file:
-                        tmp_config_path = tmp_file.name
-                        tmp_file.write(rclone_config_content)
-                    
-                    try:
-                        rclone_cmd = (f"rclone copy \"{local_path}\" \"{remote_path}\" "
-                                      f"--config \"{tmp_config_path}\" "
-                                      f"--log-level=INFO")
-                        # 运行并捕获结果
-                        success = await _run_rclone_command(rclone_cmd)
-                        if success:
-                            logger.info(f"[Custom Sync] Success: Synced {local_path} to {remote_path}")
-                        else:
-                            logger.error(f"[Custom Sync] Failed: Rclone execution error during sync.")
-                    finally:
-                        if os.path.exists(tmp_config_path):
-                            os.unlink(tmp_config_path)
-                except Exception as e:
-                    logger.error(f"[Custom Sync] Error during sync: {e}")
-            else:
-                logger.warning(f"[Custom Sync] Local path does not exist: {local_path}")
-        
-        await asyncio.sleep(interval)
+        # Sleep for a short while before checking again
+        await asyncio.sleep(30) # Tick every 30 seconds
 
 
 
@@ -388,6 +411,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
     # Extract site specific options from kwargs or params
     kemono_posts = kwargs.get("kemono_posts") or params.get("kemono_posts")
     kemono_revisions = kwargs.get("kemono_revisions") if "kemono_revisions" in kwargs else (params.get("kemono_revisions") == "true")
+    kemono_path_template = kwargs.get("kemono_path_template") if "kemono_path_template" in kwargs else (params.get("kemono_path_template") == "true")
     pixiv_ugoira = kwargs.get("pixiv_ugoira") if "pixiv_ugoira" in kwargs else (params.get("pixiv_ugoira") != "false")
     twitter_retweets = kwargs.get("twitter_retweets") if "twitter_retweets" in kwargs else (params.get("twitter_retweets") == "true")
     twitter_replies = kwargs.get("twitter_replies") if "twitter_replies" in kwargs else (params.get("twitter_replies") == "true")
@@ -452,6 +476,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 command += f" -o extractor.kemono.posts={kemono_posts}"
             if kemono_revisions:
                 command += " -o extractor.kemono.revisions=true"
+            if kemono_path_template:
+                command += " -o extractor.kemono.directory=['{username}', '{title}']"
             if pixiv_ugoira is False:
                 command += " -o extractor.pixiv.ugoira=false"
             if twitter_retweets:

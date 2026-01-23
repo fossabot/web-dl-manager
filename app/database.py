@@ -276,6 +276,7 @@ KNOWN_CONFIG_KEYS = {
     "WDM_CUSTOM_SYNC_LOCAL_PATH",
     "WDM_CUSTOM_SYNC_REMOTE_PATH",
     "WDM_CUSTOM_SYNC_INTERVAL",
+    "WDM_SYNC_TASKS_JSON",
     # gallery-dl extra args
     "WDM_GALLERY_DL_ARGS",
     # Verification
