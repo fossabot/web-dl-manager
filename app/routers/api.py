@@ -21,10 +21,65 @@ from ..tasks import process_download_job
 from ..utils import get_task_status_path, update_task_status, get_net_speed
 
 
+from svix.webhooks import Webhook, WebhookVerificationError
+from ..auth import get_current_user, get_password_hash
+
 router = APIRouter(
     dependencies=[Depends(get_current_user)],
     tags=["api"],
 )
+
+# Public router for webhooks
+public_router = APIRouter(tags=["webhooks"])
+
+# Clerk Webhook Secret
+CLERK_WEBHOOK_SECRET = os.getenv("CLERK_WEBHOOK_SECRET")
+
+@public_router.post("/webhooks/clerk")
+async def clerk_webhook(request: Request):
+    """
+    Handles webhooks from Clerk to sync users.
+    """
+    if not CLERK_WEBHOOK_SECRET:
+        return JSONResponse({"status": "error", "message": "Webhook secret not configured"}, status_code=500)
+
+    # Get headers for verification
+    headers = request.headers
+    payload = await request.body()
+
+    try:
+        wh = Webhook(CLERK_WEBHOOK_SECRET)
+        # Verify the webhook
+        evt = wh.verify(payload, headers)
+    except WebhookVerificationError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+    # Process the event
+    data = evt.get("data", {})
+    evt_type = evt.get("type")
+
+    if evt_type in ["user.created", "user.updated"]:
+        # Extract username or email
+        username = data.get("username")
+        if not username:
+            emails = data.get("email_addresses", [])
+            if emails:
+                username = emails[0].get("email_address")
+        
+        if username:
+            user = User.get_user_by_username(username)
+            if not user:
+                # Create user
+                User.create_user(username=username, hashed_password=get_password_hash(secrets.token_hex(32)), is_admin=True)
+            else:
+                # User already exists, we might want to update some info if we had more fields
+                pass
+
+    elif evt_type == "user.deleted":
+        # Handle user deletion if needed
+        pass
+
+    return JSONResponse({"status": "success"})
 
 # --- App Management ---
 @router.post("/update")

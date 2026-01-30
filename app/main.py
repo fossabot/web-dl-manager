@@ -148,6 +148,7 @@ camouflage_app.include_router(camouflage.router, dependencies=[Depends(check_set
 main_app.include_router(main_ui.router)
 main_app.include_router(terminal.router)
 main_app.include_router(api.router, prefix="/api")
+main_app.include_router(api.public_router, prefix="/api")
 
 
 # --- Main Execution Block ---

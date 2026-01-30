@@ -2,12 +2,66 @@ import os
 import secrets
 import hashlib
 import time
+import httpx
+from typing import Optional
 from fastapi import Request, HTTPException
+from jose import jwt, JWTError
 
-from .database import User
+from .database import User, db_config
+
+# Clerk Configuration
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
+CLERK_JWT_PUBLIC_KEY = os.getenv("CLERK_JWT_PUBLIC_KEY") # Optional: pre-fetched public key
+CLERK_API_BASE = "https://api.clerk.com/v1"
 
 # Session timeout in seconds (e.g., 30 minutes)
 SESSION_TIMEOUT = 1800
+
+# --- Clerk Integration Helpers ---
+async def verify_clerk_session(request: Request) -> Optional[dict]:
+    """
+    Verifies the Clerk session from the request.
+    Clerk tokens are usually in the Authorization header or cookies.
+    """
+    if not CLERK_SECRET_KEY:
+        return None
+
+    # Try to get token from Authorization header or cookie
+    auth_header = request.headers.get("Authorization")
+    token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    else:
+        # Clerk stores session token in __session cookie
+        token = request.cookies.get("__session")
+
+    if not token:
+        return None
+
+    try:
+        # In a real-world scenario, you'd fetch the JWKS from Clerk
+        # and verify the JWT. For simplicity and to avoid network calls on every request,
+        # we can also use Clerk's backend API to verify the session if needed,
+        # but JWT verification is preferred.
+        # Here we'll implement a basic verification or rely on Clerk API.
+        
+        # If you have the public key/pem, you can use:
+        # payload = jwt.decode(token, CLERK_JWT_PUBLIC_KEY, algorithms=["RS256"])
+        
+        # Alternative: Call Clerk API to get user info (acts as verification)
+        async with httpx.AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {CLERK_SECRET_KEY}"}
+            # Clerk API to get user details for a given session/token
+            # Note: This is a bit slow for every request. JWT verification is better.
+            # But Clerk's JWTs are short-lived.
+            response = await client.get(f"{CLERK_API_BASE}/me", headers={"Authorization": f"Bearer {token}"})
+            if response.status_code == 200:
+                return response.json()
+    except Exception as e:
+        # Log error in a real app
+        pass
+    
+    return None
 
 # --- Password Hashing ---
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -44,11 +98,33 @@ def get_password_hash(password: str) -> str:
 # --- User Dependency ---
 async def get_current_user(request: Request) -> User:
     """
-    FastAPI dependency to get the current authenticated user from the session.
-    Raises HTTPException if the user is not authenticated or does not exist.
-    Enforces session timeout.
+    FastAPI dependency to get the current authenticated user.
+    Supports both legacy session-based auth and Clerk authentication.
     """
-    # Check if DEBUG_MODE is enabled
+    # 1. Try Clerk Authentication first
+    clerk_user_data = await verify_clerk_session(request)
+    if clerk_user_data:
+        # Extract username/email from Clerk data
+        # Clerk users might have multiple email addresses
+        username = clerk_user_data.get("username")
+        if not username:
+            emails = clerk_user_data.get("email_addresses", [])
+            if emails:
+                username = emails[0].get("email_address")
+        
+        if username:
+            # Sync Clerk user to local database
+            user = User.get_user_by_username(username)
+            if not user:
+                # Create local user for Clerk user
+                # We use a random password since authentication is handled by Clerk
+                User.create_user(username=username, hashed_password=get_password_hash(secrets.token_hex(32)), is_admin=True)
+                user = User.get_user_by_username(username)
+            
+            if user:
+                return user
+
+    # 2. Check if DEBUG_MODE is enabled
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
     
     if debug_enabled:
@@ -77,9 +153,8 @@ async def get_current_user(request: Request) -> User:
         
         if user:
             return user
-        # If still no user, fall through to normal authentication (which will fail)
     
-    # Normal authentication logic
+    # 3. Normal session-based authentication logic
     if not hasattr(request, 'session') or not request.session:
         raise HTTPException(status_code=403, detail="Not authenticated")
     
@@ -92,11 +167,6 @@ async def get_current_user(request: Request) -> User:
     # Check for session timeout
     current_time = time.time()
     if last_activity is None:
-        # If no last_activity (migrating from old session or fresh login missing it), 
-        # we might want to allow it once and set it, or force re-login.
-        # For security, force re-login if we strictly want to enforce timeouts.
-        # However, for UX on first deploy, maybe set it?
-        # Let's be strict: if no timestamp, it's an invalid/old session structure.
         request.session.clear()
         raise HTTPException(status_code=403, detail="Session expired or invalid")
     

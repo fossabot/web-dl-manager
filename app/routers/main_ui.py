@@ -312,7 +312,8 @@ async def get_login_form_main(request: Request):
     return templates.TemplateResponse("login.html", {
         "request": request, 
         "lang": lang, 
-        "error": None
+        "error": None,
+        "CLERK_PUBLISHABLE_KEY": os.getenv("CLERK_PUBLISHABLE_KEY")
     })
 
 @router.post("/login", response_class=RedirectResponse, dependencies=None) # No auth dependency for the login page itself

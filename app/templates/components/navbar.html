@@ -71,7 +71,7 @@
                         <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear me-2"></i> {{ lang.settings_title }}</a></li>
                         <li><a class="dropdown-item" href="/change_password"><i class="bi bi-shield-lock me-2"></i> {{ lang.change_password_title }}</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="/logout"><i class="bi bi-box-arrow-right me-2"></i> {{ lang.logout_label if lang.logout_label else 'Logout' }}</a></li>
+                        <li><a class="dropdown-item text-danger" href="/logout" id="logoutLink"><i class="bi bi-box-arrow-right me-2"></i> {{ lang.logout_label if lang.logout_label else 'Logout' }}</a></li>
                     </ul>
                 </li>
                 {% else %}
@@ -87,6 +87,39 @@
 </nav>
 
 <script>
+    {% if CLERK_PUBLISHABLE_KEY %}
+    // Load Clerk if not already loaded
+    if (typeof Clerk === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js";
+        script.crossOrigin = "anonymous";
+        script.async = true;
+        script.setAttribute('data-clerk-publishable-key', "{{ CLERK_PUBLISHABLE_KEY }}");
+        script.onload = async () => {
+            await Clerk.load();
+            setupClerkLogout();
+        };
+        document.head.appendChild(script);
+    } else {
+        document.addEventListener("DOMContentLoaded", () => {
+            setupClerkLogout();
+        });
+    }
+
+    function setupClerkLogout() {
+        const logoutLink = document.getElementById('logoutLink');
+        if (logoutLink) {
+            logoutLink.addEventListener('click', async (e) => {
+                if (window.Clerk && Clerk.user) {
+                    e.preventDefault();
+                    await Clerk.signOut();
+                    window.location.href = "/logout";
+                }
+            });
+        }
+    }
+    {% endif %}
+
     function setLanguage(langCode) {
         document.cookie = `lang=${langCode}; path=/; max-age=31536000`;
         location.reload();
