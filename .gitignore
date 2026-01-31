@@ -41,3 +41,5 @@ TEST_VERIFY/
 ultimate_test.py
 *.log
 *.json
+
+/generated/prisma
