@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
     logging.getLogger().addHandler(file_handler)
     logging.info("File logging configured for startup logs.")
     
-    # Configure Redis logging if available
+    # Update logging handlers (e.g. remove Redis if it was active)
     update_log_handlers()
 
     # Auto-create admin user from environment variables if no users exist
