@@ -817,16 +817,6 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             with open(status_file, "a") as f:
                 f.write("\n--- Cleaning up task resources... ---\n")
             
-            # [VERIFICATION] PRESERVING FILES FOR PROOF
-            verify_dir = Path("/root/web-dl-manager/TEST_VERIFY") / task_id
-            verify_dir.mkdir(parents=True, exist_ok=True)
-            if os.path.exists(task_download_dir):
-                for item in task_download_dir.rglob("*"):
-                    if item.is_file():
-                        target = verify_dir / item.relative_to(task_download_dir)
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(item, target)
-
             # 1. Remove downloaded files
             if os.path.exists(task_download_dir):
                 if debug_enabled:
