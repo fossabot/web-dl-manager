@@ -76,29 +76,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            MODE=true
-            INSTALL_NODE=${{ matrix.version == 'full' && 'true' || 'false' }}
-
-  # 重启 Hugging Face Space 任务，确保在所有镜像（包括全量包）构建完成后执行
-  rebuild_hf_space:
-    name: 重启 Hugging Face Space
-    needs: build_and_push
-    # 仅在主仓库的 main 分支推送时触发，且需要 build_and_push 成功完成（含 standard 和 full）
-    if: github.repository == 'Jyf0214/web-dl-manager' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: 触发工厂级重启 (Factory Rebuild)
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
-        run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $HF_TOKEN" \
-            "https://huggingface.co/api/spaces/$HF_SPACE_ID/restart?factory=true")
-
-          if [ "$HTTP_CODE" -eq 200 ]; then
-            echo "✅ 成功触发目标 Space 重建。(HTTP 200)"
-          else
-            echo "❌ 触发重建失败。(HTTP $HTTP_CODE)"
-          fi
+                    build-args: |
+                      MODE=true
+                      INSTALL_NODE=${{ matrix.version == 'full' && 'true' || 'false' }}
+          
