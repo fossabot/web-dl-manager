@@ -1,6 +1,6 @@
 {
   "name": "web-dl-manager",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "[![Docker Build](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml) [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Jyf0214/web-dl-manager) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)",
   "main": "index.js",
   "scripts": {
