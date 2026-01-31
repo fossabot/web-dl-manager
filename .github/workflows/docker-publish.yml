@@ -58,29 +58,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # Optional: Rebuild Hugging Face Space
-  rebuild_hf_space:
-    name: Rebuild Hugging Face Space
-    needs: build_and_push
-    if: github.repository == 'Jyf0214/web-dl-manager' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/vite') && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Factory Rebuild
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
-        run: |
-          if [ -n "$HF_TOKEN" ] && [ -n "$HF_SPACE_ID" ]; then
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              -H "Authorization: Bearer $HF_TOKEN" \
-              "https://huggingface.co/api/spaces/$HF_SPACE_ID/restart?factory=true")
-
-            if [ "$HTTP_CODE" -eq 200 ]; then
-              echo "✅ Successfully triggered Space rebuild. (HTTP 200)"
-            else
-              echo "❌ Failed to trigger rebuild. (HTTP $HTTP_CODE)"
-            fi
-          else
-            echo "⏭️ HF_TOKEN or HF_SPACE_ID not set, skipping rebuild."
-          fi
