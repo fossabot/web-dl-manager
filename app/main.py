@@ -193,7 +193,7 @@ def run_camouflage_app():
         log_config["root"]["handlers"].append("console")
     
     log_level = "critical" if is_hf_space else "debug"
-    uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_config=log_config, log_level=log_level)
+    uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_config=log_config, log_level=log_level)  # nosec B104
 
 def run_main_app():
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"

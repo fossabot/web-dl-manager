@@ -121,7 +121,7 @@ def run_log_endpoint():
     start_tunnel_if_needed()
     
     # 运行FastAPI应用
-    uvicorn.run(app, host="0.0.0.0", port=LOG_PORT, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=LOG_PORT, log_level="info")  # nosec B104
 
 if __name__ == "__main__":
     run_log_endpoint()

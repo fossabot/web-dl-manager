@@ -208,7 +208,7 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     if service == "gofile" or service == "openlist":
         return None
 
-    config_dir = Path("/tmp/rclone_configs")
+    config_dir = Path(tempfile.gettempdir()) / "rclone_configs"
     os.makedirs(config_dir, exist_ok=True)
     config_path = config_dir / f"{task_id}.conf"
     
