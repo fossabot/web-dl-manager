@@ -1,8 +1,6 @@
 import os
 import asyncio
-import signal
 import shutil
-import random
 import time
 import logging
 from pathlib import Path
@@ -18,7 +16,6 @@ from .utils import (
     create_rclone_config,
     generate_archive_name,
     update_task_status,
-    convert_rate_limit_to_kbps,
     count_files_in_dir,
 )
 
@@ -177,9 +174,9 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
                 with open(status_file, "a") as f:
                     f.write(f"\n--- TASK FAILED (Attempt {attempt + 1}/{max_retries}, Exit Code: {process.returncode}) ---\n")
                     if debug_enabled:
-                        f.write(f"Debug mode enabled - error details are in the log above.\n")
+                        f.write("Debug mode enabled - error details are in the log above.\n")
                     else:
-                        f.write(f"Error details are available in the log above.\n")
+                        f.write("Error details are available in the log above.\n")
                 
                 # Store the exception for final raise
                 last_exception = RuntimeError(f"Command failed with exit code {process.returncode}.")
@@ -195,7 +192,7 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
                 await asyncio.sleep(retry_delay)
                 
                 with open(status_file, "a") as f:
-                    f.write(f"Retrying command...\n")
+                    f.write("Retrying command...\n")
                     
         except Exception as e:
             with open(status_file, "a") as f:
@@ -218,7 +215,7 @@ async def run_command(command: str, command_to_log: str, status_file: Path, task
     # If we get here, all retries failed
     if last_exception:
         with open(status_file, "a") as f:
-            f.write(f"\n--- ALL RETRY ATTEMPTS FAILED ---\n")
+            f.write("\n--- ALL RETRY ATTEMPTS FAILED ---\n")
             f.write(f"Final error: {str(last_exception)}\n")
         raise last_exception
 
@@ -249,10 +246,10 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                 openlist_pass = params.get("openlist_pass") or db_config.get_config("WDM_OPENLIST_PASS")
     
                 if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
-                    raise openlist.OpenlistError(f"Openlist configuration missing.")
+                    raise openlist.OpenlistError("Openlist configuration missing.")
     
                 with open(status_file, "a") as f:
-                    f.write(f"\n--- Starting Openlist Upload (Uncompressed) ---")
+                    f.write("\n--- Starting Openlist Upload (Uncompressed) ---")
                 
                 token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, status_file)
                 
@@ -309,8 +306,6 @@ async def upload_uncompressed(task_id: str, service: str, upload_path: str, para
                             uploaded_count += 1
                             total_uploaded_size += file_size
                             
-                            # Final update for this file
-                            percent = int((uploaded_count / stats["count"]) * 100) if stats["count"] > 0 else 100
                             # Also update total size based percent for consistency
                             total_percent_size = int((total_uploaded_size / stats["size"]) * 100) if stats["size"] > 0 else 100
                             
@@ -457,7 +452,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             proxy = params.get("proxy")
             if params.get("auto_proxy"):
                 if debug_enabled:
-                    logger.debug(f"[WORKFLOW] 启用自动代理选择")
+                    logger.debug("[WORKFLOW] 启用自动代理选择")
                 proxy = await get_working_proxy(status_file)
             
             downloader = params.get("downloader", "gallery-dl")
@@ -518,9 +513,11 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 
                     while True:
                         line = await process.stdout.readline()
-                        if not line: break
+                        if not line:
+                            break
                         decoded_line = line.decode('utf-8', errors='ignore')
-                        with open(status_file, "a") as f: f.write(decoded_line)
+                        with open(status_file, "a") as f:
+                            f.write(decoded_line)
                         if "Downloading" in decoded_line:
                             update_task_status(task_id, {"progress_count": "Downloading..."})
 
@@ -610,7 +607,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
 
             if not enable_compression:
                 if debug_enabled:
-                    logger.debug(f"[WORKFLOW] 跳过压缩，直接上传")
+                    logger.debug("[WORKFLOW] 跳过压缩，直接上传")
                 update_task_status(task_id, {"status": "uploading"})
                 with open(upload_log_file, "w") as f:
                     f.write(f"Starting uncompressed upload for job {task_id}\n")
@@ -625,7 +622,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
             update_task_status(task_id, {"status": "compressing"})
             
             if debug_enabled:
-                logger.debug(f"[WORKFLOW] 开始压缩文件")
+                logger.debug("[WORKFLOW] 开始压缩文件")
                 logger.debug(f"[WORKFLOW] 分卷压缩: {split_compression}")
                 if split_compression:
                     logger.debug(f"[WORKFLOW] 分卷大小: {split_size}MB")
@@ -696,7 +693,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     openlist_pass = params.get("openlist_pass") or db_config.get_config("WDM_OPENLIST_PASS")
                     if not all([openlist_url, openlist_user, openlist_pass, upload_path]):
                         raise openlist.OpenlistError("Openlist URL, username, password, and remote path are all required.")
-                    with open(upload_log_file, "a") as f: f.write(f"\n--- Starting Openlist Upload ---\n")
+                    with open(upload_log_file, "a") as f:
+                        f.write("\n--- Starting Openlist Upload ---\n")
                     token = await asyncio.to_thread(openlist.login, openlist_url, openlist_user, openlist_pass, upload_log_file)
                     await asyncio.to_thread(openlist.create_directory, openlist_url, token, upload_path, upload_log_file)
                     
@@ -764,7 +762,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     })
                     
                     if debug_enabled:
-                        logger.debug(f"[WORKFLOW] Openlist 上传完成")
+                        logger.debug("[WORKFLOW] Openlist 上传完成")
                 else:
                     if debug_enabled:
                         logger.debug(f"[WORKFLOW] 使用 rclone 上传到 {service}: {archive_path}")
@@ -792,7 +790,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     })
                     
                     if debug_enabled:
-                        logger.debug(f"[WORKFLOW] rclone 上传完成")
+                        logger.debug("[WORKFLOW] rclone 上传完成")
 
 
             with open(status_file, "a") as f:
@@ -812,7 +810,7 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
         finally:
             # --- MEMORY LEAK FIX ---
             if debug_enabled:
-                logger.debug(f"[WORKFLOW] 开始清理任务资源")
+                logger.debug("[WORKFLOW] 开始清理任务资源")
             
             with open(status_file, "a") as f:
                 f.write("\n--- Cleaning up task resources... ---\n")
@@ -822,7 +820,8 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] 删除下载目录: {task_download_dir}")
                 shutil.rmtree(task_download_dir)
-                with open(status_file, "a") as f: f.write(f"Removed directory: {task_download_dir}\n")
+                with open(status_file, "a") as f:
+                    f.write(f"Removed directory: {task_download_dir}\n")
 
             # 2. Remove created archives
             for archive_path in archive_paths:
@@ -830,23 +829,27 @@ async def process_download_job(task_id: str, url: str, downloader: str, service:
                     if debug_enabled:
                         logger.debug(f"[WORKFLOW] 删除压缩文件: {archive_path}")
                     os.remove(archive_path)
-                    with open(status_file, "a") as f: f.write(f"Removed archive: {archive_path}\n")
+                    with open(status_file, "a") as f:
+                        f.write(f"Removed archive: {archive_path}\n")
 
             # 3. Remove temporary rclone config
             if rclone_config_path and os.path.exists(rclone_config_path):
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] 删除 rclone 配置: {rclone_config_path}")
                 os.remove(rclone_config_path)
-                with open(status_file, "a") as f: f.write(f"Removed rclone config: {rclone_config_path}\n")
+                with open(status_file, "a") as f:
+                    f.write(f"Removed rclone config: {rclone_config_path}\n")
 
             # 4. Remove temporary gallery-dl config
             if 'task_gdl_config_path' in locals() and os.path.exists(task_gdl_config_path):
                 if debug_enabled:
                     logger.debug(f"[WORKFLOW] 删除 gallery-dl 配置: {task_gdl_config_path}")
                 os.remove(task_gdl_config_path)
-                with open(status_file, "a") as f: f.write(f"Removed gallery-dl config: {task_gdl_config_path}\n")
+                with open(status_file, "a") as f:
+                    f.write(f"Removed gallery-dl config: {task_gdl_config_path}\n")
             
-            with open(status_file, "a") as f: f.write("Cleanup complete.\n")
+            with open(status_file, "a") as f:
+                f.write("Cleanup complete.\n")
             
             if debug_enabled:
                 logger.debug(f"[WORKFLOW] 任务 {task_id} 清理完成")

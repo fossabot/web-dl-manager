@@ -1,10 +1,7 @@
 import logging
-import datetime
 from .database import engine, db_type
 from sqlalchemy import text
 import sys
-import json
-import time
 
 class MySQLLogHandler(logging.Handler):
     def emit(self, record):

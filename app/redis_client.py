@@ -21,7 +21,7 @@ def init_redis():
             logger.info("REDIS_URL cleared. Disabling Redis support.")
             try:
                 redis_client.close()
-            except:
+            except Exception:
                 pass
             redis_client = None
         else:
@@ -33,10 +33,9 @@ def init_redis():
         # For simplicity, we just close and recreate.
         if redis_client:
             try:
-                current_pool_opts = redis_client.connection_pool.connection_kwargs
                 # Reconstructing URL to compare might be tricky, so we just reconnect.
                 redis_client.close()
-            except:
+            except Exception:
                 pass
 
         logger.info(f"Connecting to Redis at {redis_url.split('@')[-1] if '@' in redis_url else '...'}")

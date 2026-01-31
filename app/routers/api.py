@@ -1,28 +1,25 @@
 import os
-import re
 import uuid
 import json
 import signal
 import asyncio
-import subprocess
 import httpx
+import re
+import secrets
 from pathlib import Path
 from typing import Optional
-from pydantic import BaseModel
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, BackgroundTasks, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from .. import updater, status
-from ..auth import get_current_user
+from .. import updater
+from ..auth import get_current_user, get_password_hash
 from ..database import User
-from ..config import BASE_DIR, STATUS_DIR, PROJECT_ROOT
+from ..config import STATUS_DIR, PROJECT_ROOT
 from ..tasks import process_download_job
 from ..utils import get_task_status_path, update_task_status, get_net_speed
 
-
 from svix.webhooks import Webhook, WebhookVerificationError
-from ..auth import get_current_user, get_password_hash
 
 router = APIRouter(
     dependencies=[Depends(get_current_user)],
@@ -245,11 +242,14 @@ async def retry_task(task_id: str, current_user: User = Depends(get_current_user
 @router.post("/pause/{task_id}", response_class=RedirectResponse)
 async def pause_task(task_id: str):
     status_path = get_task_status_path(task_id)
-    if not status_path.exists(): raise HTTPException(status_code=404, detail="Task not found.")
-    with open(status_path, "r") as f: task_data = json.load(f)
+    if not status_path.exists():
+        raise HTTPException(status_code=404, detail="Task not found.")
+    with open(status_path, "r") as f:
+        task_data = json.load(f)
     
     pgid = task_data.get("pgid")
-    if not pgid: raise HTTPException(status_code=400, detail="Task is not running or cannot be paused.")
+    if not pgid:
+        raise HTTPException(status_code=400, detail="Task is not running or cannot be paused.")
     
     try:
         os.killpg(pgid, signal.SIGSTOP)
@@ -263,11 +263,14 @@ async def pause_task(task_id: str):
 @router.post("/resume/{task_id}", response_class=RedirectResponse)
 async def resume_task(task_id: str):
     status_path = get_task_status_path(task_id)
-    if not status_path.exists(): raise HTTPException(status_code=404, detail="Task not found.")
-    with open(status_path, "r") as f: task_data = json.load(f)
+    if not status_path.exists():
+        raise HTTPException(status_code=404, detail="Task not found.")
+    with open(status_path, "r") as f:
+        task_data = json.load(f)
 
     pgid = task_data.get("pgid")
-    if not pgid: raise HTTPException(status_code=400, detail="Task is not paused or cannot be resumed.")
+    if not pgid:
+        raise HTTPException(status_code=400, detail="Task is not paused or cannot be resumed.")
 
     try:
         os.killpg(pgid, signal.SIGCONT)
@@ -330,7 +333,6 @@ async def get_status_json(task_id: str):
     # Parse rclone progress from upload_log if possible
     progress_data = status_data.get("upload_stats", {})
     if upload_log and "Transferred:" in upload_log:
-        import re
         # Look for the last Transferred: ... line
         transferred_matches = re.findall(r"Transferred:\s+([\d.]+)\s*(\w+)\s*/\s*([\d.]+)\s*(\w+),\s*(\d+)%", upload_log)
         if transferred_matches:
@@ -389,25 +391,6 @@ async def clear_cache_api():
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
 # --- Server Info ---
-def get_dependency_versions():
-    versions = {"python": __import__("sys").version.split(" ")[0], "gallery-dl": "N/A", "rclone": "N/A"}
-    try:
-        result = subprocess.run(['gallery-dl', '--version'], capture_output=True, text=True)
-        if result.returncode == 0: versions['gallery-dl'] = result.stdout.strip().split(" ")[-1]
-    except Exception: pass
-    try:
-        result = subprocess.run(['rclone', 'version'], capture_output=True, text=True)
-        if result.returncode == 0: versions['rclone'] = result.stdout.strip().split("\n")[0].split(" ")[-1]
-    except Exception: pass
-    return versions
-
-def get_system_uptime():
-    import psutil
-    delta = __import__("datetime").datetime.now() - __import__("datetime").datetime.fromtimestamp(psutil.boot_time())
-    days, remainder = divmod(delta.seconds, 3600)
-    hours, minutes = divmod(remainder, 60)
-    return f"{delta.days}d {days}h {minutes}m"
-
 @router.get("/status/all_tasks")
 async def get_all_tasks_json():
     """Returns all tasks as a JSON list for the frontend."""
@@ -417,21 +400,8 @@ async def get_all_tasks_json():
 
 @router.get("/server-status/json")
 async def get_server_status():
-    import psutil, platform
-    
-    disk_path = '/data' if os.path.exists('/data') else '/'
-    try:
-        disk = psutil.disk_usage(disk_path)
-        disk_info = {"total": disk.total, "used": disk.used, "free": disk.free, "percent": disk.percent}
-    except FileNotFoundError:
-        disk_info = {"total": 0, "used": 0, "free": 0, "percent": 0}
-
-    return JSONResponse(content={
-        "system": {"uptime": get_system_uptime(), "platform": f"{platform.system()} {platform.release()}", "cpu_usage": psutil.cpu_percent(interval=1)},
-        "memory": {"total": (mem := psutil.virtual_memory()).total, "used": mem.used, "percent": mem.percent},
-        "disk": disk_info,
-        "application": {"active_tasks": status.get_active_tasks_count(), "versions": get_dependency_versions()}
-    })
+    from .. import status
+    return JSONResponse(content=status.get_all_status())
 
 # --- Session Management ---
 @router.get("/set_language/{lang_code}")

@@ -1,11 +1,8 @@
 import os
 import logging
 from contextlib import contextmanager
-from urllib.parse import urlparse
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, TIMESTAMP, func, inspect, text
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from sqlalchemy.exc import SQLAlchemyError
-from pathlib import Path
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 from .config import DATABASE_URL, BASE_DIR
 
@@ -49,7 +46,7 @@ def create_db_engine(url):
             logger.info("Attempting plain MySQL connection...")
             temp_engine = create_engine(url, **pool_settings)
             # Test connection immediately
-            with temp_engine.connect() as conn:
+            with temp_engine.connect():
                 logger.info("Plain MySQL connection successful.")
                 return temp_engine
         except Exception as e:
@@ -64,7 +61,7 @@ def create_db_engine(url):
                     connect_args={"ssl": {"check_hostname": False}}
                 )
                 # Test connection
-                with ssl_engine.connect() as conn:
+                with ssl_engine.connect():
                     logger.info("SSL MySQL connection successful (certificates trusted).")
                     return ssl_engine
             except Exception as e2:

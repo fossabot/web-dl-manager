@@ -1,47 +1,14 @@
 import psutil
-import shutil
 import subprocess
 import platform
-import sys
-from datetime import datetime, timedelta
+import time
+import json
+import os
+from datetime import datetime
 
 from .config import STATUS_DIR
 
 START_TIME = datetime.utcnow()
-
-def get_server_uptime():
-    """Returns the server uptime in a human-readable format."""
-    uptime = datetime.utcnow() - START_TIME
-    days = uptime.days
-    hours, remainder = divmod(uptime.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{days}d {hours}h {minutes}m {seconds}s"
-
-def get_cpu_usage():
-    """Returns the current CPU usage percentage."""
-    return psutil.cpu_percent(interval=1)
-
-def get_memory_usage():
-    """Returns a dictionary with memory usage statistics."""
-    mem = psutil.virtual_memory()
-    return {
-        "total": mem.total,
-        "used": mem.used,
-        "free": mem.free,
-        "percent": mem.percent,
-    }
-
-def get_disk_usage():
-    """Returns a dictionary with disk usage statistics for the /data volume."""
-    total, used, free = shutil.disk_usage("/data")
-    return {
-        "total": total,
-        "used": used,
-        "free": free,
-        "percent": (used / total) * 100 if total > 0 else 0,
-    }
-
-import time
 
 # In-memory cache for status data
 _status_cache = {
@@ -67,7 +34,32 @@ def clear_status_cache():
         "versions_time": 0
     }
 
-def get_active_tasks():
+def get_server_uptime():
+    """Returns the system uptime as a formatted string."""
+    delta = datetime.now() - datetime.fromtimestamp(psutil.boot_time())
+    days, remainder = divmod(delta.seconds, 3600)
+    hours, minutes = divmod(remainder, 60)
+    return f"{delta.days}d {days}h {minutes}m"
+
+def get_cpu_usage():
+    """Returns the current CPU usage percentage."""
+    return psutil.cpu_percent(interval=1)
+
+def get_memory_usage():
+    """Returns memory usage information."""
+    mem = psutil.virtual_memory()
+    return {"total": mem.total, "used": mem.used, "percent": mem.percent}
+
+def get_disk_usage():
+    """Returns disk usage information for the main data directory or root."""
+    disk_path = '/data' if os.path.exists('/data') else '/'
+    try:
+        disk = psutil.disk_usage(disk_path)
+        return {"total": disk.total, "used": disk.used, "free": disk.free, "percent": disk.percent}
+    except FileNotFoundError:
+        return {"total": 0, "used": 0, "free": 0, "percent": 0}
+
+def get_active_tasks_count():
     """Returns the number of currently active (running or paused) tasks."""
     now = time.time()
     if _status_cache["active_count"] is not None and (now - _status_cache["active_count_time"] < CACHE_TTL):
@@ -118,9 +110,6 @@ def get_dependency_versions():
     _status_cache["versions_time"] = now
     return versions
 
-import json
-from app.config import STATUS_DIR
-
 def get_all_tasks():
     """Scans the status directory and returns a list of all tasks, sorted by modification time."""
     now = time.time()
@@ -154,9 +143,10 @@ def get_all_status():
             "cpu_usage": get_cpu_usage(),
             "memory": get_memory_usage(),
             "disk": get_disk_usage(),
+            "platform": f"{platform.system()} {platform.release()}"
         },
         "application": {
-            "active_tasks": get_active_tasks(),
+            "active_tasks": get_active_tasks_count(),
             "versions": get_dependency_versions(),
         }
     }

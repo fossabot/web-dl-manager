@@ -1,11 +1,10 @@
-
+"""
 独立的日志端点应用，运行在端口8901。
 提供调试日志访问功能，即使主应用崩溃也能工作。
 通过请求头 'X-Log-Access-Key' 进行认证。
+"""
 
 import os
-import sys
-from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 import uvicorn

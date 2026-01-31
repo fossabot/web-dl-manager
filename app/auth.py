@@ -5,9 +5,8 @@ import time
 import httpx
 from typing import Optional
 from fastapi import Request, HTTPException
-from jose import jwt, JWTError
 
-from .database import User, db_config
+from .database import User
 
 # Clerk Configuration
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
@@ -50,14 +49,13 @@ async def verify_clerk_session(request: Request) -> Optional[dict]:
         
         # Alternative: Call Clerk API to get user info (acts as verification)
         async with httpx.AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {CLERK_SECRET_KEY}"}
             # Clerk API to get user details for a given session/token
             # Note: This is a bit slow for every request. JWT verification is better.
             # But Clerk's JWTs are short-lived.
             response = await client.get(f"{CLERK_API_BASE}/me", headers={"Authorization": f"Bearer {token}"})
             if response.status_code == 200:
                 return response.json()
-    except Exception as e:
+    except Exception:
         # Log error in a real app
         pass
     

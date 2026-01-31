@@ -2,8 +2,8 @@ import os
 import sys
 import signal
 import subprocess
-import json
 import time
+import re
 from pathlib import Path
 from datetime import datetime
 import httpx
@@ -16,8 +16,6 @@ BRANCH = "main"
 VERSION_INFO_FILE = PROJECT_ROOT / ".version_info"
 CHANGELOG_FILE = PROJECT_ROOT / "CHANGELOG.md"
 REQUIREMENTS_FILE = PROJECT_ROOT / "app" / "requirements.txt"
-
-import re
 
 # --- Helper Functions ---
 def log(message: str):
