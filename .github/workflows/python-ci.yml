@@ -25,7 +25,7 @@ jobs:
           pip install ruff bandit
 
       - name: Run Ruff (Linting)
-        run: ruff check legacy_python/
+        run: ruff check .
 
       - name: Run Bandit (Security)
-        run: bandit -r legacy_python/ -ll
+        run: bandit -r . -ll
