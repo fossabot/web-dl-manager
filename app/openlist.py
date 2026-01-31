@@ -181,5 +181,76 @@ def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, st
         time.sleep(5)
 
     _log(status_file, f"All 50 upload attempts failed for '{filename}'.")
-    # Return the path even if upload failed after 50 attempts, so that other files can continue uploading
+    if last_exception:
+        raise last_exception
     return full_path
+
+def verify_upload(base_url: str, token: str, remote_path: str, status_file: Path = None) -> bool:
+    """
+    Verifies if a file was uploaded successfully.
+    """
+    _log(status_file, f"Verifying remote file: {remote_path}")
+    url = base_url.rstrip('/') + '/api/fs/get'
+    data = {'path': remote_path}
+    headers = {'Authorization': token}
+    try:
+        resp = requests.post(url, json=data, headers=headers, timeout=10)
+        resp_json = resp.json()
+        if resp_json.get('code') == 200 and resp_json.get('data') is not None:
+            _log(status_file, f"Verification successful for: {resp_json['data']['name']}")
+            return True
+        else:
+            message = resp_json.get('message', resp_json)
+            _log(status_file, f"Verification failed: {message}")
+            return False
+    except requests.RequestException as e:
+        _log(status_file, f"Verification request failed: {e}")
+        raise OpenlistError(f"Verification request failed: {e}")
+
+# --- Main execution block for testing ---
+if __name__ == "__main__":
+    # This block is for standalone testing and will not run when imported.
+    print("Running Openlist client in standalone test mode.")
+    
+    # --- Configuration (replace with your details) ---
+    BASE_URL = ''      # e.g., 'http://127.0.0.1:5244'
+    USERNAME = ''      # Your Openlist/Alist username
+    PASSWORD = ''      # Your Openlist/Alist password
+    LOCAL_FILE = 'example.txt'
+    REMOTE_DIR = '' # e.g., '/test_uploads'
+
+    if not all([BASE_URL, USERNAME, PASSWORD, REMOTE_DIR]):
+        print("[ERROR] Please fill in BASE_URL, USERNAME, PASSWORD, and REMOTE_DIR in the if __name__ == '__main__' block.")
+        exit(1)
+
+    # Create a dummy test file
+    try:
+        with open(LOCAL_FILE, 'w', encoding='utf-8') as f:
+            f.write("This is a test file for Openlist upload.\n")
+        print(f"Created local test file: '{LOCAL_FILE}'")
+    except IOError as e:
+        print(f"Could not create test file: {e}")
+        exit(1)
+
+    try:
+        print(f"Attempting to log in to {BASE_URL}...")
+        token = login(BASE_URL, USERNAME, PASSWORD)
+        print(f"Successfully got token: ...{token[-6:]}")
+        
+        print(f"Creating remote directory: {REMOTE_DIR}")
+        create_directory(BASE_URL, token, REMOTE_DIR)
+        
+        print(f"Uploading '{LOCAL_FILE}' to '{REMOTE_DIR}'...")
+        uploaded_path = upload_file(BASE_URL, token, Path(LOCAL_FILE), REMOTE_DIR)
+        print(f"Upload command finished. Theoretical path: {uploaded_path}")
+        
+        print("Verifying upload...")
+        if verify_upload(BASE_URL, token, uploaded_path):
+            print("\n[SUCCESS] File upload completed and verified!")
+        else:
+            print("\n[FAILURE] Upload command sent, but verification failed.")
+            
+    except OpenlistError as e:
+        print(f"\n[ERROR] An operation failed: {e}")
+    except Exception as e:
+        print(f"\n[CRITICAL ERROR] An unexpected error occurred: {e}")
