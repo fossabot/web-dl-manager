@@ -22,5 +22,10 @@ def get_avatar_url():
     from .config import AVATAR_URL as DEFAULT_AVATAR_URL
     return db_config.get_config("AVATAR_URL", DEFAULT_AVATAR_URL)
 
+def get_clerk_publishable_key():
+    import os
+    return os.getenv("CLERK_PUBLISHABLE_KEY")
+
 templates.env.globals["get_avatar_url"] = get_avatar_url
+templates.env.globals["CLERK_PUBLISHABLE_KEY"] = get_clerk_publishable_key()
 

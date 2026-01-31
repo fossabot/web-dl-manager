@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-01-31
+
+### Improved
+- **Openlist Upload Reliability**:
+    - Enhanced error handling in the Openlist upload process to ensure continuation after failed attempts (up to 50 retries).
+    - Fixed issues where individual upload failures would halt the entire task queue.
+- **System Monitoring Architecture**:
+    - Centralized system status logic (CPU, Memory, Disk, Uptime) into a unified `app/status.py` module.
+    - Improved real-time monitoring efficiency and data consistency across the API and UI.
+
+### Fixed
+- **Project-wide Code Quality**:
+    - Resolved over 20 Lint errors (F401, F811, F821, F841, F541, F601, E402, E701, E722) using `ruff`.
+    - Cleaned up unused imports and redundant variables across the entire codebase.
+    - Fixed a critical `NameError` for `os` and `Path` in multiple modules.
+- **Security & Hardening**:
+    - Addressed Bandit security warnings (B104, B108) by securing binding interfaces and optimizing temporary directory usage.
+    - Improved handling of sensitive information and internal network bindings.
+- **I18n Consistency**:
+    - Fixed duplicate keys and translation errors in the internationalization system.
+
 ## [1.6.0] - 2026-01-23
 
 ### Added

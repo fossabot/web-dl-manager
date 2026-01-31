@@ -10,6 +10,18 @@ dist/
 build/
 .tmp_build/
 
+# Legacy Python
+legacy_python/
+
+# Database files
+*.db
+
+# Node.js / Next.js
+node_modules/
+.next/
+frontend/
+next-env.d.ts
+
 # Binary and build related files
 cloudflared
 build_new.py
@@ -19,17 +31,11 @@ requirements-build.txt
 run_binary.py
 run_and_test.sh
 replace_rules.txt
-webdl-manager.db
+
 # Temporary test files
 gofile_test.py
 gofile_auth_test.py
 web-dl-manager.spec
-
-# Node.js / Next.js
-node_modules/
-.next/
-frontend/
-next-env.d.ts
 
 # Logs
 logs/*.log

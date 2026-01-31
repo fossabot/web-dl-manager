@@ -7,18 +7,16 @@ import asyncio
 import base64
 import tempfile
 import logging
+import time
+import psutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from fastapi import Request
 
-from . import openlist
 from .database import db_config
 from .config import STATUS_DIR, CONFIG_BACKUP_RCLONE_BASE64, CONFIG_BACKUP_REMOTE_PATH, GALLERY_DL_CONFIG_DIR
 
 logger = logging.getLogger(__name__) 
-
-import time
-import psutil
 
 # Cache for network speed calculation
 _net_io_cache = {"last_time": time.time(), "last_recv": psutil.net_io_counters().bytes_recv, "last_sent": psutil.net_io_counters().bytes_sent}
@@ -210,7 +208,7 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
     if service == "gofile" or service == "openlist":
         return None
 
-    config_dir = Path("/tmp/rclone_configs")
+    config_dir = Path(tempfile.gettempdir()) / "rclone_configs"
     os.makedirs(config_dir, exist_ok=True)
     config_path = config_dir / f"{task_id}.conf"
     
@@ -227,7 +225,7 @@ def create_rclone_config(task_id: str, service: str, params: dict) -> Path:
             return None
 
         config_content += f"url = {webdav_url}\n"
-        config_content += f"vendor = other\n"
+        config_content += "vendor = other\n"
         config_content += f"user = {webdav_user}\n"
         obscured_pass_process = subprocess.run(
             ["rclone", "obscure", webdav_pass],
@@ -444,7 +442,7 @@ def download_file(url, destination_path, session):
                         if chunk:
                             f.write(chunk)
             return True
-        except Exception as e:
+        except Exception:
             if attempt + 1 == max_retries:
                 return False
             time.sleep(5)

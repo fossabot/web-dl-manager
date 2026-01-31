@@ -1,11 +1,8 @@
 import os
 import logging
 from contextlib import contextmanager
-from urllib.parse import urlparse
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, TIMESTAMP, func, inspect, text
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from sqlalchemy.exc import SQLAlchemyError
-from pathlib import Path
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 from .config import DATABASE_URL, BASE_DIR
 
@@ -49,7 +46,7 @@ def create_db_engine(url):
             logger.info("Attempting plain MySQL connection...")
             temp_engine = create_engine(url, **pool_settings)
             # Test connection immediately
-            with temp_engine.connect() as conn:
+            with temp_engine.connect():
                 logger.info("Plain MySQL connection successful.")
                 return temp_engine
         except Exception as e:
@@ -64,7 +61,7 @@ def create_db_engine(url):
                     connect_args={"ssl": {"check_hostname": False}}
                 )
                 # Test connection
-                with ssl_engine.connect() as conn:
+                with ssl_engine.connect():
                     logger.info("SSL MySQL connection successful (certificates trusted).")
                     return ssl_engine
             except Exception as e2:
@@ -144,25 +141,39 @@ class ConfigManager:
         Retrieves a configuration value.
         Strategy:
         1. Try memory cache.
-        2. Try to fetch from Database.
-        3. If 'DATABASE_URL' env var is set (MySQL mode), strictly return DB value or default.
-        4. If using default SQLite, fallback to os.getenv for backward compatibility.
+        2. Try Redis (if available and not the REDIS_URL key itself).
+        3. Try to fetch from Database.
+        4. If 'DATABASE_URL' env var is set (MySQL mode), strictly return DB value or default.
+        5. If using default SQLite, fallback to os.getenv for backward compatibility.
         """
         # 1. Try Cache
         if key in self._cache:
             return self._cache[key]
 
-        # 2. Try DB
+        # 2. Try Redis
+        if key != "REDIS_URL":
+            try:
+                from .redis_client import get_redis_client
+                client = get_redis_client()
+                if client:
+                    val = client.get(f"wdm:config:{key}")
+                    if val is not None:
+                        self._cache[key] = val
+                        return val
+            except Exception:
+                pass
+
+        # 3. Try DB
         db_val = self._get_from_db(key)
         if db_val is not None:
             self._cache[key] = db_val # Update cache
             return db_val
             
-        # 3. Strict Mode Check
+        # 4. Strict Mode Check
         if os.getenv("DATABASE_URL"):
             return default
             
-        # 4. Fallback to Env (SQLite/Default mode)
+        # 5. Fallback to Env (SQLite/Default mode)
         env_val = os.getenv(key, default)
         if env_val is not None:
              self._cache[key] = env_val # Cache env fallback too
@@ -189,6 +200,17 @@ class ConfigManager:
                     session.add(new_config)
                 session.commit()
                 self._cache[key] = value # Update cache
+                
+                # Update Redis
+                if key != "REDIS_URL":
+                    try:
+                        from .redis_client import get_redis_client
+                        client = get_redis_client()
+                        if client:
+                            client.set(f"wdm:config:{key}", value)
+                    except Exception:
+                        pass
+                
                 logger.info(f"Config '{key}' set.")
         except Exception as e:
             logger.error(f"Error setting config '{key}': {e}")

@@ -2,8 +2,8 @@ import os
 import sys
 import signal
 import subprocess
-import json
 import time
+import re
 from pathlib import Path
 from datetime import datetime
 import httpx
@@ -16,8 +16,6 @@ BRANCH = "main"
 VERSION_INFO_FILE = PROJECT_ROOT / ".version_info"
 CHANGELOG_FILE = PROJECT_ROOT / "CHANGELOG.md"
 REQUIREMENTS_FILE = PROJECT_ROOT / "app" / "requirements.txt"
-
-import re
 
 # --- Helper Functions ---
 def log(message: str):
@@ -196,7 +194,7 @@ def check_for_updates() -> dict:
 def update_dependencies() -> dict:
     """Updates Python dependencies from requirements.txt."""
     if is_frozen():
-        return {"status": "error", "message": "Dependency update is not supported in binary mode."}
+        return {"status": "success", "message": "Dependencies are bundled in the binary and do not need updating."}
     try:
         log("Updating dependencies from requirements.txt...")
         
@@ -283,7 +281,7 @@ def get_update_info() -> dict:
 def update_page_library() -> dict:
     """Updates page library (templates and static resources) from GitHub."""
     if is_frozen():
-        return {"status": "error", "message": "Page library update is not supported in binary mode."}
+        return {"status": "success", "message": "Page library is bundled in the binary and updates with the binary."}
     try:
         log("Updating page library (templates and static resources)...")
         
@@ -398,14 +396,99 @@ def restart_application():
 
 def run_update():
     """Main function to run the update process."""
-    if is_frozen():
-        return {"status": "error", "message": "Self-update is not supported in binary mode. Please update the container/binary manually."}
     log("Starting update process...")
     try:
         # Get current and latest version info
         old_sha = get_local_commit_sha()
         log(f"Current local version: {old_sha or 'N/A'}")
         
+        # Check for updates
+        check_result = check_for_updates()
+        new_sha = check_result.get("latest_full_sha") or get_latest_commit_sha() # Fallback
+        latest_version_tag = check_result.get("latest_version")
+        
+        if not check_result.get("update_available"):
+            log("Application is already up to date.")
+            return {"status": "success", "message": "Already up to date.", "updated": False}
+
+        # --- Binary Update Logic ---
+        if is_frozen():
+            log("Binary mode detected. Attempting binary self-update...")
+            
+            if not latest_version_tag or latest_version_tag == "N/A":
+                # If we rely on SHA, we might not have a release tag. 
+                # But our workflow creates releases with version tags.
+                # Fallback: try to guess tag or use 'latest'
+                download_tag = "latest"
+                log("No specific version tag found, trying 'latest' release.")
+            else:
+                download_tag = latest_version_tag
+                # Ensure v prefix if needed, though workflow adds it. 
+                # Actually, check_for_updates returns what's in CHANGELOG, 
+                # workflow ensures it's a valid tag.
+                if not download_tag.startswith("v") and download_tag != "latest":
+                     # It might be just 1.0.0, GitHub release might be v1.0.0 or 1.0.0 depending on workflow.
+                     # Our workflow uses v prefix if missing. Let's try as is first.
+                     pass
+
+            # Construct asset URL
+            # Note: 'latest' endpoint redirects, specific tag endpoint is cleaner.
+            # Filename defined in workflow: web-dl-manager-linux-amd64
+            asset_name = "web-dl-manager-linux-amd64"
+            
+            if download_tag == "latest":
+                download_url = f"https://github.com/{OWNER}/{REPO}/releases/latest/download/{asset_name}"
+            else:
+                # If tag doesn't start with v, but release does, this might fail.
+                # But let's assume consistency from the changelog-merge workflow.
+                download_url = f"https://github.com/{OWNER}/{REPO}/releases/download/{download_tag}/{asset_name}"
+            
+            log(f"Downloading new binary from: {download_url}")
+            
+            # Download to a temporary file first
+            current_binary = Path(sys.executable)
+            temp_binary = current_binary.with_suffix(".new")
+            
+            try:
+                with httpx.Client(follow_redirects=True, timeout=300) as client:
+                    response = client.get(download_url)
+                    if response.status_code == 404 and not download_tag.startswith("v"):
+                        # Retry with 'v' prefix if failed
+                        download_url = f"https://github.com/{OWNER}/{REPO}/releases/download/v{download_tag}/{asset_name}"
+                        log(f"Retrying download with 'v' prefix: {download_url}")
+                        response = client.get(download_url)
+
+                    response.raise_for_status()
+                    temp_binary.write_bytes(response.content)
+                
+                log("Download complete. Verifying and replacing binary...")
+                
+                # Make executable
+                temp_binary.chmod(0o755)
+                
+                # Replace the current binary
+                # On Linux, we can rename over a running executable
+                os.rename(temp_binary, current_binary)
+                
+                # Update version info
+                store_commit_sha(new_sha)
+                
+                # Update changelog (fetch from remote)
+                try:
+                    update_changelog(old_sha, new_sha)
+                except Exception:
+                    log("Failed to update changelog, but binary updated.")
+                
+                log(f"Successfully updated binary to version {latest_version_tag} ({new_sha[:7]}).")
+                return {"status": "success", "message": f"Binary updated to {latest_version_tag}. Restarting...", "updated": True}
+                
+            except Exception as e:
+                if temp_binary.exists():
+                    temp_binary.unlink()
+                log(f"Binary update failed: {e}")
+                raise Exception(f"Binary update failed: {e}")
+
+        # --- Git Source Update Logic (Existing) ---
         # Check if we're in a git repository
         git_repo_path = PROJECT_ROOT / ".git"
         if git_repo_path.exists():

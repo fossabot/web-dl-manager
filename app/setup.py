@@ -1,6 +1,5 @@
 import sys
 from cx_Freeze import setup, Executable
-import os
 
 build_exe_options = {
     "packages": ["app"],

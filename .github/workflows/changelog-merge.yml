@@ -1,0 +1,109 @@
+name: Auto Merge Changelog & Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'CHANGELOG.md'
+
+jobs:
+  merge-changelog-release:
+    name: 自动合并提交并发布
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 配置 Git 用户
+        run: |
+          git config user.name "${{ github.repository_owner }}"
+          git config user.email "${{ github.repository_owner }}@users.noreply.github.com"
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: 执行合并、构建与发布
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # --- 1. 检查 CHANGELOG 改动 ---
+          if ! git diff --name-only HEAD^ HEAD | grep -q "CHANGELOG.md"; then
+            echo "最近一次提交未修改 CHANGELOG.md，跳过。"
+            exit 0
+          fi
+
+          # --- 2. 查找上一次 Changelog 提交 ---
+          PREV_SHA=$(git log --skip=1 -n 1 --format="%H" -- CHANGELOG.md)
+          if [ -z "$PREV_SHA" ]; then
+            echo "未找到上一次更新日志的提交，跳过。"
+            exit 0
+          fi
+
+          CURRENT_SHA=$(git rev-parse HEAD)
+          echo "Current Commit: $CURRENT_SHA"
+          echo "Previous Changelog Commit: $PREV_SHA"
+
+          # --- 3. 提取版本号和日志 ---
+          VERSION=$(grep -m1 '## \[' CHANGELOG.md | sed -E 's/## \[([^]]+)\].*/\1/')
+          if [ -z "$VERSION" ]; then
+             echo "无法提取版本号，跳过。"
+             exit 0
+          fi
+          echo "Detected Version: $VERSION"
+
+          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.txt
+          sed -i -e :a -e '/^\n*$/{$d;N;};/\n$/ba' release_notes.txt
+
+          # --- 4. 切换并执行历史合并 ---
+          git checkout $PREV_SHA
+          git merge --no-ff $CURRENT_SHA -m "$VERSION"
+
+          # --- 5. 构建二进制文件 ---
+          echo "Installing dependencies..."
+          pip install --upgrade pip
+          pip install -r app/requirements.txt
+          pip install pyinstaller
+
+          echo "Building binary..."
+          # 使用 spec 文件构建
+          pyinstaller web-dl-manager.spec
+          
+          # 检查构建结果
+          if [ -f "dist/web-dl-manager" ]; then
+            echo "Binary built successfully."
+            chmod +x dist/web-dl-manager
+          else
+            echo "Binary build failed!"
+            ls -R dist/
+            exit 1
+          fi
+
+          # --- 6. 推送合并提交 ---
+          git push origin HEAD:main
+          NEW_HEAD_SHA=$(git rev-parse HEAD)
+
+          # --- 7. 创建 GitHub Release 并上传 Asset ---
+          TAG_NAME="$VERSION"
+          if [[ ! "$TAG_NAME" =~ ^v ]]; then
+            TAG_NAME="v$TAG_NAME"
+          fi
+          
+          echo "Creating Release $TAG_NAME..."
+          
+          # 上传 dist/web-dl-manager 并重命名为 web-dl-manager-linux-amd64
+          gh release create "$TAG_NAME" \
+            "dist/web-dl-manager#web-dl-manager-linux-amd64" \
+            --title "$TAG_NAME" \
+            --notes-file release_notes.txt \
+            --target "$NEW_HEAD_SHA" \
+            --repo "${{ github.repository }}"
+
+          echo "Release $TAG_NAME created with binary asset!"

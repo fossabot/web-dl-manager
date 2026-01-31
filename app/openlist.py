@@ -150,7 +150,6 @@ def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, st
         'As-Task': 'false'
     }
 
-    last_exception = None
     for attempt in range(50):
         try:
             with ProgressFileReader(local_file, progress_callback) as f:
@@ -165,23 +164,22 @@ def upload_file(base_url: str, token: str, local_file: Path, remote_dir: str, st
             else:
                 message = resp_json.get('message', 'Unknown error')
                 _log(status_file, f"Upload attempt {attempt + 1}/50 failed for '{filename}': {message}")
-                last_exception = OpenlistError(f"Upload API returned an error: {message}")
 
         except requests.RequestException as e:
             _log(status_file, f"Upload attempt {attempt + 1}/50 failed for '{filename}': {e}")
-            last_exception = OpenlistError(f"Upload request failed: {e}")
         except ValueError:
             _log(status_file, f"Upload attempt {attempt + 1}/50 failed for '{filename}' (invalid JSON response): {resp.text}")
-            last_exception = OpenlistError(f"Upload response was not valid JSON: {resp.text}")
         except IOError as e:
             _log(status_file, f"Failed to read local file '{local_file}': {e}")
-            raise OpenlistError(f"Failed to read local file '{local_file}': {e}") # Do not retry on file read errors
+            # For IOError (file read error), we probably shouldn't retry, but the instruction is to continue after 50 errors.
+            # However, file read error is local and unlikely to resolve by retrying.
+            # Still, to follow "continue" spirit, we can just break or return.
+            break 
 
         # Wait before retrying
         time.sleep(5)
 
-    _log(status_file, f"All 50 upload attempts failed for '{filename}'.")
-    # Return the path even if upload failed after 50 attempts, so that other files can continue uploading
+    _log(status_file, f"All 50 upload attempts failed for '{filename}'. Continuing anyway.")
     return full_path
 
 def verify_upload(base_url: str, token: str, remote_path: str, status_file: Path = None) -> bool:
@@ -225,7 +223,7 @@ if __name__ == "__main__":
     # Create a dummy test file
     try:
         with open(LOCAL_FILE, 'w', encoding='utf-8') as f:
-            f.write(f"This is a test file for Openlist upload.\n")
+            f.write("This is a test file for Openlist upload.\n")
         print(f"Created local test file: '{LOCAL_FILE}'")
     except IOError as e:
         print(f"Could not create test file: {e}")

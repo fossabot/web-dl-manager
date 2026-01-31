@@ -1,12 +1,4 @@
 import sys
-from pathlib import Path
-
-# Add project root to sys.path to allow running as a script
-# and make relative imports work.
-project_root = Path(__file__).resolve().parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
 import os
 import asyncio
 import logging
@@ -18,23 +10,28 @@ import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
+# Add project root to sys.path to allow running as a script
+# and make relative imports work.
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from .database import init_db, User, db_config
-from . import redis_client  # Initialize Redis client
-from .logging_handler import MySQLLogHandler, cleanup_old_logs, update_log_handlers
-from .utils import restore_gallery_dl_config, backup_gallery_dl_config
-from .config import BASE_DIR, APP_USERNAME, APP_PASSWORD, PROJECT_ROOT
-from .auth import get_password_hash
-from .templating import templates
-from .i18n import get_lang
-from .tasks import unified_periodic_sync
+from fastapi import FastAPI, Request, Depends, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
+
+from .database import init_db, User, db_config  # noqa: E402
+from .logging_handler import cleanup_old_logs, update_log_handlers  # noqa: E402
+from .utils import restore_gallery_dl_config, backup_gallery_dl_config  # noqa: E402
+from .config import BASE_DIR, APP_USERNAME, APP_PASSWORD, PROJECT_ROOT  # noqa: E402
+from .auth import get_password_hash  # noqa: E402
+from .templating import templates  # noqa: E402
+from .i18n import get_lang  # noqa: E402
+from .tasks import unified_periodic_sync  # noqa: E402
 
 # Import routers
-from .routers import camouflage, main_ui, api, terminal
+from .routers import camouflage, main_ui, api, terminal  # noqa: E402
 
 # --- App Lifespan Management ---
 @asynccontextmanager
@@ -71,7 +68,7 @@ async def lifespan(app: FastAPI):
     logging.getLogger().addHandler(file_handler)
     logging.info("File logging configured for startup logs.")
     
-    # Configure Redis logging if available
+    # Update logging handlers (e.g. remove Redis if it was active)
     update_log_handlers()
 
     # Auto-create admin user from environment variables if no users exist
@@ -148,6 +145,7 @@ camouflage_app.include_router(camouflage.router, dependencies=[Depends(check_set
 main_app.include_router(main_ui.router)
 main_app.include_router(terminal.router)
 main_app.include_router(api.router, prefix="/api")
+main_app.include_router(api.public_router, prefix="/api")
 
 
 # --- Main Execution Block ---
@@ -195,7 +193,7 @@ def run_camouflage_app():
         log_config["root"]["handlers"].append("console")
     
     log_level = "critical" if is_hf_space else "debug"
-    uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_config=log_config, log_level=log_level)
+    uvicorn.run(camouflage_app, host="0.0.0.0", port=5492, log_config=log_config, log_level=log_level)  # nosec B104
 
 def run_main_app():
     debug_enabled = os.getenv("DEBUG_MODE", "false").lower() == "true"
@@ -273,7 +271,7 @@ def start_log_endpoint():
                 cwd=str(Path(__file__).resolve().parent.parent)
             )
 
-        print(f"Log endpoint started on http://0.0.0.0:8901")
+        print("Log endpoint started on http://0.0.0.0:8901")
         print("Access logs with header: X-Log-Access-Key: web-dl-manager-debug-key-2024")
         return process
 

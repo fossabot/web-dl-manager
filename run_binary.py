@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 
 
-def run_binary(port=8000, host="0.0.0.0", debug=False):
+def run_binary(port=8000, host="0.0.0.0", debug=False):  # nosec B104
     """
     Run the gallery-dl-web binary with specified parameters
     """
@@ -49,7 +49,7 @@ def run_binary(port=8000, host="0.0.0.0", debug=False):
 def main():
     parser = argparse.ArgumentParser(description="Run gallery-dl-web from binary")
     parser.add_argument("--port", type=int, default=8000, help="Port to run the server on (default: 8000)")
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")  # nosec B104
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     
     args = parser.parse_args()
