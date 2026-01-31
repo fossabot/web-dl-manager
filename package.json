@@ -1,0 +1,49 @@
+{
+  "name": "web-dl-manager",
+  "version": "1.0.0",
+  "description": "[![Docker Build](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml) [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Jyf0214/web-dl-manager) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jyf0214/web-dl-manager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "tsx watch src/backend/index.ts",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "tsc && vite build",
+    "build:backend": "tsc --project tsconfig.backend.json",
+    "preview": "vite preview",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@prisma/client": "^7.3.0",
+    "hono": "^4.7.2",
+    "lucide-react": "^0.474.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "prisma": "^7.3.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11"
+  }
+}

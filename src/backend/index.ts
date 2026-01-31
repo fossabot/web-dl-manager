@@ -1,20 +1,22 @@
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import prisma from './db';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const execPromise = promisify(exec);
 const app = new Hono();
 
 app.use('*', logger());
 app.use('*', cors());
-
-app.get('/', (c) => {
-  return c.text('Web-DL Manager API is running!');
-});
 
 // Auth endpoints
 app.post('/api/auth/login', async (c) => {
@@ -77,6 +79,12 @@ app.get('/api/stats', async (c) => {
   });
 });
 
+// Serve static files from frontend build
+app.use('/*', serveStatic({ root: './dist/frontend' }));
+
+// Fallback to index.html for SPA
+app.get('*', serveStatic({ path: './dist/frontend/index.html' }));
+
 async function startDownload(taskId: number) {
   const task = await prisma.task.update({
     where: { id: taskId },
@@ -124,7 +132,7 @@ async function startDownload(taskId: number) {
   }
 }
 
-const port = 3000;
+const port = Number(process.env.PORT) || 3000;
 console.log(`Server is running on http://localhost:${port}`);
 
 serve({
