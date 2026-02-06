@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NavbarWrapper from "@/components/NavbarWrapper";
+import StyledComponentsRegistry from "@/lib/AntdRegistry";
+import { ConfigProvider, theme } from 'antd';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,12 +26,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-900 text-slate-100 min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <NavbarWrapper />
-        <main>{children}</main>
+        <StyledComponentsRegistry>
+          <ConfigProvider
+            theme={{
+              algorithm: theme.darkAlgorithm,
+              token: {
+                colorPrimary: '#1677ff',
+                borderRadius: 8,
+              },
+            }}
+          >
+            <div className="flex min-h-screen">
+              <NavbarWrapper />
+              <main className="flex-1 ml-[64px]">{children}</main>
+            </div>
+          </ConfigProvider>
+        </StyledComponentsRegistry>
       </body>
     </html>
   );

@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@lobehub/ui": "^4.33.4",
     "@prisma/client": "^6.4.1",
+    "antd": "^6.2.3",
+    "antd-style": "^4.1.0",
     "argon2": "^0.44.0",
     "axios": "^1.13.4",
     "clsx": "^2.1.1",
