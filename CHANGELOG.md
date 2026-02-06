@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-02-06
+
+### Fixed
+- **Cloudflare Tunnel Configuration**:
+    - Fixed an issue where the Cloudflare Tunnel would fail to start if the `TUNNEL_TOKEN` environment variable was present (e.g., as an empty string) but a valid token was configured in the database. The database configuration now correctly takes precedence.
+
 ## [1.7.0] - 2026-01-31
 
 ### Improved
