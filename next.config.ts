@@ -9,6 +9,16 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push({
+        'osx-temperature-sensor': 'commonjs osx-temperature-sensor',
+        'macos-temperature-sensor': 'commonjs macos-temperature-sensor',
+        'windows-release': 'commonjs windows-release',
+      });
+    }
+    return config;
+  },
   experimental: {
     // Other experimental options
   },
