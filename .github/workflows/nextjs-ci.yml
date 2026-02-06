@@ -38,12 +38,6 @@ jobs:
       - name: Run Type Check
         run: npm run type-check
 
-      - name: Verify Production Build
-        run: npm run build
-        env:
-          # Build time env vars if needed
-          NEXT_TELEMETRY_DISABLED: 1
-
   # Job 2: Docker Build & Push (only after audit passes)
   build-and-push:
     name: Build & Push to GHCR
