@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { updateTaskStatus, processDownloadJob, TaskStatus } from '@/lib/tasks';
+import { updateTaskStatus, processDownloadJob, TaskStatus, TaskParams } from '@/lib/tasks';
 import { STATUS_DIR } from '@/lib/constants';
 import fs from 'fs';
 import path from 'path';
@@ -59,14 +59,14 @@ export async function POST(request: Request) {
     const taskId = uuidv4();
     taskIds.push(taskId);
 
-    const params = {
+    const params: TaskParams = {
       url: singleUrl,
       downloader,
-      uploadService,
-      uploadPath,
-      enableCompression,
-      splitCompression,
-      splitSize,
+      upload_service: uploadService,
+      upload_path: uploadPath,
+      enable_compression: enableCompression,
+      split_compression: splitCompression,
+      split_size: splitSize,
       createdBy: user.username
     };
 

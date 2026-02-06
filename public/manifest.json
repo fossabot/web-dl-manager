@@ -1,0 +1,23 @@
+{
+  "name": "Web-DL-Manager",
+  "short_name": "WebDL",
+  "description": "Manage your gallery downloads and automated storage backups.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#1677ff",
+  "icons": [
+    {
+      "src": "https://github.com/Jyf0214.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://github.com/Jyf0214.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
