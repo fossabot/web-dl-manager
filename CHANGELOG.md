@@ -27,6 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Authentication**: Migrated from session-based auth to **JWT (jose)** while keeping existing password hashes compatible.
 - **Frontend Engine**: Transitioned from Jinja2 templates to **React Server Components** and client-side interactivity.
 
+### Fixed
+- **构建系统与兼容性**:
+    - **Next.js 15+ 适配**: 将 API 路由中的 `params` 更改为 `Promise` 类型，解决了异步参数导致的构建失败。
+    - **Edge Runtime 兼容性**: 将 JWT 逻辑从 `lib/auth.ts` 抽离至 `lib/jwt.ts`，移除了对 Node.js `crypto` 模块的直接依赖，解决了 Middleware 在 Edge Runtime 下的运行错误。
+    - **Prisma 类型匹配**: 修复了 `getCurrentUser` 中 `userId` 的类型转换问题，确保与数据库 `Int` 类型一致。
+    - **Webpack 构建优化**: 解决了 Turbopack 插件兼容性问题，并配置 Webpack 忽略了 `systeminformation` 在 Linux 环境下不必要的平台特定依赖警告。
+- **代码质量 (Lint)**:
+    - 修复了全量转写后遗留的 30 多个 ESLint 错误，包括 `any` 类型替换、未使用变量清理以及 Catch 子句类型规范化。
+    - 更新 `package.json` 中的 `lint` 脚本，确保直接调用 `eslint` 以规避 `next lint` 的路径识别问题。
+
+### Security
+- **依赖漏洞修复**: 通过 `package.json` 的 `overrides` 强制将 `lodash-es` 升级至 `4.17.23`，修复了严重的原型污染 (Prototype Pollution) 漏洞。
+- **安全审计**: 确保 CI/CD 流程中的 `npm audit` 能够以 0 漏洞状态通过。
+
 ## [1.5.0] - 2026-01-17
 
 ### Added
