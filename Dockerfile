@@ -2,13 +2,15 @@
 FROM node:22-alpine AS builder
 
 # Install system dependencies required for build tools
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget curl
 
 WORKDIR /app
 
-# Download cloudflared for Alpine (musl)
-RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /app/cloudflared && \
-    chmod +x /app/cloudflared
+# Download cloudflared for Alpine (musl compatible)
+# We use the generic linux-amd64 but verify it's placed correctly. 
+# Alternatively, cloudflare provides a specific binary if needed.
+RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json* ./
@@ -50,7 +52,7 @@ COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 COPY --from=builder /app/camouflage-server.mjs ./camouflage-server.mjs
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/cloudflared /usr/local/bin/cloudflared # Copy cloudflared to runner stage
+COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Ensure correct permissions
 RUN chown -R nextjs:nodejs /app && chmod +x entrypoint.sh
