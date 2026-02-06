@@ -5,11 +5,8 @@ import os from 'os';
 
 export function createNetscapeCookies(cookiesStr: string): string {
   const tempPath = path.join(os.tmpdir(), `cookies_${Date.now()}.txt`);
-  let content = "# Netscape HTTP Cookie File
-";
-  content += "# http://curl.haxx.se/rfc/cookie_spec.html
-
-";
+  let content = "# Netscape HTTP Cookie File\n";
+  content += "# http://curl.haxx.se/rfc/cookie_spec.html\n\n";
 
   const cookies = cookiesStr.split(';');
   for (const cookie of cookies) {
@@ -19,8 +16,7 @@ export function createNetscapeCookies(cookiesStr: string): string {
       const value = parts.slice(1).join('=');
       // Default to common domains if not specified, usually cookies are passed for specific sites
       ['.kemono.cr', '.kemono.su', '.coomer.st', '.coomer.su', '.pixiv.net', '.twitter.com'].forEach(domain => {
-         content += `${domain}	TRUE	/	FALSE	0	${name}	${value}
-`;
+         content += `${domain}\tTRUE\t/\tFALSE\t0\t${name}\t${value}\n`;
       });
     }
   }
@@ -35,26 +31,8 @@ export async function getWorkingProxy(logCallback?: (msg: string) => void): Prom
   
   try {
     const res = await axios.get(proxyListUrl);
-    const proxies = res.data.split('
-').filter((p: string) => p.trim());
+    const proxies = res.data.split('\n').filter((p: string) => p.trim());
     
-    // Simple test function
-    const testProxy = async (proxy: string) => {
-      try {
-        await axios.get('https://www.google.com', {
-          proxy: false, // axios proxy config needs object, but string parsing is complex. 
-                        // For simplicity in Node, better use https-proxy-agent or similar.
-                        // Here we just verify the string format for now as 'axios' proxy config is object based.
-          timeout: 5000 
-        });
-        // Real implementation requires detailed proxy agent setup. 
-        // For this migration, we will assume user provides valid proxy or skip auto-proxy complexity 
-        // as Node.js axios proxy handling is different from Python requests.
-        // Let's return the first one as a placeholder or implement a basic check if critical.
-        return proxy;
-      } catch (e) { return null; }
-    };
-
     // Return a random one for now to avoid heavy network operations in this environment
     if (proxies.length > 0) {
         const randomProxy = proxies[Math.floor(Math.random() * proxies.length)];
