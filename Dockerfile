@@ -7,8 +7,6 @@ RUN apk add --no-cache wget curl
 WORKDIR /app
 
 # Download cloudflared for Alpine (musl compatible)
-# We use the generic linux-amd64 but verify it's placed correctly. 
-# Alternatively, cloudflare provides a specific binary if needed.
 RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared && \
     chmod +x /usr/local/bin/cloudflared
 
@@ -40,26 +38,25 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Install runtime system dependencies if needed
-RUN apk add --no-cache git
+# Install runtime system dependencies
+RUN apk add --no-cache git bash
 
 # Copy built application from builder stage
-# Standalone output includes server.js, .next directory and static files
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
-COPY --from=builder /app/camouflage-server.mjs ./camouflage-server.mjs
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone /app/
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static /app/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public /app/public
+COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh /app/entrypoint.sh
+COPY --from=builder --chown=nextjs:nodejs /app/camouflage-server.mjs /app/camouflage-server.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/package.json /app/package.json
+COPY --from=builder --chown=nextjs:nodejs /app/prisma /app/prisma
 COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Ensure correct permissions
-RUN chown -R nextjs:nodejs /app && chmod +x entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 USER nextjs
 
 EXPOSE 5492 6275
 
 # Command to run the application
-CMD ["./entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
