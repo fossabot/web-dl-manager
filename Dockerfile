@@ -1,55 +1,51 @@
-# Stage 1: Build Next.js
-FROM node:22-slim AS builder
+# Stage 1: Build Next.js App
+FROM node:22-alpine AS builder
+
+# Install system dependencies required for build tools (if any)
+# Example: If you need 'git' or 'build-essential' for certain npm packages, add them here.
+# RUN apk add --no-cache git build-base
+
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+
+# Copy package files and install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy the rest of the application code
 COPY . .
-RUN npx prisma generate
+
+# Set env vars for build
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+# Build the Next.js application
 RUN npm run build
 
-# Stage 2: Runtime
-FROM python:3.13-slim
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    wget \
-    unzip \
-    ca-certificates \
-    zstd \
-    git \
-    megatools \
-    ffmpeg \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && curl https://rclone.org/install.sh | bash \
-    && wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
-    && dpkg -i cloudflared-linux-amd64.deb \
-    && rm cloudflared-linux-amd64.deb \
-    && apt-get purge -y --auto-remove wget \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install python tools
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir gallery-dl yt-dlp git+https://github.com/AlphaSlayer1964/kemono-dl.git
+# Stage 2: Create a minimal runtime image
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+# Install runtime system dependencies if needed
+# RUN apk add --no-cache some-runtime-dependency
+
+# Copy built application from builder stage
+# Standalone output includes server.js, .next directory and static files
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/.env ./.env
-COPY --from=builder /app/next.config.ts ./next.config.ts
 
-# Create data directories
-RUN mkdir -p /app/data/downloads /app/data/archives /app/data/status /app/logs
+# Ensure correct permissions
+RUN chown -R nextjs:nodejs /app
 
-# Expose port
+USER nextjs
+
 EXPOSE 3000
 
-# Start command
-CMD ["npm", "start"]
+# Command to run the application
+CMD ["node", "server.js"]

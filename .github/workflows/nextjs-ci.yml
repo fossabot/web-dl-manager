@@ -1,0 +1,65 @@
+name: Next.js CI/CD (Next Branch)
+
+on:
+  push:
+    branches: [ "next" ]
+  pull_request:
+    branches: [ "next" ]
+
+jobs:
+  # Job 1: Code quality checks
+  quality-check:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Run Type Check
+        run: npm run type-check
+
+  # Job 2: Build Docker image
+  build-and-docker:
+    name: Build & Tag Next
+    needs: quality-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js App
+        run: npm run build
+      
+      # Build Docker Image with 'next' tag
+      - name: Build Docker Image
+        run: docker build . --file Dockerfile --tag web-dl-manager:next
+      
+      # (Optional) If pushing to registry:
+      # - name: Push Docker Image
+      #   if: github.event_name == 'push'
+      #   run: |
+      #     docker tag web-dl-manager:next your-registry/web-dl-manager:next
+      #     docker push your-registry/web-dl-manager:next
