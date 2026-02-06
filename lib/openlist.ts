@@ -20,8 +20,9 @@ export async function login(baseUrl: string, username: string, password: string)
     } else {
       throw new OpenlistError(resp.data.message || 'Unknown error');
     }
-  } catch (err: any) {
-    throw new OpenlistError(`Login failed: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new OpenlistError(`Login failed: ${message}`);
   }
 }
 
@@ -39,8 +40,9 @@ export async function createDirectory(baseUrl: string, token: string, remoteDir:
     } else {
       throw new OpenlistError(resp.data.message || 'Failed to create directory');
     }
-  } catch (err: any) {
-    throw new OpenlistError(`Directory creation failed: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new OpenlistError(`Directory creation failed: ${message}`);
   }
 }
 
@@ -84,7 +86,8 @@ export async function uploadFile(
     } else {
       throw new OpenlistError(resp.data.message || 'Upload failed');
     }
-  } catch (err: any) {
-    throw new OpenlistError(`Upload failed: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new OpenlistError(`Upload failed: ${message}`);
   }
 }

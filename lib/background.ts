@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
-import { LOGS_DIR, STATUS_DIR } from './constants';
+import { LOGS_DIR } from './constants';
 import { dbConfig } from './config';
 
 async function cleanupOldLogs() {
@@ -51,7 +51,7 @@ async function unifiedPeriodicSync() {
   let customTasks: SyncTask[] = [];
   try {
     customTasks = JSON.parse(tasksJson!);
-  } catch (e) {
+  } catch {
     console.error('[Sync] Failed to parse sync tasks JSON');
   }
 

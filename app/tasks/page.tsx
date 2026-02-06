@@ -2,13 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { Table, Tag, Space, Button, Typography, Card, message, Popconfirm, Tooltip } from 'antd';
-import { ListTodo, Trash2, Eye, ExternalLink, RefreshCw } from 'lucide-react';
+import { ListTodo, Trash2, Eye, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 const { Title } = Typography;
 
+interface Task {
+  id: string;
+  url: string;
+  status: string;
+  createdAt: string;
+}
+
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = async () => {
@@ -38,7 +45,7 @@ export default function TasksPage() {
         message.success('任务已删除');
         fetchTasks();
       }
-    } catch (err) {
+    } catch {
       message.error('删除任务失败');
     }
   };
@@ -91,7 +98,7 @@ export default function TasksPage() {
     {
       title: '操作',
       key: 'action',
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: Task) => (
         <Space size="middle">
           <Link href={`/status/${record.id}`}>
             <Button size="small" type="text" icon={<Eye size={14} />}>详情</Button>

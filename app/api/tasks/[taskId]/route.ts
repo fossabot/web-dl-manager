@@ -7,7 +7,7 @@ import path from 'path';
 
 export async function GET(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   const { taskId } = await params;
   const user = await getCurrentUser();
@@ -44,7 +44,7 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   const { taskId } = await params;
   const user = await getCurrentUser();

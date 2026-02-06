@@ -229,7 +229,7 @@ async function executeJob(taskId: string, params: TaskParams) {
         await uploadToOpenlist(olUrl, token, file, uploadPath);
       }
     } else {
-      rcloneConfigPath = await createRcloneConfig(taskId, uploadService, params);
+      rcloneConfigPath = await createRcloneConfig(taskId, uploadService, params as unknown as Record<string, unknown>);
       if (!rcloneConfigPath) throw new Error(`Failed to generate Rclone config for ${uploadService}`);
       
       if (useCompression) {

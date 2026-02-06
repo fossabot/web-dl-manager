@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "audit": "npm audit --audit-level=moderate",
     "prepare": "husky"
@@ -38,6 +38,9 @@
     "react-dom": "19.2.3",
     "systeminformation": "^5.30.7",
     "tailwind-merge": "^3.4.0"
+  },
+  "overrides": {
+    "lodash-es": "4.17.23"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

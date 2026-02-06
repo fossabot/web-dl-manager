@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 function getVersion(cmd: string): string {
   try {
     return execSync(`${cmd} --version`).toString().trim().split('\n')[0];
-  } catch (e) {
+  } catch {
     return 'N/A';
   }
 }

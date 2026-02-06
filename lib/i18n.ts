@@ -1,4 +1,4 @@
-const LANGUAGES: Record<string, any> = {
+const LANGUAGES: Record<string, Record<string, string>> = {
   zh: {
     app_title: "Web-DL-Manager",
     downloader: "下载器",
