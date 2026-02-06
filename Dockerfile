@@ -34,27 +34,28 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Create system user and group
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
 # Install runtime system dependencies
 RUN apk add --no-cache git bash
 
+# Create necessary directories for the app to function and ensure they are owned by node
+RUN mkdir -p data/archives data/downloads data/status logs && \
+    chown -R node:node /app
+
 # Copy built application from builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone /app/
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static /app/.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public /app/public
-COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh /app/entrypoint.sh
-COPY --from=builder --chown=nextjs:nodejs /app/camouflage-server.mjs /app/camouflage-server.mjs
-COPY --from=builder --chown=nextjs:nodejs /app/package.json /app/package.json
-COPY --from=builder --chown=nextjs:nodejs /app/prisma /app/prisma
+COPY --from=builder --chown=node:node /app/.next/standalone /app/
+COPY --from=builder --chown=node:node /app/.next/static /app/.next/static
+COPY --from=builder --chown=node:node /app/public /app/public
+COPY --from=builder --chown=node:node /app/entrypoint.sh /app/entrypoint.sh
+COPY --from=builder --chown=node:node /app/camouflage-server.mjs /app/camouflage-server.mjs
+COPY --from=builder --chown=node:node /app/package.json /app/package.json
+COPY --from=builder --chown=node:node /app/prisma /app/prisma
 COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Ensure correct permissions
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh && \
+    chown -R node:node /app
 
-USER nextjs
+USER node
 
 EXPOSE 5492 6275
 
