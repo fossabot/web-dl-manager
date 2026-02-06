@@ -1,11 +1,14 @@
 # Stage 1: Build Next.js App
 FROM node:22-alpine AS builder
 
-# Install system dependencies required for build tools (if any)
-# Example: If you need 'git' or 'build-essential' for certain npm packages, add them here.
-# RUN apk add --no-cache git build-base
+# Install system dependencies required for build tools
+RUN apk add --no-cache wget
 
 WORKDIR /app
+
+# Download cloudflared for Alpine (musl)
+RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /app/cloudflared && \
+    chmod +x /app/cloudflared
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json* ./
@@ -47,6 +50,7 @@ COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 COPY --from=builder /app/camouflage-server.mjs ./camouflage-server.mjs
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/cloudflared /usr/local/bin/cloudflared # Copy cloudflared to runner stage
 
 # Ensure correct permissions
 RUN chown -R nextjs:nodejs /app && chmod +x entrypoint.sh

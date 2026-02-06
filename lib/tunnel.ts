@@ -17,9 +17,10 @@ export async function startTunnel() {
     return;
   }
 
-  logger.info('Starting Cloudflare Tunnel...');
+  logger.info('Starting Cloudflare Tunnel on port 5492...');
   
-  tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token], {
+  // Explicitly point to the camouflage port 5492
+  tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token, '--url', 'http://localhost:5492'], {
     stdio: 'ignore',
     detached: true,
   });
