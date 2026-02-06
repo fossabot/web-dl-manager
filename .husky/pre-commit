@@ -1,2 +1,20 @@
 echo '🚀 [Pre-commit] 正在运行代码质量审核 (Lint & Type-check)...'
-npx lint-staged
+
+# 运行 lint-staged 并捕获输出
+OUTPUT=$(npx lint-staged 2>&1)
+RET=$?
+
+echo "$OUTPUT"
+
+# 还原您的需求：如果 lint-staged 没找到匹配文件，认为审核不过
+if echo "$OUTPUT" | grep -q "could not find any staged files matching configured tasks"; then
+  echo "
+❌ [审核失败] 提交被拦截：未检测到受控文件（.ts, .tsx）参与审核。"
+  echo "全量转写模式下，所有提交必须通过代码质量核验。"
+  exit 1
+fi
+
+# 如果 lint-staged 本身运行报错（如 Lint 错误），则退出
+if [ $RET -ne 0 ]; then
+  exit $RET
+fi
