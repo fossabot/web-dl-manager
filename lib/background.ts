@@ -65,7 +65,7 @@ async function unifiedPeriodicSync() {
           name: "System: Gallery-dl Config",
           local_path: galleryDlConfigDir,
           remote_path: backupRemotePath,
-          interval: 60, // 1 hour
+          interval: 10, // 10 minutes
           enabled: true,
           is_system: true
       });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import si from 'systeminformation';
 import { getActiveTaskCount } from '@/lib/tasks';
+import { getNetSpeed } from '@/lib/utils';
 import { execSync } from 'child_process';
 
 function getVersion(cmd: string): string {
@@ -12,11 +13,12 @@ function getVersion(cmd: string): string {
 }
 
 export async function GET() {
-  const [cpu, mem, disk, time] = await Promise.all([
+  const [cpu, mem, disk, time, netSpeed] = await Promise.all([
     si.currentLoad(),
     si.mem(),
     si.fsSize(),
-    si.time()
+    si.time(),
+    getNetSpeed()
   ]);
 
   // Use the first disk usually mounted on /
@@ -31,7 +33,12 @@ export async function GET() {
       platform: `${process.platform} ${process.arch}`,
       cpu_usage: cpu.currentLoad,
     },
+    network: {
+      rx_speed: netSpeed.rx,
+      tx_speed: netSpeed.tx,
+    },
     memory: {
+// ...
       total: mem.total,
       used: mem.used,
       percent: (mem.used / mem.total) * 100,
