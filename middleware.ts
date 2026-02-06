@@ -25,12 +25,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Handle Root Path (Camouflage Logic)
+  // 3. Handle Root Path
   if (path === '/') {
     if (!isAuthenticated) {
-      // Not logged in -> Show Camouflage (Rewrite to static file)
-      // We assume /camouflage/index.html exists (handled by entrypoint.sh)
-      return NextResponse.rewrite(new URL('/camouflage/index.html', request.url));
+      // Not logged in on main port -> Go to login
+      return NextResponse.redirect(new URL('/login', request.url));
     }
     return NextResponse.next();
   }

@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web-DL-Manager (Next.js 版)
 
-## Getting Started
+基于 Next.js 开发的高级下载管理器，支持多引擎下载与自动化云端备份，并具备双端口伪装架构。
 
-First, run the development server:
+## 核心特性
+
+- **双端口架构**：
+  - **伪装层 (Port 5492)**：对外公开。未登录用户访问时展现为普通静态站点（如博客），有效隐藏工具属性。
+  - **核心层 (Port 6275)**：对内管理。处理下载、归档及上传等高权限操作。
+- **多引擎支持**：集成 `gallery-dl`, `kemono-dl`, `megadl` 等。
+- **自动化流**：下载 -> 压缩 (可选分卷) -> 自动上传至云存储 (WebDAV, S3, Gofile, Openlist 等)。
+- **响应式 UI**：基于 Ant Design 5.0 和 Tailwind CSS 4.0 构建，提供极佳的交互体验。
+
+## 快速启动
+
+### 使用 Docker (推荐)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker run -d \
+  --name web-dl-manager \
+  -p 5492:5492 \
+  -p 6275:6275 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  -e STATIC_SITE_GIT_URL="https://github.com/your-username/your-blog.git" \
+  jyf0214/web-dl-manager:next
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 本地开发
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. 安装依赖：
+   ```bash
+   npm install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. 启动开发服务器：
+   ```bash
+   npm run dev
+   ```
 
-## Learn More
+3. 启动伪装服务器：
+   ```bash
+   node camouflage-server.mjs
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+## 访问说明
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 访问 `http://localhost:5492` 查看伪装站点。
+- 访问 `http://localhost:6275` 进入管理后台。
+- 首次使用请前往 `/setup` 进行初始化配置。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 技术栈
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Frontend/Backend**: Next.js 15 (App Router)
+- **UI Framework**: Ant Design + Antd Style
+- **Database**: Prisma + SQLite/PostgreSQL
+- **Process Manager**: PM2
+- **Styling**: Tailwind CSS

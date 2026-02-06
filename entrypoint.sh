@@ -24,6 +24,16 @@ if [[ "$DATABASE_URL" == *"file:"* ]]; then
     npx prisma db push
 fi
 
-# Start Next.js
-echo "Starting Next.js application..."
-exec npm start
+# Start Camouflage Server in background
+echo "Starting Camouflage server on port 5492..."
+node camouflage-server.mjs &
+
+# Start Next.js (Main App)
+echo "Starting Next.js application on port 6275..."
+export PORT=6275
+# If running in standalone mode (server.js exists)
+if [ -f "server.js" ]; then
+    exec node server.js
+else
+    exec npm start
+fi
