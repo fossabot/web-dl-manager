@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-next] - 2026-02-06
+
+### Added
+- **Architectural Shift**: Full rewrite of the application from Python (FastAPI) to **Next.js (TypeScript)** for a more modern and scalable stack.
+- **Lobe UI Integration**:
+    - Adoped **Lobe UI** (@lobehub/ui) aesthetic with Ant Design for a high-tech, futuristic visual experience.
+    - Implemented a persistent **SideBar** navigation and fluid dark mode layouts.
+- **New Database Layer**: Switched to **Prisma ORM** for type-safe database operations, maintaining compatibility with the existing SQLite schema.
+- **Enhanced Task Engine**:
+    - Rewrote the background task processor using Node.js `child_process`.
+    - Maintained support for **Gallery-DL**, **Kemono-DL**, and **Mega-DL**.
+    - Integrated multi-service upload logic (WebDAV, S3, B2, Gofile, Openlist).
+- **Advanced CI/CD & DevOps**:
+    - Added **Husky** with `pre-commit` hooks for automatic Linting and Type-checking.
+    - Optimized **Dockerfile** using Next.js Standalone mode for ultra-small image sizes.
+    - Implemented **GitHub Actions** workflow targeting the `next` branch.
+- **Camouflage System**: Refined the camouflage logic using Next.js Middleware to seamlessly serve static sites to unauthenticated users.
+
+### Changed
+- **Authentication**: Migrated from session-based auth to **JWT (jose)** while keeping existing password hashes compatible.
+- **Frontend Engine**: Transitioned from Jinja2 templates to **React Server Components** and client-side interactivity.
+
 ## [1.5.0] - 2026-01-17
 
 ### Added
