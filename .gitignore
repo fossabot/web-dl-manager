@@ -1,43 +1,56 @@
-# Virtual Environment
-venv/
-env/
-ENV/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Python build artifacts
-__pycache__/
-*.pyc
-dist/
-build/
-.tmp_build/
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Binary and build related files
-cloudflared
-build_new.py
-build.py
-gallery-dl-web.spec
-requirements-build.txt
-run_binary.py
-run_and_test.sh
-replace_rules.txt
-webdl-manager.db
-# Temporary test files
-gofile_test.py
-gofile_auth_test.py
-web-dl-manager.spec
+# testing
+/coverage
 
-# Node.js / Next.js
-node_modules/
-.next/
-frontend/
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
 next-env.d.ts
 
-# Logs
-logs/*.log
-logs/pm2-3.log
-logs/pm2_error-3.log
-logs/pm2_out-3.log
+# database
+*.db
+*.db-journal
+*.sqlite
 
-TEST_VERIFY/
-ultimate_test.py
+# logs
+logs/
 *.log
-*.json
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+app_py/

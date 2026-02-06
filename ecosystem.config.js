@@ -2,16 +2,15 @@ module.exports = {
   apps: [
     {
       name: "web-dl-manager",
-      script: "python",
-      args: "-m app.main",
+      script: "npm",
+      args: "start",
       cwd: __dirname,
       env: {
-        DEBUG_MODE: "false",
-        TUNNEL_TOKEN: process.env.TUNNEL_TOKEN || ""
+        NODE_ENV: "production",
       },
       autorestart: true,
       watch: false,
-      max_memory_restart: "200M",
+      max_memory_restart: "1G",
       log_file: "logs/pm2.log",
       time: true,
       instances: 1,

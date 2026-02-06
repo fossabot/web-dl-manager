@@ -1,28 +1,16 @@
-# Stage 1: Build
-FROM python:3.13-slim AS builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    binutils \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-# 安装依赖以便 PyInstaller 扫描
-COPY app/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir pyinstaller
-
+# Stage 1: Build Next.js
+FROM node:22-slim AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
 COPY . .
-
-# 使用 spec 文件构建二进制文件
-RUN pyinstaller web-dl-manager.spec
+RUN npx prisma generate
+RUN npm run build
 
 # Stage 2: Runtime
 FROM python:3.13-slim
 
-# 安装运行时系统依赖
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
@@ -30,9 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     zstd \
     git \
-    cron \
     megatools \
     ffmpeg \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
     && curl https://rclone.org/install.sh | bash \
     && wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
     && dpkg -i cloudflared-linux-amd64.deb \
@@ -40,48 +30,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get purge -y --auto-remove wget \
     && rm -rf /var/lib/apt/lists/*
 
-# 可选：安装 Node.js 22 LTS (用于全量包)
-ARG INSTALL_NODE=false
-RUN if [ "$INSTALL_NODE" = "true" ]; then \
-    apt-get update && apt-get install -y --no-install-recommends gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*; \
-    fi
-
-# 全局安装必须的外部工具（gallery-dl, yt-dlp, kemono-dl）
+# Install python tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir gallery-dl yt-dlp git+https://github.com/AlphaSlayer1964/kemono-dl.git
 
-# 创建非 root 用户
-RUN useradd -m -u 1000 user
-
 WORKDIR /app
 
-# 创建必要的数据和日志目录
-RUN mkdir -p /data/downloads /data/archives /data/status /app/logs
+# Copy built application
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/next.config.ts ./next.config.ts
 
-# 从构建阶段复制二进制文件及相关配置
-COPY --from=builder /build/dist/web-dl-manager /app/web-dl-manager
-COPY --from=builder /build/CHANGELOG.md /app/CHANGELOG.md
-COPY --from=builder /build/entrypoint.sh /app/entrypoint.sh
+# Create data directories
+RUN mkdir -p /app/data/downloads /app/data/archives /app/data/status /app/logs
 
-# 设置权限
-RUN chown -R 1000:1000 /app /data && chmod +x /app/web-dl-manager /app/entrypoint.sh
+# Expose port
+EXPOSE 3000
 
-# 环境变量设置
-ENV DEBUG_MODE=false
-
-# 切换到非 root 用户
-USER 1000
-
-# 暴露端口
-EXPOSE 5492
-
-# 挂载持久化卷
-VOLUME /data/downloads
-VOLUME /data/archives
-VOLUME /data/status
-
-# 设置入口脚本
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Start command
+CMD ["npm", "start"]
