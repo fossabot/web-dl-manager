@@ -11,7 +11,7 @@ export async function uploadToGofile(filePath: string, token?: string, folderId?
     if (res.data.status === 'ok' && res.data.data.servers.length > 0) {
       server = res.data.data.servers[0].name;
     }
-  } catch (e) {
+  } catch {
     if (logCallback) logCallback('Failed to fetch servers, using default.');
   }
 
@@ -35,7 +35,8 @@ export async function uploadToGofile(filePath: string, token?: string, folderId?
     } else {
       throw new Error(`Gofile error: ${JSON.stringify(res.data)}`);
     }
-  } catch (err: any) {
-    throw new Error(`Upload failed: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Upload failed: ${message}`);
   }
 }

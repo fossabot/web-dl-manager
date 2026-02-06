@@ -2,9 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { dbConfig } from './config';
-import { v4 as uuidv4 } from 'uuid';
 
-export async function createRcloneConfig(taskId: string, service: string, params: any): Promise<string | null> {
+export async function createRcloneConfig(taskId: string, service: string, params: Record<string, unknown>): Promise<string | null> {
+  const p = params as Record<string, string | undefined>;
   // Gofile and Openlist usually don't need rclone config in this context if handled by custom uploaders,
   // but if we support rclone for them later, we can add here.
   if (service === 'gofile' || service === 'openlist') {
@@ -22,9 +22,9 @@ type = ${service}
 `;
 
   if (service === 'webdav') {
-    const url = params.webdav_url || await dbConfig.getConfig('WDM_WEBDAV_URL');
-    const user = params.webdav_user || await dbConfig.getConfig('WDM_WEBDAV_USER');
-    const pass = params.webdav_pass || await dbConfig.getConfig('WDM_WEBDAV_PASS');
+    const url = p.webdav_url || await dbConfig.getConfig('WDM_WEBDAV_URL');
+    const user = p.webdav_user || await dbConfig.getConfig('WDM_WEBDAV_USER');
+    const pass = p.webdav_pass || await dbConfig.getConfig('WDM_WEBDAV_PASS');
 
     if (!url || !user || !pass) return null;
 
@@ -36,16 +36,16 @@ type = ${service}
 `;
     
     // Obscure password
-    const obscuredPass = await runRcloneObscure(pass);
+    const obscuredPass = await runRcloneObscure(pass as string);
     configContent += `pass = ${obscuredPass}
 `;
 
   } else if (service === 's3') {
-    const provider = params.s3_provider || await dbConfig.getConfig('WDM_S3_PROVIDER') || 'AWS';
-    const accessKey = params.s3_access_key_id || await dbConfig.getConfig('WDM_S3_ACCESS_KEY_ID');
-    const secretKey = params.s3_secret_access_key || await dbConfig.getConfig('WDM_S3_SECRET_ACCESS_KEY');
-    const region = params.s3_region || await dbConfig.getConfig('WDM_S3_REGION');
-    const endpoint = params.s3_endpoint || await dbConfig.getConfig('WDM_S3_ENDPOINT') || '';
+    const provider = p.s3_provider || await dbConfig.getConfig('WDM_S3_PROVIDER') || 'AWS';
+    const accessKey = p.s3_access_key_id || await dbConfig.getConfig('WDM_S3_ACCESS_KEY_ID');
+    const secretKey = p.s3_secret_access_key || await dbConfig.getConfig('WDM_S3_SECRET_ACCESS_KEY');
+    const region = p.s3_region || await dbConfig.getConfig('WDM_S3_REGION');
+    const endpoint = p.s3_endpoint || await dbConfig.getConfig('WDM_S3_ENDPOINT') || '';
 
     if (!accessKey || !secretKey || !region) return null;
 
@@ -61,8 +61,8 @@ type = ${service}
 `;
 
   } else if (service === 'b2') {
-    const account = params.b2_account_id || await dbConfig.getConfig('WDM_B2_ACCOUNT_ID');
-    const key = params.b2_application_key || await dbConfig.getConfig('WDM_B2_APPLICATION_KEY');
+    const account = p.b2_account_id || await dbConfig.getConfig('WDM_B2_ACCOUNT_ID');
+    const key = p.b2_application_key || await dbConfig.getConfig('WDM_B2_APPLICATION_KEY');
 
     if (!account || !key) return null;
 

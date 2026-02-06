@@ -64,7 +64,8 @@ export async function POST() {
       status: 'success', 
       message: `Cleanup complete. Removed ${deletedCount} unused config keys.` 
     });
-  } catch (e: any) {
-    return NextResponse.json({ status: 'error', message: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ status: 'error', message }, { status: 500 });
   }
 }

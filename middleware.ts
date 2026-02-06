@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { decrypt } from './lib/auth';
+import { decrypt } from './lib/jwt';
 
 export async function middleware(request: NextRequest) {
   const session = request.cookies.get('session')?.value;
@@ -12,7 +12,9 @@ export async function middleware(request: NextRequest) {
     try {
       await decrypt(session);
       isAuthenticated = true;
-    } catch (e) {}
+    } catch {
+      // Invalid session
+    }
   }
 
   // 2. Handle Login Page

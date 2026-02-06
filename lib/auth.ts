@@ -1,10 +1,7 @@
 import crypto from 'crypto';
-import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import prisma from './prisma';
-
-const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-at-least-32-chars-long';
-const key = new TextEncoder().encode(SECRET_KEY);
+import { encrypt, decrypt } from './jwt';
 
 const SESSION_TIMEOUT = 1800; // 30 minutes
 
@@ -21,27 +18,12 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   return crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(hash));
 }
 
-export async function encrypt(payload: any) {
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('2h')
-    .sign(key);
-}
-
-export async function decrypt(input: string): Promise<any> {
-  const { payload } = await jwtVerify(input, key, {
-    algorithms: ['HS256'],
-  });
-  return payload;
-}
-
 export async function login(username: string) {
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user) return null;
 
   const expires = new Date(Date.now() + SESSION_TIMEOUT * 1000);
-  const session = await encrypt({ userId: user.id, username: user.username, isAdmin: user.isAdmin, expires });
+  const session = await encrypt({ userId: user.id, username: user.username, isAdmin: user.isAdmin, expires: expires.toISOString() });
 
   (await cookies()).set('session', session, { expires, httpOnly: true });
   return user;
@@ -56,19 +38,19 @@ export async function getSession() {
   if (!session) return null;
   try {
     return await decrypt(session);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
 
 export async function getCurrentUser() {
   const session = await getSession();
-  if (!session) return null;
+  if (!session || !session.expires) return null;
   
   // Check expiration manually if needed, though JWT handles it
-  if (new Date(session.expires) < new Date()) {
+  if (new Date(session.expires as string) < new Date()) {
     return null;
   }
 
-  return await prisma.user.findUnique({ where: { id: session.userId } });
+  return await prisma.user.findUnique({ where: { id: Number(session.userId) } });
 }
