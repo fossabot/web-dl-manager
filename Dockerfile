@@ -36,16 +36,20 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Install runtime system dependencies if needed
-# RUN apk add --no-cache some-runtime-dependency
+RUN apk add --no-cache git
 
 # Copy built application from builder stage
 # Standalone output includes server.js, .next directory and static files
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+COPY --from=builder /app/camouflage-server.mjs ./camouflage-server.mjs
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./prisma
 
 # Ensure correct permissions
-RUN chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app && chmod +x entrypoint.sh
 
 USER nextjs
 

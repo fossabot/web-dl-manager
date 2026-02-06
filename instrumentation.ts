@@ -5,6 +5,7 @@ export async function register() {
     const { startTunnel } = await import('./lib/tunnel');
     
     await initApp();
+    // Start background tasks and tunnels
     startBackgroundTasks();
     await startTunnel();
   }
