@@ -1,4 +1,4 @@
-name: Next.js CI/CD (Next Branch)
+name: Next.js Audit & Build (Next Branch)
 
 on:
   push:
@@ -6,15 +6,14 @@ on:
   pull_request:
     branches: [ "next" ]
 
-# 允许推送到 GHCR
 permissions:
   contents: read
   packages: write
 
 jobs:
-  # Job 1: Code quality checks
-  quality-check:
-    name: Lint & Type Check
+  # Job 1: Comprehensive Code Audit
+  code-audit:
+    name: Code Audit (Lint, Type, Security)
     runs-on: ubuntu-latest
 
     steps:
@@ -30,18 +29,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Lint
+      - name: Security Audit (npm audit)
+        run: npm run audit
+
+      - name: Run Linting
         run: npm run lint
 
       - name: Run Type Check
         run: npm run type-check
 
-  # Job 2: Build and Push Docker image
+      - name: Verify Production Build
+        run: npm run build
+        env:
+          # Build time env vars if needed
+          NEXT_TELEMETRY_DISABLED: 1
+
+  # Job 2: Docker Build & Push (only after audit passes)
   build-and-push:
     name: Build & Push to GHCR
-    needs: quality-check
+    needs: code-audit
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' # 仅在合并/推送时执行推送，PR 仅测试构建
+    if: github.event_name == 'push' && github.ref == 'refs/heads/next'
 
     steps:
       - name: Checkout code
@@ -57,7 +65,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
