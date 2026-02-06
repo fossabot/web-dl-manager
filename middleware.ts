@@ -4,33 +4,55 @@ import { decrypt } from './lib/auth';
 
 export async function middleware(request: NextRequest) {
   const session = request.cookies.get('session')?.value;
+  const path = request.nextUrl.pathname;
 
-  if (request.nextUrl.pathname.startsWith('/login')) {
-    if (session) {
-      try {
-        await decrypt(session);
-        return NextResponse.redirect(new URL('/', request.url));
-      } catch (e) {
-        // Invalid session, allow login
-      }
+  // 1. Verify Session
+  let isAuthenticated = false;
+  if (session) {
+    try {
+      await decrypt(session);
+      isAuthenticated = true;
+    } catch (e) {}
+  }
+
+  // 2. Handle Login Page
+  if (path.startsWith('/login')) {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL('/', request.url));
     }
     return NextResponse.next();
   }
 
-  if (!session) {
+  // 3. Handle Root Path (Camouflage Logic)
+  if (path === '/') {
+    if (!isAuthenticated) {
+      // Not logged in -> Show Camouflage (Rewrite to static file)
+      // We assume /camouflage/index.html exists (handled by entrypoint.sh)
+      return NextResponse.rewrite(new URL('/camouflage/index.html', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 4. Protect other routes (exclude public assets and apis that don't need auth)
+  // Note: API auth is usually handled inside the API route itself, but we can block here too.
+  if (!isAuthenticated) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  try {
-    await decrypt(session);
-    return NextResponse.next();
-  } catch (e) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|static).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api/login (allow login api)
+     * - camouflage (static site assets)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - static (public static files)
+     */
+    '/((?!api/login|camouflage|_next/static|_next/image|favicon.ico|static).*)',
   ],
 };
