@@ -8,11 +8,14 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "audit": "npm audit --audit-level=moderate",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix",
+      "eslint --fix"
+    ],
+    "**/*.ts?(x)": [
       "bash -c 'npm run type-check'"
     ]
   },
