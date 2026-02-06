@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { updateTaskStatus, processDownloadJob } from '@/lib/tasks';
+import { updateTaskStatus, processDownloadJob, TaskStatus } from '@/lib/tasks';
 import { STATUS_DIR } from '@/lib/constants';
 import fs from 'fs';
 import path from 'path';
@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const tasks: any[] = [];
+  const tasks: TaskStatus[] = [];
   if (fs.existsSync(STATUS_DIR)) {
     const files = fs.readdirSync(STATUS_DIR);
     for (const file of files) {
@@ -20,8 +20,8 @@ export async function GET() {
         try {
           const content = fs.readFileSync(path.join(STATUS_DIR, file), 'utf8');
           tasks.push(JSON.parse(content));
-        } catch (e) {
-          // Ignore
+        } catch {
+          // Ignore corrupted files
         }
       }
     }
@@ -52,8 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'URL and Upload Service are required' }, { status: 400 });
   }
 
-  const urls = url.split('
-').map(u => u.trim()).filter(u => u);
+  const urls = url.split('\n').map(u => u.trim()).filter(u => u);
   const taskIds: string[] = [];
 
   for (const singleUrl of urls) {

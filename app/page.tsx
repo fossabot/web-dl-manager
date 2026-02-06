@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Form, Input, Select, Switch, InputNumber, Button, Card, Typography, Space, Divider, message } from 'antd';
+import { Form, Input, Select, Switch, InputNumber, Button, Card, Typography, Space, message } from 'antd';
 import { CloudDownloadOutlined, SettingOutlined, RocketOutlined } from '@ant-design/icons';
-import { GradientButton } from '@lobehub/ui';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -13,10 +12,10 @@ export default function DownloaderPage() {
   const [loading, setLoading] = useState(false);
   const [uploadService, setUploadService] = useState('');
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: Record<string, string | number | boolean>) => {
     setLoading(true);
     const formData = new FormData();
-    Object.entries(values).forEach(([key, value]: [string, any]) => {
+    Object.entries(values).forEach(([key, value]) => {
       formData.append(key, value?.toString() || '');
     });
 
@@ -33,7 +32,7 @@ export default function DownloaderPage() {
       } else {
         message.error(data.error || '任务启动失败');
       }
-    } catch (err) {
+    } catch {
       message.error('请求发生错误');
     } finally {
       setLoading(false);
@@ -61,7 +60,7 @@ export default function DownloaderPage() {
         }}
         onValuesChange={(changedValues) => {
           if (changedValues.upload_service !== undefined) {
-            setUploadService(changedValues.upload_service);
+            setUploadService(String(changedValues.upload_service));
           }
         }}
       >
@@ -75,9 +74,9 @@ export default function DownloaderPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Form.Item label="下载引擎" name="downloader" className="md:col-span-1">
                 <Select size="large">
-                  <option value="gallery-dl">Gallery-DL</option>
-                  <option value="kemono-dl">Kemono-DL (Pro)</option>
-                  <option value="megadl">Mega-DL</option>
+                  <Select.Option value="gallery-dl">Gallery-DL</Select.Option>
+                  <Select.Option value="kemono-dl">Kemono-DL (Pro)</Select.Option>
+                  <Select.Option value="megadl">Mega-DL</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item 
@@ -151,14 +150,23 @@ export default function DownloaderPage() {
 
           <div className="flex justify-center py-8">
             <Form.Item>
-              <GradientButton
+              <Button
+                type="primary"
                 size="large"
                 htmlType="submit"
                 loading={loading}
-                style={{ width: 240, height: 56, borderRadius: 28, fontSize: 18, fontWeight: 'bold' }}
+                style={{ 
+                  width: 240, 
+                  height: 56, 
+                  borderRadius: 28, 
+                  fontSize: 18, 
+                  fontWeight: 'bold',
+                  background: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)',
+                  border: 'none'
+                }}
               >
                 开始下载任务
-              </GradientButton>
+              </Button>
             </Form.Item>
           </div>
         </Space>

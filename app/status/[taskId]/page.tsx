@@ -1,16 +1,34 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Typography, Card, Tag, Space, Button, Breadcrumb } from 'antd';
+import { ChevronLeft, RefreshCcw, FileText, CloudUpload, Info } from 'lucide-react';
+
+const { Title, Text } = Typography;
+
+interface TaskStatusData {
+  status: {
+    status: string;
+    url: string;
+    downloader: string;
+    uploadService: string;
+    uploadPath?: string;
+    error?: string;
+  };
+  downloadLog: string;
+  uploadLog: string;
+}
 
 export default function StatusPage() {
-  const { taskId } = useParams();
+  const params = useParams();
+  const taskId = params.taskId as string;
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<TaskStatusData | null>(null);
   const [loading, setLoading] = useState(true);
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const downloadLogRef = useRef<HTMLDivElement>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/tasks/${taskId}`);
       if (res.ok) {
@@ -24,101 +42,129 @@ export default function StatusPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [taskId, router]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
-  }, [taskId]);
+  }, [fetchData]);
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (downloadLogRef.current) {
+      downloadLogRef.current.scrollTop = downloadLogRef.current.scrollHeight;
+    }
   }, [data?.downloadLog]);
 
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin h-8 w-8 text-blue-500 border-4 border-slate-700 border-t-blue-500 rounded-full"></div>
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <RefreshCcw className="animate-spin text-blue-500" size={32} />
       </div>
     );
   }
 
   const { status, downloadLog, uploadLog } = data || {};
 
+  const getStatusColor = (s: string) => {
+    switch (s) {
+      case 'completed': return 'success';
+      case 'failed': return 'error';
+      case 'running': return 'processing';
+      default: return 'default';
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Task Detail</h1>
-          <p className="text-xs font-mono text-slate-500">{taskId}</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <span className={`px-4 py-1.5 rounded-full text-xs font-bold border uppercase ${
-            status?.status === 'completed' ? 'bg-green-900/50 text-green-300 border-green-500/30' :
-            status?.status === 'failed' ? 'bg-red-900/50 text-red-300 border-red-500/30' :
-            'bg-blue-900/50 text-blue-300 border-blue-500/30'
-          }`}>
-            {status?.status}
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#000] text-slate-200 p-6">
+      <div className="max-w-[1600px] mx-auto">
+        <header className="mb-8 flex justify-between items-center">
+          <Space direction="vertical" size={0}>
+            <Breadcrumb
+              items={[
+                { title: <span className="text-slate-500">任务列表</span>, href: '/tasks' },
+                { title: <span className="text-slate-300">任务详情</span> },
+              ]}
+              className="mb-2"
+            />
+            <Title level={3} className="m-0 text-white flex items-center">
+              <code className="bg-slate-900 px-2 py-1 rounded text-blue-400 mr-3 text-lg">{taskId.slice(0, 8)}</code>
+              {status?.status && <Tag color={getStatusColor(status.status)} className="ml-2 uppercase font-bold">{status.status}</Tag>}
+            </Title>
+          </Space>
+          <Button 
+            icon={<ChevronLeft size={16} />} 
+            onClick={() => router.push('/tasks')}
+            className="bg-slate-900 border-slate-800 text-slate-300 hover:text-white"
+          >
+            返回列表
+          </Button>
+        </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Download Log</h2>
-              <button onClick={() => fetchData()} className="text-blue-400 hover:text-blue-300 text-xs font-medium">Refresh</button>
-            </div>
-            <div className="p-0 h-[500px] overflow-y-auto bg-black font-mono text-[11px] leading-relaxed text-slate-300">
-              <pre className="p-6 whitespace-pre-wrap break-all">
-                {downloadLog || 'Waiting for log content...'}
-                <div ref={logEndRef} />
-              </pre>
-            </div>
-          </div>
-        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Info Panel */}
+          <div className="xl:col-span-1 space-y-6">
+            <Card title={<Space><Info size={16}/><span>基础信息</span></Space>} className="bg-slate-900/50 border-slate-800 text-slate-300">
+              <div className="space-y-4">
+                <div>
+                  <Text type="secondary" className="text-[10px] uppercase font-bold tracking-widest block mb-1">目标 URL</Text>
+                  <div className="bg-black/50 p-3 rounded-lg border border-slate-800 font-mono text-xs break-all">
+                    {status?.url}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Text type="secondary" className="text-[10px] uppercase font-bold tracking-widest block mb-1">下载器</Text>
+                    <Text className="text-sm font-medium text-white">{status?.downloader}</Text>
+                  </div>
+                  <div>
+                    <Text type="secondary" className="text-[10px] uppercase font-bold tracking-widest block mb-1">上传至</Text>
+                    <Text className="text-sm font-medium text-white">{status?.uploadService}</Text>
+                  </div>
+                </div>
+                {status?.uploadPath && (
+                  <div>
+                    <Text type="secondary" className="text-[10px] uppercase font-bold tracking-widest block mb-1">远程路径</Text>
+                    <Text className="text-xs font-mono text-blue-300">{status.uploadPath}</Text>
+                  </div>
+                )}
+              </div>
+            </Card>
 
-        <div className="space-y-6">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-slate-700 bg-slate-800/50">
-              <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Task Info</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target URL</label>
-                <div className="text-sm text-slate-200 break-all bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
-                  {status?.url}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Downloader</label>
-                  <div className="text-sm text-slate-200">{status?.downloader}</div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Service</label>
-                  <div className="text-sm text-slate-200">{status?.uploadService}</div>
-                </div>
-              </div>
-              {status?.uploadPath && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Remote Path</label>
-                  <div className="text-sm text-slate-200 font-mono">{status?.uploadPath}</div>
-                </div>
-              )}
-            </div>
+            {status?.error && (
+              <Card className="bg-red-950/20 border-red-900/50">
+                <Text type="danger" className="text-xs font-mono">{status.error}</Text>
+              </Card>
+            )}
           </div>
 
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-slate-700 bg-slate-800/50">
-              <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Upload Log</h2>
-            </div>
-            <div className="p-0 h-[250px] overflow-y-auto bg-black font-mono text-[11px] leading-relaxed text-slate-300">
-              <pre className="p-6 whitespace-pre-wrap break-all">
-                {uploadLog || 'Waiting for upload log...'}
-              </pre>
+          {/* Logs Panel */}
+          <div className="xl:col-span-3 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[650px]">
+              {/* Download Log */}
+              <div className="flex flex-col bg-black rounded-2xl border border-slate-800 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                  <Space><FileText size={14} className="text-blue-400"/> <span className="text-xs font-bold uppercase tracking-wider text-slate-400">下载日志</span></Space>
+                </div>
+                <div 
+                  ref={downloadLogRef}
+                  className="flex-1 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed text-slate-400 scrollbar-thin scrollbar-thumb-slate-800"
+                >
+                  <pre className="whitespace-pre-wrap break-all">{downloadLog || '等待输出...'}</pre>
+                </div>
+              </div>
+
+              {/* Upload Log */}
+              <div className="flex flex-col bg-black rounded-2xl border border-slate-800 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                  <Space><CloudUpload size={14} className="text-purple-400"/> <span className="text-xs font-bold uppercase tracking-wider text-slate-400">上传日志</span></Space>
+                </div>
+                <div 
+                  className="flex-1 p-4 overflow-y-auto font-mono text-[11px] leading-relaxed text-slate-400 scrollbar-thin scrollbar-thumb-slate-800"
+                >
+                  <pre className="whitespace-pre-wrap break-all">{uploadLog || '等待输出...'}</pre>
+                </div>
+              </div>
             </div>
           </div>
         </div>
