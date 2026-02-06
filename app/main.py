@@ -298,7 +298,7 @@ def main():
         init_db()
         
         if tunnel_token := db_config.get_config("TUNNEL_TOKEN"):
-            os.environ.setdefault("TUNNEL_TOKEN", tunnel_token)
+            os.environ["TUNNEL_TOKEN"] = tunnel_token
         
         start_tunnel_if_env()
         
@@ -323,7 +323,7 @@ def main():
         init_db()
     
         if tunnel_token := db_config.get_config("TUNNEL_TOKEN"):
-            os.environ.setdefault("TUNNEL_TOKEN", tunnel_token)
+            os.environ["TUNNEL_TOKEN"] = tunnel_token
     
         start_tunnel_if_env()
         
