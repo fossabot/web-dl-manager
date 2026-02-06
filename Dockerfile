@@ -10,11 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# 从远程仓库拉取最新代码
-# 使用 ARG 来允许在构建时指定分支，并利用构建参数变化来使缓存失效（如果需要）
-ARG BRANCH=main
-# 下面这一行确保每次构建如果不使用缓存都会尝试拉取
-RUN git clone -b $BRANCH --depth 1 https://github.com/Jyf0214/web-dl-manager.git .
+# 复制当前目录下的所有文件到构建目录
+COPY . .
 
 # 安装依赖
 RUN pip install --no-cache-dir -r app/requirements.txt
@@ -54,7 +51,6 @@ RUN if [ "$INSTALL_NODE" = "true" ]; then \
     fi
 
 # 全局安装必须的外部工具（gallery-dl, yt-dlp, kemono-dl）
-# 注意：虽然主程序是二进制，但这些工具是 Python 脚本，仍需环境支持
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir gallery-dl yt-dlp git+https://github.com/AlphaSlayer1964/kemono-dl.git
 
