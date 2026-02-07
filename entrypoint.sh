@@ -44,12 +44,12 @@ if [ -n "$DATABASE_URL" ]; then
     echo "Setting Prisma provider to $PROVIDER"
     sed -i "s/provider = \"[^\"]*\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
     
-    # Use local prisma binary to ensure version consistency
+    # Use local prisma binary or fallback to specific version 6.4.1
     PRISMA_CMD="./node_modules/.bin/prisma"
     
     if [ ! -f "$PRISMA_CMD" ]; then
-        echo "Local prisma binary not found, falling back to npx -y prisma"
-        PRISMA_CMD="npx -y prisma"
+        echo "Local prisma binary not found, falling back to npx -y prisma@6.4.1"
+        PRISMA_CMD="npx -y prisma@6.4.1"
     fi
     
     echo "Generating Prisma Client..."
