@@ -79,6 +79,7 @@ export async function getWorkingProxy(logCallback?: (msg: string) => void): Prom
   return null;
 }
 
+// Helper functions for the application
 export function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;

@@ -46,11 +46,17 @@ if [ -n "$DATABASE_URL" ]; then
     sed -i "s/provider = \"mysql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
     sed -i "s/provider = \"postgresql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
     
-    npx prisma generate
+    # Use local prisma binary if available
+    PRISMA_BIN="./node_modules/.bin/prisma"
+    if [ ! -f "$PRISMA_BIN" ]; then
+        PRISMA_BIN="npx prisma"
+    fi
+
+    $PRISMA_BIN generate
     
     if [ "$PROVIDER" == "sqlite" ]; then
         echo "Running Prisma db push for SQLite..."
-        npx prisma db push --skip-generate
+        $PRISMA_BIN db push --skip-generate
     fi
 fi
 
