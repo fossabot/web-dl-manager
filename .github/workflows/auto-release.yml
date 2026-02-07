@@ -24,22 +24,15 @@ jobs:
       - name: 提取版本号与日志
         id: extract
         run: |
-          # 1. 提取最新版本号 (例如 2.0.0-next)
+          # 1. 提取最新版本号
           VERSION=$(grep -m1 '## \[' CHANGELOG.md | sed -E 's/## \[([^]]+)\].*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected Version: $VERSION"
           
-          # 2. 提取该版本的 Release Notes
-          # 使用 awk 提取当前版本到下一个版本标题之间的内容
-          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.txt
-          
-          # 3. 去除首尾多余空行
-          sed -i -e :a -e '/^
-*$/{$d;N;};/
-$/ba' release_notes.txt
+          # 2. 提取 Release Notes 并清理首尾空行 (使用 python 处理更安全)
+          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > raw_notes.txt
+          python3 -c "import sys; print(sys.stdin.read().strip())" < raw_notes.txt > release_notes.txt
           
           if [ ! -s release_notes.txt ]; then
-            echo "Warning: No release notes found for version $VERSION"
             echo "No notes found." > release_notes.txt
           fi
 
@@ -51,10 +44,11 @@ $/ba' release_notes.txt
           
           if [ "$CURRENT_PKG_VERSION" != "$NEW_VERSION" ]; then
             echo "Updating package.json: $CURRENT_PKG_VERSION -> $NEW_VERSION"
-            jq ".version = "$NEW_VERSION"" package.json > package.json.tmp && mv package.json.tmp package.json
+            # 使用 jq --arg 安全传参
+            jq --arg ver "$NEW_VERSION" '.version = $ver' package.json > package.json.tmp && mv package.json.tmp package.json
             echo "changed=true" >> $GITHUB_OUTPUT
           else
-            echo "package.json version is already up-to-date ($NEW_VERSION)"
+            echo "package.json version is up-to-date"
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
@@ -64,8 +58,10 @@ $/ba' release_notes.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json
+          # 如果存在 lock 文件也一并更新
+          if [ -f package-lock.json ]; then git add package-lock.json; fi
           git commit -m "chore: bump version to ${{ steps.extract.outputs.version }} [skip ci]"
-          git push origin HEAD:main
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: 检查 Tag 是否已存在
         id: check_tag
@@ -73,7 +69,6 @@ $/ba' release_notes.txt
           TAG="v${{ steps.extract.outputs.version }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists, skipping release creation."
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
@@ -86,7 +81,6 @@ $/ba' release_notes.txt
           name: v${{ steps.extract.outputs.version }}
           body_path: release_notes.txt
           draft: false
-          # 如果版本号包含 next/rc/beta，则标记为预发布
           prerelease: ${{ contains(steps.extract.outputs.version, 'next') || contains(steps.extract.outputs.version, 'rc') || contains(steps.extract.outputs.version, 'beta') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
