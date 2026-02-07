@@ -12,10 +12,9 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "**/*.ts?(x)": [
+    "**/*.{ts,tsx,js,jsx,mjs}": [
+      "eslint --fix",
+      "bash -c 'npm run lint'",
       "bash -c 'npm run type-check'"
     ]
   },
