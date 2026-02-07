@@ -24,7 +24,8 @@ class ConfigManager {
 
     // 3. Strict Mode Check (if DATABASE_URL is set as env, maybe we don't fallback to other envs?)
     // In the original code: if os.getenv("DATABASE_URL"): return default
-    if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sqlite')) {
+    const isSqlite = process.env.DATABASE_URL?.startsWith('file:') || process.env.DATABASE_URL?.includes('sqlite');
+    if (process.env.DATABASE_URL && !isSqlite) {
         return defaultValue;
     }
 

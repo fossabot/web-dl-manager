@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Load .env if it exists
+if [ -f .env ]; then
+    echo "Loading environment variables from .env"
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # --- Static Site Cloning (Camouflage) ---
 STATIC_SITE_GIT_URL=${STATIC_SITE_GIT_URL:-"https://github.com/Jyf0214/upgraded-doodle.git"}
 STATIC_SITE_GIT_BRANCH=${STATIC_SITE_GIT_BRANCH:-"gh-pages"}
@@ -18,10 +24,34 @@ if [ -n "$STATIC_SITE_GIT_URL" ]; then
     fi
 fi
 
-# Run Prisma migrations if using SQLite
-if [[ "$DATABASE_URL" == *"file:"* ]]; then
-    echo "Running Prisma db push..."
-    npx prisma db push
+# --- Prisma Setup ---
+if [ -n "$DATABASE_URL" ]; then
+    echo "Detecting database provider from DATABASE_URL..."
+    if [[ "$DATABASE_URL" == "mysql://"* ]]; then
+        PROVIDER="mysql"
+    elif [[ "$DATABASE_URL" == "postgres://"* ]] || [[ "$DATABASE_URL" == "postgresql://"* ]]; then
+        PROVIDER="postgresql"
+    elif [[ "$DATABASE_URL" == "file:"* ]] || [[ "$DATABASE_URL" == *"sqlite"* ]]; then
+        PROVIDER="sqlite"
+        # Ensure SQLite URL starts with file:
+        if [[ "$DATABASE_URL" != "file:"* ]]; then
+            export DATABASE_URL="file:$DATABASE_URL"
+        fi
+    else
+        PROVIDER="sqlite" # Default
+    fi
+    
+    echo "Setting Prisma provider to $PROVIDER"
+    sed -i "s/provider = \"sqlite\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
+    sed -i "s/provider = \"mysql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
+    sed -i "s/provider = \"postgresql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
+    
+    npx prisma generate
+    
+    if [ "$PROVIDER" == "sqlite" ]; then
+        echo "Running Prisma db push for SQLite..."
+        npx prisma db push --skip-generate
+    fi
 fi
 
 # Start Camouflage Server in background
