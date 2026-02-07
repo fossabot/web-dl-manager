@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import NavbarWrapper from "@/components/NavbarWrapper";
 import StyledComponentsRegistry from "@/lib/AntdRegistry";
 import { ConfigProvider, theme } from 'antd';
+import ClientLayout from "@/components/ClientLayout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,10 +54,7 @@ export default function RootLayout({
               },
             }}
           >
-            <div className="flex min-h-screen">
-              <NavbarWrapper />
-              <main className="flex-1 ml-[64px]">{children}</main>
-            </div>
+            <ClientLayout>{children}</ClientLayout>
           </ConfigProvider>
         </StyledComponentsRegistry>
       </body>
