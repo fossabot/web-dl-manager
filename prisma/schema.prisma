@@ -22,7 +22,7 @@ model User {
 
 model Config {
   id        Int      @id @default(autoincrement())
-  keyName   String   @unique @default(cuid())
+  keyName   String?  @unique @default(cuid())
   keyValue  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
