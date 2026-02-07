@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
+// PrismaClient is attached to the `global` object in development to prevent
+// exhausting your database connection limit.
+// It ensures that only one instance of PrismaClient is used throughout the app.
+// This is especially important during Next.js hot reloading in development.
 const prismaClientSingleton = () => {
   return new PrismaClient();
 };

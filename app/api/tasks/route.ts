@@ -48,6 +48,12 @@ export async function POST(request: Request) {
   const splitCompression = formData.get('split_compression') === 'true';
   const splitSize = parseInt(formData.get('split_size') as string) || 1000;
 
+  // Site Specific Options
+  const kemonoPosts = formData.get('kemono_posts') ? parseInt(formData.get('kemono_posts') as string) : undefined;
+  const kemonoRevisions = formData.get('kemono_revisions') as string;
+  const kemonoPathTemplate = formData.get('kemono_path_template') as string;
+  const pixivUgoira = (formData.get('pixiv_ugoira') as string) || 'true';
+
   if (!url || !uploadService) {
     return NextResponse.json({ error: 'URL and Upload Service are required' }, { status: 400 });
   }
@@ -67,7 +73,17 @@ export async function POST(request: Request) {
       enable_compression: enableCompression,
       split_compression: splitCompression,
       split_size: splitSize,
-      createdBy: user.username
+      createdBy: user.username,
+      kemono_posts: kemonoPosts,
+      kemono_revisions: kemonoRevisions,
+      kemono_path_template: kemonoPathTemplate,
+      pixiv_ugoira: pixivUgoira,
+      cookies: formData.get('cookies') as string,
+      gofile_token: formData.get('gofile_token') as string,
+      gofile_folder_id: formData.get('gofile_folder_id') as string,
+      openlist_url: formData.get('openlist_url') as string,
+      openlist_user: formData.get('openlist_user') as string,
+      openlist_pass: formData.get('openlist_pass') as string,
     };
 
     updateTaskStatus(taskId, {

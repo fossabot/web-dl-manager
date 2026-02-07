@@ -1,11 +1,14 @@
 # Stage 1: Build Next.js App
 FROM node:22-alpine AS builder
 
-# Install system dependencies required for build tools (if any)
-# Example: If you need 'git' or 'build-essential' for certain npm packages, add them here.
-# RUN apk add --no-cache git build-base
+# Install system dependencies required for build tools
+RUN apk add --no-cache wget curl
 
 WORKDIR /app
+
+# Download cloudflared for Alpine (musl compatible)
+RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json* ./
@@ -15,8 +18,8 @@ RUN npm ci
 COPY . .
 
 # Set env vars for build
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the Next.js application
 RUN npm run build
@@ -26,26 +29,37 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Install runtime system dependencies if needed
-# RUN apk add --no-cache some-runtime-dependency
+# Install runtime system dependencies
+RUN apk add --no-cache git bash
+
+# Create necessary directories for the app to function and ensure they are owned by node
+RUN mkdir -p data/archives data/downloads data/status logs && \
+    chown -R node:node /app
 
 # Copy built application from builder stage
-# Standalone output includes server.js, .next directory and static files
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone /app/
+COPY --from=builder --chown=node:node /app/.next/static /app/.next/static
+COPY --from=builder --chown=node:node /app/public /app/public
+COPY --from=builder --chown=node:node /app/node_modules /app/node_modules
+COPY --from=builder --chown=node:node /app/lib /app/lib
+COPY --from=builder --chown=node:node /app/entrypoint.sh /app/entrypoint.sh
+COPY --from=builder --chown=node:node /app/camouflage-server.mjs /app/camouflage-server.mjs
+COPY --from=builder --chown=node:node /app/package.json /app/package.json
+COPY --from=builder --chown=node:node /app/prisma /app/prisma
+COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Ensure correct permissions
-RUN chown -R nextjs:nodejs /app
+RUN chmod +x /app/entrypoint.sh && \
+    chown -R node:node /app
 
-USER nextjs
+USER node
 
-EXPOSE 3000
+EXPOSE 5492 6275
 
 # Command to run the application
-CMD ["node", "server.js"]
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getTaskStatusPath } from '@/lib/tasks';
+import { getTaskStatusPath, killTask, pauseTask, resumeTask, retryTask } from '@/lib/tasks';
 import { STATUS_DIR } from '@/lib/constants';
 import fs from 'fs';
 import path from 'path';
@@ -40,6 +40,33 @@ export async function GET(
     downloadLog,
     uploadLog,
   });
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ taskId: string }> }
+) {
+  const { taskId } = await params;
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { action } = await request.json();
+
+  switch (action) {
+    case 'kill':
+      return NextResponse.json({ success: killTask(taskId) });
+    case 'pause':
+      return NextResponse.json({ success: pauseTask(taskId) });
+    case 'resume':
+      return NextResponse.json({ success: resumeTask(taskId) });
+    case 'retry':
+      const newId = await retryTask(taskId, user.username);
+      return NextResponse.json({ success: !!newId, newTaskId: newId });
+    default:
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+  }
 }
 
 export async function DELETE(

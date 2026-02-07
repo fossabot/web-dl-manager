@@ -172,8 +172,8 @@ export default function SettingsPage() {
                       <Button danger icon={<Trash2 size={16} />} className="rounded-lg">执行数据库维护</Button>
                     </Popconfirm>
                   </Card>
-                  <Card title="Redis 记录" className="bg-slate-900/50 border-slate-800">
-                    <Form.Item label="Redis URL" name="REDIS_URL" extra="用于分布式任务状态同步（可选）">
+                  <Card title="数据库配置" className="bg-slate-900/50 border-slate-800">
+                    <Form.Item label="Redis URL" name="REDIS_URL" extra="仅用于向后兼容。建议使用 DATABASE_URL 配置 Redis。支持格式: redis://[password@]host:port[/db]">
                       <Input placeholder="redis://default:password@host:port" className="bg-black border-slate-700 rounded-lg" />
                     </Form.Item>
                   </Card>

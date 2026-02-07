@@ -1,0 +1,86 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+      - next
+    paths:
+      - 'CHANGELOG.md'
+
+jobs:
+  release:
+    name: 自动化版本发布
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 提取版本号与日志
+        id: extract
+        run: |
+          # 1. 提取最新版本号
+          VERSION=$(grep -m1 '## \[' CHANGELOG.md | sed -E 's/## \[([^]]+)\].*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # 2. 提取 Release Notes 并清理首尾空行 (使用 python 处理更安全)
+          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > raw_notes.txt
+          python3 -c "import sys; print(sys.stdin.read().strip())" < raw_notes.txt > release_notes.txt
+          
+          if [ ! -s release_notes.txt ]; then
+            echo "No notes found." > release_notes.txt
+          fi
+
+      - name: 同步版本号到 package.json
+        id: sync
+        run: |
+          CURRENT_PKG_VERSION=$(jq -r .version package.json)
+          NEW_VERSION="${{ steps.extract.outputs.version }}"
+          
+          if [ "$CURRENT_PKG_VERSION" != "$NEW_VERSION" ]; then
+            echo "Updating package.json: $CURRENT_PKG_VERSION -> $NEW_VERSION"
+            # 使用 jq --arg 安全传参
+            jq --arg ver "$NEW_VERSION" '.version = $ver' package.json > package.json.tmp && mv package.json.tmp package.json
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "package.json version is up-to-date"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 提交并推送版本变更
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          # 如果存在 lock 文件也一并更新
+          if [ -f package-lock.json ]; then git add package-lock.json; fi
+          git commit -m "chore: bump version to ${{ steps.extract.outputs.version }} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: 检查 Tag 是否已存在
+        id: check_tag
+        run: |
+          TAG="v${{ steps.extract.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 创建 GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.extract.outputs.version }}
+          name: v${{ steps.extract.outputs.version }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: ${{ contains(steps.extract.outputs.version, 'next') || contains(steps.extract.outputs.version, 'rc') || contains(steps.extract.outputs.version, 'beta') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

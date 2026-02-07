@@ -17,12 +17,25 @@ export async function startTunnel() {
     return;
   }
 
-  logger.info('Starting Cloudflare Tunnel...');
+  logger.info('Starting Cloudflare Tunnel pointing to Main App (port 6275)...');
   
+  const isHuggingFace = !!process.env.SPACE_ID || !!process.env.HF_HOME;
+
+  // Start tunnel with token only (managed via Cloudflare Dashboard)
   tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token], {
-    stdio: 'ignore',
+    stdio: isHuggingFace ? 'ignore' : 'pipe',
     detached: true,
   });
+
+  if (!isHuggingFace) {
+    tunnelProcess.stdout?.on('data', (data) => {
+      logger.info(`[Tunnel STDOUT] ${data.toString().trim()}`);
+    });
+
+    tunnelProcess.stderr?.on('data', (data) => {
+      logger.warn(`[Tunnel STDERR] ${data.toString().trim()}`);
+    });
+  }
 
   tunnelProcess.unref();
 

@@ -38,12 +38,6 @@ jobs:
       - name: Run Type Check
         run: npm run type-check
 
-      - name: Verify Production Build
-        run: npm run build
-        env:
-          # Build time env vars if needed
-          NEXT_TELEMETRY_DISABLED: 1
-
   # Job 2: Docker Build & Push (only after audit passes)
   build-and-push:
     name: Build & Push to GHCR
@@ -77,8 +71,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          no-cache: true
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  

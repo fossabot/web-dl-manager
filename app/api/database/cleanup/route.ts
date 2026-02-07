@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { dbConfig } from '@/lib/config';
 
 const KNOWN_CONFIG_KEYS = new Set([
-  "REDIS_URL",
+  "REDIS_URL",  // Legacy support only, use DATABASE_URL for redis:// URLs instead
   "WDM_CONFIG_BACKUP_RCLONE_BASE64",
   "WDM_CONFIG_BACKUP_REMOTE_PATH",
   "WDM_CUSTOM_SYNC_ENABLED",
@@ -51,7 +51,7 @@ export async function POST() {
     let deletedCount = 0;
 
     for (const config of allConfigs) {
-      if (!KNOWN_CONFIG_KEYS.has(config.keyName)) {
+      if (config.keyName === null || !KNOWN_CONFIG_KEYS.has(config.keyName)) {
         await prisma.config.delete({ where: { id: config.id } });
         deletedCount++;
       }

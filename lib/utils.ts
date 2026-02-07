@@ -2,6 +2,40 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import os from 'os';
+import si from 'systeminformation';
+
+let lastNetStats: { time: number; rx: number; tx: number } | null = null;
+
+export async function getNetSpeed() {
+  const stats = await si.networkStats();
+  const now = Date.now();
+  
+  // Sum up all interfaces
+  let currentRx = 0;
+  let currentTx = 0;
+  stats.forEach(s => {
+    currentRx += s.rx_bytes;
+    currentTx += s.tx_bytes;
+  });
+
+  if (!lastNetStats) {
+    lastNetStats = { time: now, rx: currentRx, tx: currentTx };
+    return { rx: 0, tx: 0 };
+  }
+
+  const interval = (now - lastNetStats.time) / 1000;
+  if (interval <= 0) return { rx: 0, tx: 0 };
+
+  const rxSpeed = (currentRx - lastNetStats.rx) / interval;
+  const txSpeed = (currentTx - lastNetStats.tx) / interval;
+
+  lastNetStats = { time: now, rx: currentRx, tx: currentTx };
+
+  return {
+    rx: Math.max(0, rxSpeed),
+    tx: Math.max(0, txSpeed)
+  };
+}
 
 export function createNetscapeCookies(cookiesStr: string): string {
   const tempPath = path.join(os.tmpdir(), `cookies_${Date.now()}.txt`);
@@ -45,6 +79,7 @@ export async function getWorkingProxy(logCallback?: (msg: string) => void): Prom
   return null;
 }
 
+// Helper functions and utilities for the application
 export function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;

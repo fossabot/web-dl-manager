@@ -11,8 +11,10 @@ export async function GET() {
 
   const configs = await prisma.config.findMany();
   const configMap: Record<string, string | null> = {};
-  configs.forEach(c => {
-    configMap[c.keyName] = c.keyValue;
+  configs.forEach((c) => {
+    if (c.keyName) {
+      configMap[c.keyName] = c.keyValue;
+    }
   });
 
   return NextResponse.json(configMap);
