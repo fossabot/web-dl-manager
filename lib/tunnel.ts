@@ -21,8 +21,8 @@ export async function startTunnel() {
   
   const isHuggingFace = !!process.env.SPACE_ID || !!process.env.HF_HOME;
 
-  // Point to the main app port 6275
-  tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token, '--url', 'http://localhost:6275'], {
+  // Start tunnel with token only (managed via Cloudflare Dashboard)
+  tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token], {
     stdio: isHuggingFace ? 'ignore' : 'pipe',
     detached: true,
   });
