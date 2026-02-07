@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Table, Tag, Space, Button, Typography, Card, message, Popconfirm, Tooltip } from 'antd';
-import { ListTodo, Trash2, Eye, RefreshCw, ChevronLeft, Filter } from 'lucide-react';
+import { ListTodo, Trash2, Eye, RefreshCw, ChevronLeft, Filter, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-
-const { Title } = Typography;
 
 interface Task {
   id: string;
@@ -19,6 +16,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fetchTasks = async () => {
     try {
@@ -44,194 +42,228 @@ export default function TasksPage() {
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
       if (res.ok) {
-        message.success('任务已删除');
-        fetchTasks();
+        setTasks(tasks.filter(t => t.id !== taskId));
+        setDeleteConfirm(null);
       }
     } catch {
-      message.error('删除任务失败');
+      console.error('删除任务失败');
     }
   };
 
-  const getStatusTag = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'completed': return <Tag color="success">已完成</Tag>;
-      case 'failed': return <Tag color="error">失败</Tag>;
-      case 'running': return <Tag color="processing" icon={<RefreshCw size={12} className="animate-spin" />}>运行中</Tag>;
-      case 'queued': return <Tag color="default">队列中</Tag>;
-      case 'compressing': return <Tag color="warning">压缩中</Tag>;
-      case 'uploading': return <Tag color="geekblue">上传中</Tag>;
-      default: return <Tag>{status}</Tag>;
+      case 'completed': return 'bg-green-900/30 text-green-400 border-green-700/50';
+      case 'failed': return 'bg-red-900/30 text-red-400 border-red-700/50';
+      case 'running': return 'bg-blue-900/30 text-blue-400 border-blue-700/50';
+      case 'queued': return 'bg-slate-700/30 text-slate-300 border-slate-600/50';
+      case 'compressing': return 'bg-yellow-900/30 text-yellow-400 border-yellow-700/50';
+      case 'uploading': return 'bg-cyan-900/30 text-cyan-400 border-cyan-700/50';
+      default: return 'bg-slate-700/30 text-slate-300 border-slate-600/50';
     }
   };
 
-  // Get unique statuses for filter
-  const uniqueStatuses = Array.from(new Set(tasks.map(t => t.status)));
-  const statusStats = uniqueStatuses.map(status => ({
-    status,
-    count: tasks.filter(t => t.status === status).length,
-    label: getStatusTag(status)
-  }));
+  const getStatusLabel = (status: string): string => {
+    switch (status) {
+      case 'completed': return '已完成';
+      case 'failed': return '失败';
+      case 'running': return '运行中';
+      case 'queued': return '队列中';
+      case 'compressing': return '压缩中';
+      case 'uploading': return '上传中';
+      default: return status;
+    }
+  };
 
-  // Filter tasks based on selected status
+  const uniqueStatuses = Array.from(new Set(tasks.map(t => t.status)));
   const filteredTasks = statusFilter 
     ? tasks.filter(t => t.status === statusFilter)
     : tasks;
 
-  const columns = [
-    {
-      title: '任务 ID',
-      dataIndex: 'id',
-      key: 'id',
-      render: (id: string) => <code className="text-xs text-slate-500">{id.slice(0, 8)}...</code>,
-      width: 120,
-    },
-    {
-      title: '目标 URL',
-      dataIndex: 'url',
-      key: 'url',
-      ellipsis: true,
-      render: (url: string) => (
-        <Tooltip title={url}>
-          <span className="text-sm">{url}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => getStatusTag(status),
-      width: 120,
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date: string) => <span className="text-xs text-slate-500">{new Date(date).toLocaleString()}</span>,
-      width: 180,
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: (_: unknown, record: Task) => (
-        <Space size="middle">
-          <Link href={`/status/${record.id}`}>
-            <Button size="small" type="text" icon={<Eye size={14} />}>详情</Button>
-          </Link>
-          <Popconfirm
-            title="确定要删除此任务吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button size="small" type="text" danger icon={<Trash2 size={14} />}>删除</Button>
-          </Popconfirm>
-        </Space>
-      ),
-      width: 160,
-    },
-  ];
-
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12">
-      <div className="flex justify-between items-center mb-8">
-        <Title level={2} className="flex items-center m-0">
-          <ListTodo className="mr-3 text-blue-500" /> 任务列表
-        </Title>
-        <div className="flex gap-4 items-center">
-          {/* Toggle Sidebar Button */}
-          <Tooltip title={sidebarVisible ? '收起列表' : '展开列表'}>
-            <Button
-              type="text"
-              icon={<ChevronLeft size={18} className={`transition-transform ${!sidebarVisible ? 'rotate-180' : ''}`} />}
-              onClick={() => setSidebarVisible(!sidebarVisible)}
-              className="h-10 w-10 p-0"
-            />
-          </Tooltip>
-          <Link href="/">
-            <Button type="primary" shape="round">新建任务</Button>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <h1 className="flex items-center text-2xl md:text-3xl font-bold gap-2">
+          <ListTodo className="text-blue-500" size={28} /> 任务列表
+        </h1>
+        <div className="flex gap-2 items-center w-full sm:w-auto">
+          <button
+            onClick={() => setSidebarVisible(!sidebarVisible)}
+            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-300 hover:text-white md:hidden"
+            title={sidebarVisible ? '收起侧栏' : '展开侧栏'}
+          >
+            <ChevronLeft size={18} className={`transition-transform ${!sidebarVisible ? 'rotate-180' : ''}`} />
+          </button>
+          <Link href="/" className="flex-1 sm:flex-none">
+            <button className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+              新建任务
+            </button>
           </Link>
         </div>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Left Sidebar */}
         <div className={`transition-all duration-300 ${
-          sidebarVisible ? 'w-56 opacity-100' : 'w-0 opacity-0 overflow-hidden'
+          sidebarVisible ? 'md:w-56 opacity-100 order-2 md:order-1' : 'md:w-0 md:opacity-0 md:overflow-hidden hidden md:block'
         }`}>
-          <Card 
-            className="bg-slate-900/50 border-slate-800 sticky top-24 h-fit"
-            styles={{ body: { padding: '16px' } }}
-          >
+          <div className="card-elevated sticky top-24 h-fit p-4">
             <div className="mb-4 flex items-center gap-2">
               <Filter size={16} className="text-blue-500" />
               <span className="font-semibold text-sm">任务统计</span>
             </div>
             
-            <div className="space-y-2 mb-6">
-              {/* Total Count */}
+            <div className="space-y-2 mb-4">
               <div 
                 onClick={() => setStatusFilter(null)}
-                className={`p-3 rounded-lg cursor-pointer transition-all ${
+                className={`p-3 rounded-lg cursor-pointer transition-all text-sm ${
                   statusFilter === null
                     ? 'bg-blue-600/20 border border-blue-600 text-blue-400'
-                    : 'bg-slate-800/50 hover:bg-slate-700/50 text-slate-300'
+                    : 'bg-slate-700/30 hover:bg-slate-700/50 text-slate-300'
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">全部</span>
-                  <span className="text-lg font-bold">{tasks.length}</span>
+                  <span className="font-medium">全部</span>
+                  <span className="font-bold">{tasks.length}</span>
                 </div>
               </div>
 
-              {/* Status Filters */}
-              {statusStats.map(({ status, count }) => (
-                <div
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all ${
-                    statusFilter === status
-                      ? 'bg-blue-600/20 border border-blue-600'
-                      : 'bg-slate-800/50 hover:bg-slate-700/50'
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">{getStatusTag(status)}</span>
-                    <span className={`font-bold ${statusFilter === status ? 'text-blue-400' : 'text-slate-400'}`}>
-                      {count}
-                    </span>
+              {uniqueStatuses.map((status) => {
+                const count = tasks.filter(t => t.status === status).length;
+                return (
+                  <div
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all text-sm ${
+                      statusFilter === status
+                        ? 'bg-blue-600/20 border border-blue-600'
+                        : 'bg-slate-700/30 hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded border text-xs font-medium ${getStatusColor(status)}`}>
+                          {getStatusLabel(status)}
+                        </span>
+                      </span>
+                      <span className={`font-bold ${statusFilter === status ? 'text-blue-400' : 'text-slate-400'}`}>
+                        {count}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Clear Filter Button */}
             {statusFilter && (
-              <Button 
-                type="text" 
-                size="small" 
-                block
+              <button 
                 onClick={() => setStatusFilter(null)}
-                className="text-xs h-8"
+                className="w-full text-xs py-2 text-slate-300 hover:text-white transition-colors"
               >
                 清除过滤
-              </Button>
+              </button>
             )}
-          </Card>
+          </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
-          <Card className="shadow-sm border-slate-800" styles={{ body: { padding: 0 } }}>
-            <Table
-              columns={columns}
-              dataSource={filteredTasks}
-              rowKey="id"
-              loading={loading}
-              pagination={{ pageSize: 10 }}
-              className="ant-table-custom"
-            />
-          </Card>
+        <div className="flex-1 order-1 md:order-2">
+          <div className="card-elevated overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="animate-spin text-blue-500" size={32} />
+              </div>
+            ) : (
+              <>
+                {filteredTasks.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-slate-400">暂无任务</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-900/50 border-b border-slate-700/50">
+                      <th className="text-left px-4 py-3 text-sm font-semibold text-slate-300">任务 ID</th>
+                      <th className="text-left px-4 py-3 text-sm font-semibold text-slate-300">目标 URL</th>
+                      <th className="text-left px-4 py-3 text-sm font-semibold text-slate-300">状态</th>
+                      <th className="text-left px-4 py-3 text-sm font-semibold text-slate-300">创建时间</th>
+                      <th className="text-center px-4 py-3 text-sm font-semibold text-slate-300">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTasks.map((task) => (
+                      <tr key={task.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                        <td className="px-4 py-3">
+                          <code className="text-xs text-slate-500 bg-slate-700/30 px-2 py-1 rounded">
+                            {task.id.slice(0, 8)}...
+                          </code>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-300 truncate block max-w-xs" title={task.url}>
+                            {task.url}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {task.status === 'running' && (
+                              <RefreshCw size={12} className="animate-spin text-blue-400" />
+                            )}
+                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(task.status)}`}>
+                              {getStatusLabel(task.status)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-slate-500">
+                            {new Date(task.createdAt).toLocaleString('zh-CN')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <Link href={`/status/${task.id}`}>
+                              <button className="p-1.5 hover:bg-slate-600/50 rounded transition-colors text-slate-300 hover:text-white" title="查看详情">
+                                <Eye size={16} />
+                              </button>
+                            </Link>
+                            <div className="relative group">
+                              <button 
+                                onClick={() => setDeleteConfirm(deleteConfirm === task.id ? null : task.id)}
+                                className="p-1.5 hover:bg-red-600/20 rounded transition-colors text-red-400 hover:text-red-300"
+                                title="删除任务"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              {deleteConfirm === task.id && (
+                                <div className="absolute right-0 top-full mt-1 z-10 bg-slate-800 border border-slate-700 rounded-lg shadow-lg p-2">
+                                  <p className="text-xs text-slate-300 mb-2 whitespace-nowrap">确定删除？</p>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleDelete(task.id)}
+                                      className="px-2 py-1 bg-red-600/50 hover:bg-red-600 text-white text-xs rounded transition-colors"
+                                    >
+                                      删除
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirm(null)}
+                                      className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded transition-colors"
+                                    >
+                                      取消
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
