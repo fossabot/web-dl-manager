@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { message } from 'antd';
-import { Activity, BarChart3, Zap, RefreshCw, Loader } from 'lucide-react';
+import { Card, Statistic, Button, Space, Table, Row, Col, Progress, Spin, message, Tag } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 
 interface Task {
   id: string;
   url: string;
   status: string;
   createdAt: string;
+}
+
+interface TaskTableData extends Task {
+  key: string;
 }
 
 interface SystemStats {
@@ -18,18 +22,46 @@ interface SystemStats {
   failedTasks: number;
 }
 
+interface SystemInfo {
+  system: {
+    platform: string;
+    arch: string;
+    uptime: number;
+  };
+  cpu: {
+    cores: number;
+    model: string;
+    speed: number;
+    usage: number;
+    loadAverage: {
+      oneMinute: number;
+      fiveMinutes: number;
+      fifteenMinutes: number;
+    };
+  };
+  memory: {
+    total: number;
+    used: number;
+    free: number;
+    percentage: number;
+  };
+  timestamp: string;
+}
+
 export default function StatusPage() {
   const [stats, setStats] = useState<SystemStats | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [tasks, setTasks] = useState<TaskTableData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     setLoading(true);
     try {
+      // 获取任务数据
       const tasksRes = await fetch('/api/tasks');
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
-        setTasks(tasksData);
+        setTasks(tasksData.map((t: Task) => ({ ...t, key: t.id })));
 
         const totalTasks = tasksData.length;
         const completedTasks = tasksData.filter((t: Task) => t.status === 'completed').length;
@@ -43,6 +75,13 @@ export default function StatusPage() {
           failedTasks,
         });
       }
+
+      // 获取系统信息
+      const sysRes = await fetch('/api/system-info');
+      if (sysRes.ok) {
+        const sysData = await sysRes.json();
+        setSystemInfo(sysData);
+      }
     } catch (err) {
       console.error('Failed to fetch system status:', err);
       message.error('无法获取系统状态');
@@ -54,23 +93,25 @@ export default function StatusPage() {
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     const colors: Record<string, string> = {
-      downloading: '#f59e0b',
-      completed: '#22c55e',
-      failed: '#ef4444',
-      queued: '#64748b',
-      paused: '#f59e0b',
-      compressing: '#3b82f6',
-      uploading: '#3b82f6',
+      downloading: 'processing',
+      completed: 'success',
+      failed: 'error',
+      queued: 'default',
+      paused: 'warning',
+      compressing: 'processing',
+      uploading: 'processing',
     };
-    return colors[status] || '#64748b';
+    return colors[status] || 'default';
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
       downloading: '下载中',
       completed: '已完成',
@@ -83,137 +124,194 @@ export default function StatusPage() {
     return labels[status] || status;
   };
 
-  if (loading && !stats) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <Loader size={48} className="text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">加载系统状态中...</p>
-        </div>
-      </div>
-    );
-  }
+  const formatUptime = (seconds: number): string => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${days}天 ${hours}小时 ${minutes}分钟`;
+  };
+
+  const getMemoryStatus = (percentage: number): 'success' | 'normal' | 'exception' => {
+    if (percentage > 80) {
+      return 'exception';
+    }
+    if (percentage > 60) {
+      return 'normal';
+    }
+    return 'success';
+  };
+
+  const columns = [
+    {
+      title: 'URL',
+      dataIndex: 'url',
+      key: 'url',
+      ellipsis: true,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string) => <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>,
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 180,
+      render: (date: string) => new Date(date).toLocaleString('zh-CN'),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="container-responsive max-w-7xl mx-auto pt-8 pb-20 md:pt-12 md:pb-12">
-        {/* 标题区 */}
-        <div className="flex items-center justify-between mb-12 flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <Activity size={32} className="text-blue-600" />
-            <h1 className="text-3xl md:text-4xl font-bold text-white">系统状态</h1>
-          </div>
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50"
-          >
-            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-            刷新
-          </button>
-        </div>
+    <div style={{ padding: '24px' }}>
+      <Spin spinning={loading}>
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          {/* 任务统计 */}
+          <Row gutter={16}>
+            <Col xs={12} sm={6}>
+              <Card>
+                <Statistic title="总任务数" value={stats?.totalTasks || 0} />
+              </Card>
+            </Col>
+            <Col xs={12} sm={6}>
+              <Card>
+                <Statistic
+                  title="已完成"
+                  value={stats?.completedTasks || 0}
+                  valueStyle={{ color: '#52c41a' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={6}>
+              <Card>
+                <Statistic
+                  title="运行中"
+                  value={stats?.runningTasks || 0}
+                  valueStyle={{ color: '#1677ff' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={6}>
+              <Card>
+                <Statistic
+                  title="失败"
+                  value={stats?.failedTasks || 0}
+                  valueStyle={{ color: '#ff4d4f' }}
+                />
+              </Card>
+            </Col>
+          </Row>
 
-        {/* 统计卡片网格 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12">
-          {/* 总任务数 */}
-          <div className="card-elevated p-4 md:p-6 text-center hover:shadow-lg transition-shadow">
-            <div className="text-slate-400 text-xs md:text-sm mb-2 flex items-center justify-center gap-1">
-              <BarChart3 size={16} />
-              <span>总任务数</span>
-            </div>
-            <div className="text-3xl md:text-4xl font-bold text-white">
-              {stats?.totalTasks || 0}
-            </div>
-          </div>
+          {/* 系统信息 */}
+          {systemInfo && (
+            <Row gutter={16}>
+              {/* CPU 信息 */}
+              <Col xs={24} sm={12} md={8}>
+                <Card title="CPU 信息" size="small">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <div>
+                      <span>核心数: </span>
+                      <strong>{systemInfo.cpu.cores}</strong>
+                    </div>
+                    <div>
+                      <span>频率: </span>
+                      <strong>{systemInfo.cpu.speed} MHz</strong>
+                    </div>
+                    <div>
+                      <span>1min 负载: </span>
+                      <strong>{systemInfo.cpu.loadAverage.oneMinute.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>5min 负载: </span>
+                      <strong>{systemInfo.cpu.loadAverage.fiveMinutes.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>15min 负载: </span>
+                      <strong>{systemInfo.cpu.loadAverage.fifteenMinutes.toFixed(2)}</strong>
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
 
-          {/* 已完成 */}
-          <div className="card-elevated p-4 md:p-6 text-center border border-green-500/30 hover:shadow-lg transition-shadow">
-            <div className="text-green-400 text-xs md:text-sm mb-2 flex items-center justify-center gap-1">
-              <Activity size={16} />
-              <span>已完成</span>
-            </div>
-            <div className="text-3xl md:text-4xl font-bold text-green-400">
-              {stats?.completedTasks || 0}
-            </div>
-          </div>
+              {/* 内存信息 */}
+              <Col xs={24} sm={12} md={8}>
+                <Card title="内存信息" size="small">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <div>
+                      <span>总内存: </span>
+                      <strong>{systemInfo.memory.total} MB</strong>
+                    </div>
+                    <div>
+                      <span>已用: </span>
+                      <strong>{systemInfo.memory.used} MB</strong>
+                    </div>
+                    <div>
+                      <span>空闲: </span>
+                      <strong>{systemInfo.memory.free} MB</strong>
+                    </div>
+                    <div>
+                      <span>使用率: </span>
+                      <strong>{systemInfo.memory.percentage}%</strong>
+                    </div>
+                    <Progress
+                      percent={systemInfo.memory.percentage}
+                      status={getMemoryStatus(systemInfo.memory.percentage)}
+                    />
+                  </Space>
+                </Card>
+              </Col>
 
-          {/* 运行中 */}
-          <div className="card-elevated p-4 md:p-6 text-center border border-yellow-500/30 hover:shadow-lg transition-shadow">
-            <div className="text-yellow-400 text-xs md:text-sm mb-2 flex items-center justify-center gap-1">
-              <Zap size={16} />
-              <span>运行中</span>
-            </div>
-            <div className="text-3xl md:text-4xl font-bold text-yellow-400">
-              {stats?.runningTasks || 0}
-            </div>
-          </div>
-
-          {/* 失败 */}
-          <div className="card-elevated p-4 md:p-6 text-center border border-red-500/30 hover:shadow-lg transition-shadow">
-            <div className="text-red-400 text-xs md:text-sm mb-2 flex items-center justify-center gap-1">
-              <Activity size={16} />
-              <span>失败</span>
-            </div>
-            <div className="text-3xl md:text-4xl font-bold text-red-400">
-              {stats?.failedTasks || 0}
-            </div>
-          </div>
-        </div>
-
-        {/* 任务列表 */}
-        <div className="card-elevated p-4 md:p-6">
-          <h2 className="text-xl md:text-2xl font-semibold text-white mb-6">近期任务</h2>
-
-          {tasks.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-slate-400">暂无任务</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm md:text-base">
-                <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="text-left py-3 px-3 md:px-4 text-slate-300 font-semibold">URL</th>
-                    <th className="text-left py-3 px-3 md:px-4 text-slate-300 font-semibold">状态</th>
-                    <th className="text-left py-3 px-3 md:px-4 text-slate-300 font-semibold">创建时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.slice(0, 10).map((task) => (
-                    <tr
-                      key={task.id}
-                      className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="py-3 px-3 md:px-4 text-slate-300 truncate max-w-xs md:max-w-sm lg:max-w-xl">
-                        <span title={task.url}>{task.url}</span>
-                      </td>
-                      <td className="py-3 px-3 md:px-4">
-                        <span
-                          className="inline-block px-3 py-1 rounded-full text-xs font-medium"
-                          style={{
-                            backgroundColor: `${getStatusColor(task.status)}20`,
-                            color: getStatusColor(task.status),
-                          }}
-                        >
-                          {getStatusLabel(task.status)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 md:px-4 text-slate-400 whitespace-nowrap">
-                        {new Date(task.createdAt).toLocaleString('zh-CN', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              {/* 系统信息 */}
+              <Col xs={24} sm={12} md={8}>
+                <Card title="系统信息" size="small">
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <div>
+                      <span>平台: </span>
+                      <strong>{systemInfo.system.platform}</strong>
+                    </div>
+                    <div>
+                      <span>架构: </span>
+                      <strong>{systemInfo.system.arch}</strong>
+                    </div>
+                    <div>
+                      <span>运行时间: </span>
+                      <strong>{formatUptime(systemInfo.system.uptime)}</strong>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+                      更新于: {new Date(systemInfo.timestamp).toLocaleString('zh-CN')}
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
           )}
-        </div>
-      </div>
+
+          {/* 任务列表 */}
+          <Card
+            title="近期任务"
+            extra={
+              <Button
+                type="primary"
+                icon={<ReloadOutlined />}
+                loading={loading}
+                onClick={fetchData}
+              >
+                刷新
+              </Button>
+            }
+          >
+            <Table
+              columns={columns}
+              dataSource={tasks.slice(0, 10)}
+              loading={loading}
+              pagination={false}
+              size="small"
+            />
+          </Card>
+        </Space>
+      </Spin>
     </div>
   );
 }

@@ -1,209 +1,216 @@
 'use client';
 
+import { Form, Input, Button, message, Space, Card, Select, Steps } from 'antd';
+import { DownloadOutlined, LinkOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import { message } from 'antd';
-import { Cloud, Download, Zap, ArrowRight } from 'lucide-react';
 
-export default function DownloaderPage() {
-  const [formData, setFormData] = useState({
-    downloader: 'gallery-dl',
-    url: '',
-    upload_service: '',
-    upload_path: '/downloads',
-    enable_compression: true,
-    split_compression: false,
-    split_size: 1000,
-  });
+interface FormValues {
+  url: string;
+  uploadService?: string;
+  priority?: string;
+}
+
+export const dynamic = 'force-dynamic';
+
+const getPriorityLabel = (priority?: string): string => {
+  if (priority === 'low') return '低';
+  if (priority === 'high') return '高';
+  return '普通';
+};
+
+export default function HomePage() {
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0);
+  const [formValues, setFormValues] = useState<FormValues>({ url: '' });
 
-  const handleChange = (field: string, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleNext = async (): Promise<void> => {
+    if (step === 0) {
+      form.validateFields(['url']).then(() => setStep(1));
+    } else if (step === 1) {
+      setStep(2);
+    }
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.url) {
-      message.error('请输入目标 URL');
-      return;
-    }
-    if (!formData.upload_service) {
-      message.error('请选择上传服务');
-      return;
-    }
+  const handlePrev = (): void => {
+    setStep(step - 1);
+  };
 
+  const handleSubmit = async (): Promise<void> => {
     setLoading(true);
-    const form = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      form.append(key, String(value));
-    });
-
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
-        body: form,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: formValues.url,
+          uploadService: formValues.uploadService && formValues.uploadService !== 'none' ? formValues.uploadService : undefined,
+          priority: formValues.priority || 'normal',
+        }),
       });
-      const data = await res.json();
+
       if (res.ok) {
-        message.success(`成功启动 ${data.taskIds.length} 个任务`);
-        setFormData(prev => ({ ...prev, url: '' }));
+        message.success('✅ 下载任务已创建');
+        form.resetFields();
+        setStep(0);
+        setFormValues({ url: '' });
       } else {
-        message.error(data.error || '任务启动失败');
+        message.error('❌ 创建任务失败');
       }
-    } catch {
-      message.error('请求发生错误');
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      message.error('❌ 请求失败');
     } finally {
       setLoading(false);
     }
   };
 
+  const steps = [
+    { title: '输入链接', description: '提供下载地址' },
+    { title: '配置选项', description: '设置优先级和上传' },
+    { title: '确认创建', description: '审核后创建任务' },
+  ];
+
+  const statusLabel = getPriorityLabel(formValues.priority);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="container-responsive max-w-6xl mx-auto pt-8 pb-20 md:pt-12 md:pb-12">
-        {/* 标题区 */}
-        <div className="mb-12 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Cloud size={32} className="text-blue-600" />
-            <h1 className="text-3xl md:text-4xl font-bold text-white">下载管理器</h1>
-          </div>
-          <p className="text-slate-400 text-sm md:text-base">从各种站点下载图片和视频，并自动备份至云存储</p>
-        </div>
+    <div style={{ padding: '24px' }}>
+      <Card
+        title={
+          <Space>
+            <DownloadOutlined style={{ fontSize: '24px' }} />
+            <span>创建下载任务</span>
+          </Space>
+        }
+        style={{ marginBottom: '24px' }}
+      >
+        <Steps current={step} items={steps} style={{ marginBottom: '32px' }} />
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          {/* Step 1: 下载设置 */}
-          <div className="card-elevated p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Download size={24} className="text-blue-600" />
-              <h2 className="text-xl font-semibold text-white">步骤 1：下载设置</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* 下载引擎选择 */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">下载引擎</label>
-                <select
-                  value={formData.downloader}
-                  onChange={(e) => handleChange('downloader', e.target.value)}
-                  className="input-base"
-                >
-                  <option value="gallery-dl">Gallery-DL</option>
-                  <option value="kemono-dl">Kemono-DL (Pro)</option>
-                  <option value="megadl">Mega-DL</option>
-                </select>
-              </div>
-
-              {/* URL 输入 */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-2">目标 URL (每行一个)</label>
-                <textarea
-                  value={formData.url}
-                  onChange={(e) => handleChange('url', e.target.value)}
-                  rows={5}
-                  placeholder="https://example.com/user/123"
-                  className="input-base font-mono text-sm resize-none"
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(_, values) => setFormValues(values as FormValues)}
+        >
+          {/* 步骤 0: 输入链接 */}
+          {step === 0 && (
+            <Space direction="vertical" style={{ width: '100%' }} size="large">
+              <Form.Item
+                label="下载链接"
+                name="url"
+                rules={[
+                  { required: true, message: '请输入下载链接' },
+                  {
+                    pattern: /^https?:\/\//,
+                    message: '请输入有效的 HTTP(S) 链接',
+                  },
+                ]}
+              >
+                <Input
+                  placeholder="https://example.com/file.zip"
+                  prefix={<LinkOutlined />}
+                  size="large"
                 />
-              </div>
-            </div>
-          </div>
+              </Form.Item>
 
-          {/* Step 2: 上传设置 */}
-          <div className="card-elevated p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Zap size={24} className="text-amber-600" />
-              <h2 className="text-xl font-semibold text-white">步骤 2：上传设置</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">目标服务</label>
-                <select
-                  value={formData.upload_service}
-                  onChange={(e) => handleChange('upload_service', e.target.value)}
-                  className="input-base"
+              <Form.Item>
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  onClick={handleNext}
+                  icon={<ArrowRightOutlined />}
                 >
-                  <option value="">选择存储服务</option>
-                  <option value="webdav">WebDAV</option>
-                  <option value="s3">S3 兼容存储</option>
-                  <option value="b2">Backblaze B2</option>
-                  <option value="gofile">Gofile.io</option>
-                  <option value="openlist">Openlist</option>
-                </select>
-              </div>
+                  下一步
+                </Button>
+              </Form.Item>
+            </Space>
+          )}
 
-              {formData.upload_service !== 'gofile' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">远程路径</label>
-                  <input
-                    type="text"
-                    value={formData.upload_path}
-                    onChange={(e) => handleChange('upload_path', e.target.value)}
-                    placeholder="/downloads/images"
-                    className="input-base"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          {/* 步骤 1: 配置选项 */}
+          {step === 1 && (
+            <Space direction="vertical" style={{ width: '100%' }} size="large">
+              <Form.Item label="优先级" name="priority" initialValue="normal">
+                <Select>
+                  <Select.Option value="low">低</Select.Option>
+                  <Select.Option value="normal">普通</Select.Option>
+                  <Select.Option value="high">高</Select.Option>
+                </Select>
+              </Form.Item>
 
-          {/* Step 3: 高级选项 */}
-          <div className="card-elevated p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Zap size={24} className="text-green-600" />
-              <h2 className="text-xl font-semibold text-white">步骤 3：高级选项</h2>
-            </div>
+              <Form.Item label="完成后上传到" name="uploadService" initialValue="none">
+                <Select>
+                  <Select.Option value="none">不上传</Select.Option>
+                  <Select.Option value="openlist">OpenList</Select.Option>
+                  <Select.Option value="gofile">Gofile</Select.Option>
+                </Select>
+              </Form.Item>
 
-            <div className="space-y-6">
-              {/* 开关选项 */}
-              <div className="flex flex-wrap gap-8">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.enable_compression}
-                    onChange={(e) => handleChange('enable_compression', e.target.checked)}
-                    className="w-5 h-5 rounded border-slate-600 text-blue-600"
-                  />
-                  <span className="text-slate-300">启用压缩</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.split_compression}
-                    onChange={(e) => handleChange('split_compression', e.target.checked)}
-                    className="w-5 h-5 rounded border-slate-600 text-blue-600"
-                  />
-                  <span className="text-slate-300">分卷压缩</span>
-                </label>
-              </div>
+              <Form.Item>
+                <Space style={{ width: '100%' }} size="middle">
+                  <Button size="large" style={{ flex: 1 }} onClick={handlePrev}>
+                    上一步
+                  </Button>
+                  <Button
+                    type="primary"
+                    size="large"
+                    style={{ flex: 1 }}
+                    onClick={handleNext}
+                    icon={<ArrowRightOutlined />}
+                  >
+                    下一步
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Space>
+          )}
 
-              {/* 分卷大小 */}
-              {formData.split_compression && (
-                <div className="w-full md:w-1/3">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">分卷大小 (MB)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={formData.split_size}
-                    onChange={(e) => handleChange('split_size', parseInt(e.target.value))}
-                    className="input-base"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          {/* 步骤 2: 确认 */}
+          {step === 2 && (
+            <Space direction="vertical" style={{ width: '100%' }} size="large">
+              <Card
+                type="inner"
+                title="确认信息"
+                style={{ backgroundColor: '#fafafa' }}
+              >
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div>
+                    <strong>下载链接: </strong>
+                    <span>{formValues.url}</span>
+                  </div>
+                  <div>
+                    <strong>优先级: </strong>
+                    <span>{statusLabel}</span>
+                  </div>
+                  {formValues.uploadService && formValues.uploadService !== 'none' && (
+                    <div>
+                      <strong>上传服务: </strong>
+                      <span>{formValues.uploadService}</span>
+                    </div>
+                  )}
+                </Space>
+              </Card>
 
-          {/* 提交按钮 */}
-          <div className="flex justify-center pt-8">
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary px-8 py-3 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download size={20} />
-              {loading ? '启动中...' : '开始下载任务'}
-              <ArrowRight size={20} />
-            </button>
-          </div>
-        </form>
-      </div>
+              <Form.Item>
+                <Space style={{ width: '100%' }} size="middle">
+                  <Button size="large" style={{ flex: 1 }} onClick={handlePrev}>
+                    上一步
+                  </Button>
+                  <Button
+                    type="primary"
+                    size="large"
+                    style={{ flex: 1 }}
+                    loading={loading}
+                    onClick={handleSubmit}
+                    icon={<DownloadOutlined />}
+                  >
+                    确认创建
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Space>
+          )}
+        </Form>
+      </Card>
     </div>
   );
 }
