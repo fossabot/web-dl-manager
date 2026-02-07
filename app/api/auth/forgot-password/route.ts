@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { getRedis } from '@/lib/redis';
 
 export async function POST(request: Request) {
   try {
@@ -15,6 +16,14 @@ export async function POST(request: Request) {
     const randomBytes = crypto.randomBytes(32);
     for (let i = 0; i < 32; i++) {
       code += charset[randomBytes[i] % charset.length];
+    }
+
+    // 存入 Redis，有效期10分钟
+    const redis = getRedis();
+    if (redis) {
+      await redis.set(`reset_code:${username}`, code, 'EX', 600);
+    } else {
+      console.warn('Redis is not initialized, code will only be in console.');
     }
 
     // 控制台输出

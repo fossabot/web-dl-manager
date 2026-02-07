@@ -2,16 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Form, Input, Button, Card, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined, RocketOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, message, Modal } from 'antd';
+import { UserOutlined, LockOutlined, RocketOutlined, KeyOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
   const [form] = Form.useForm();
+  const [resetForm] = Form.useForm();
 
   const handleForgotPassword = async () => {
     try {
@@ -31,6 +34,8 @@ export default function LoginPage() {
       const data = await res.json();
       if (res.ok) {
         message.success(data.message);
+        resetForm.setFieldValue('username', username);
+        setIsModalOpen(true);
       } else {
         message.error(data.error || '请求失败');
       }
@@ -38,6 +43,30 @@ export default function LoginPage() {
       message.error('发送请求时发生错误');
     } finally {
       setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (values: { username: string; code: string; newPassword: string }) => {
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        message.success(data.message);
+        setIsModalOpen(false);
+        resetForm.resetFields();
+      } else {
+        message.error(data.error || '重置失败');
+      }
+    } catch {
+      message.error('重置过程中发生错误');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -342,26 +371,354 @@ export default function LoginPage() {
 
           
 
-          <div className="text-center mt-10">
+                    <div className="text-center mt-10">
 
-            <div className="flex items-center justify-center gap-2 opacity-50">
+          
 
-              <span className="h-[1px] w-8 bg-slate-600"></span>
+                      <div className="flex items-center justify-center gap-2 opacity-50">
 
-              <Text className="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold">Secure Access Only</Text>
+          
 
-              <span className="h-[1px] w-8 bg-slate-600"></span>
+                        <span className="h-[1px] w-8 bg-slate-600"></span>
 
-            </div>
+          
 
-          </div>
+                        <Text className="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold">Secure Access Only</Text>
 
-        </div>
+          
 
-      </div>
+                        <span className="h-[1px] w-8 bg-slate-600"></span>
 
-    );
+          
 
-  }
+                      </div>
+
+          
+
+                    </div>
+
+          
+
+                  </div>
+
+          
+
+          
+
+          
+
+                  <Modal
+
+          
+
+                    title={<Title level={4} className="!text-white !m-0">重置密码</Title>}
+
+          
+
+                    open={isModalOpen}
+
+          
+
+                    onCancel={() => setIsModalOpen(false)}
+
+          
+
+                    footer={null}
+
+          
+
+                    centered
+
+          
+
+                              className="reset-modal"
+
+          
+
+                              styles={{ 
+
+          
+
+                                header: {
+
+          
+
+                                  backgroundColor: 'transparent',
+
+          
+
+                                  borderBottom: 'none',
+
+          
+
+                                  padding: '24px 24px 10px'
+
+          
+
+                                },
+
+          
+
+                                body: {
+
+          
+
+                                  padding: '0 24px 24px',
+
+          
+
+                                  backgroundColor: 'transparent'
+
+          
+
+                                },
+
+          
+
+                                mask: {
+
+          
+
+                                  backdropFilter: 'blur(4px)'
+
+          
+
+                                }
+
+          
+
+                              }}
+
+          
+
+                            >
+
+          
+
+                    <Form
+
+          
+
+                      form={resetForm}
+
+          
+
+                      layout="vertical"
+
+          
+
+                      onFinish={handleResetPassword}
+
+          
+
+                      requiredMark={false}
+
+          
+
+                      className="mt-4"
+
+          
+
+                    >
+
+          
+
+                      <Form.Item
+
+          
+
+                        name="username"
+
+          
+
+                        hidden
+
+          
+
+                      >
+
+          
+
+                        <Input />
+
+          
+
+                      </Form.Item>
+
+          
+
+          
+
+          
+
+                      <Form.Item
+
+          
+
+                        name="code"
+
+          
+
+                        label={<Text className="text-slate-300">验证码 (32位)</Text>}
+
+          
+
+                        rules={[{ required: true, message: '请输入验证码' }]}
+
+          
+
+                      >
+
+          
+
+                        <Input 
+
+          
+
+                          prefix={<KeyOutlined className="text-slate-400" />} 
+
+          
+
+                          className="bg-white/5 border-white/10 h-12 rounded-xl text-white hover:border-blue-500/50"
+
+          
+
+                          placeholder="从控制台复制验证码"
+
+          
+
+                        />
+
+          
+
+                      </Form.Item>
+
+          
+
+          
+
+          
+
+                      <Form.Item
+
+          
+
+                        name="newPassword"
+
+          
+
+                        label={<Text className="text-slate-300">新密码</Text>}
+
+          
+
+                        rules={[{ required: true, message: '请输入新密码' }]}
+
+          
+
+                      >
+
+          
+
+                        <Input.Password 
+
+          
+
+                          prefix={<LockOutlined className="text-slate-400" />} 
+
+          
+
+                          className="bg-white/5 border-white/10 h-12 rounded-xl text-white hover:border-blue-500/50"
+
+          
+
+                          placeholder="设置新密码"
+
+          
+
+                        />
+
+          
+
+                      </Form.Item>
+
+          
+
+          
+
+          
+
+                      <Button
+
+          
+
+                        type="primary"
+
+          
+
+                        htmlType="submit"
+
+          
+
+                        loading={resetLoading}
+
+          
+
+                        block
+
+          
+
+                        size="large"
+
+          
+
+                        className="h-12 rounded-xl font-bold mt-4"
+
+          
+
+                        style={{ 
+
+          
+
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+
+          
+
+                          border: 'none'
+
+          
+
+                        }}
+
+          
+
+                      >
+
+          
+
+                        确认重置
+
+          
+
+                      </Button>
+
+          
+
+                    </Form>
+
+          
+
+                  </Modal>
+
+          
+
+                </div>
+
+          
+
+              );
+
+          
+
+            }
 
   

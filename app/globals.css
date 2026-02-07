@@ -17,3 +17,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.reset-modal .ant-modal-content {
+  background-color: #1e293b !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.reset-modal .ant-modal-close {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.reset-modal .ant-modal-close:hover {
+  color: white !important;
+}
