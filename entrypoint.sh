@@ -42,7 +42,8 @@ if [ -n "$DATABASE_URL" ]; then
     fi
     
     echo "Setting Prisma provider to $PROVIDER"
-    sed -i "s/provider = \"[^\"]*\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
+    # Only replace provider inside the datasource block
+    sed -i "/datasource db {/,/}/ s/provider = \"[^\"]*\"/provider = \"$PROVIDER\"/" prisma/schema.prisma
     
     # Use local prisma binary or fallback to specific version 6.4.1
     PRISMA_CMD="./node_modules/.bin/prisma"
