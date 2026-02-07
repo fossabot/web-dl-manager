@@ -10,7 +10,7 @@ fi
 # --- Static Site Cloning (Camouflage) ---
 STATIC_SITE_GIT_URL=${STATIC_SITE_GIT_URL:-"https://github.com/Jyf0214/upgraded-doodle.git"}
 STATIC_SITE_GIT_BRANCH=${STATIC_SITE_GIT_BRANCH:-"gh-pages"}
-STATIC_SITE_DIR="/app/public/camouflage"
+STATIC_SITE_DIR="./public/camouflage"
 
 if [ -n "$STATIC_SITE_GIT_URL" ]; then
     echo "Cloning static site from $STATIC_SITE_GIT_URL (branch: $STATIC_SITE_GIT_BRANCH)..."
