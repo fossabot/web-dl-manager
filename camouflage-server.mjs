@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 5492;
+const PORT = process.env.PORT || 5492;
 const MAIN_PORT = 6275;
 const CAMOUFLAGE_DIR = path.join(__dirname, 'public', 'camouflage');
 
