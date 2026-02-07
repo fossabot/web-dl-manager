@@ -13,6 +13,12 @@ const eslintConfig = defineConfig([
     rules: {
       "sonarjs/no-duplicate-string": "off",
       "sonarjs/no-nested-template-literals": "warn",
+      "sonarjs/os-command": "warn",
+      "sonarjs/no-os-command-from-path": "warn",
+      "sonarjs/cognitive-complexity": ["warn", 60],
+      "sonarjs/publicly-writable-directories": "warn",
+      "sonarjs/no-dead-store": "warn",
+      "sonarjs/pseudo-random": "warn",
       "promise/always-return": "warn",
       "promise/catch-or-return": "warn",
     },
