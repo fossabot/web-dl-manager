@@ -17,12 +17,12 @@ export async function startTunnel() {
     return;
   }
 
-  logger.info('Starting Cloudflare Tunnel pointing to Gateway (port 5492)...');
+  logger.info('Starting Cloudflare Tunnel pointing to Main App (port 6275)...');
   
   const isHuggingFace = !!process.env.SPACE_ID || !!process.env.HF_HOME;
 
-  // Point to the smart gateway port 5492 which handles blog/app routing
-  tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token, '--url', 'http://localhost:5492'], {
+  // Point to the main app port 6275
+  tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token, '--url', 'http://localhost:6275'], {
     stdio: isHuggingFace ? 'ignore' : 'pipe',
     detached: true,
   });
