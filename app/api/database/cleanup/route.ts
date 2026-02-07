@@ -51,7 +51,7 @@ export async function POST() {
     let deletedCount = 0;
 
     for (const config of allConfigs) {
-      if (!KNOWN_CONFIG_KEYS.has(config.keyName)) {
+      if (config.keyName === null || !KNOWN_CONFIG_KEYS.has(config.keyName)) {
         await prisma.config.delete({ where: { id: config.id } });
         deletedCount++;
       }
