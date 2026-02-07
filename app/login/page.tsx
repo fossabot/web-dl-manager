@@ -9,7 +9,37 @@ const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const router = useRouter();
+  const [form] = Form.useForm();
+
+  const handleForgotPassword = async () => {
+    try {
+      const username = form.getFieldValue('username');
+      if (!username) {
+        message.warning('请先输入用户名');
+        return;
+      }
+
+      setForgotLoading(true);
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        message.success(data.message);
+      } else {
+        message.error(data.error || '请求失败');
+      }
+    } catch {
+      message.error('发送请求时发生错误');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const onFinish = async (values: Record<string, string>) => {
     setLoading(true);
@@ -78,79 +108,203 @@ export default function LoginPage() {
 
   
 
-          <Card 
-
-            className="bg-slate-900/40 border-white/10 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[2rem] overflow-hidden"
-
-            styles={{ body: { padding: '40px' } }}
-
-          >
-
-            <Form
-
-              name="login"
-
-              layout="vertical"
-
-              onFinish={onFinish}
-
-              autoComplete="off"
-
-              requiredMark={false}
-
-            >
-
-              <Form.Item
-
-                name="username"
-
-                rules={[{ required: true, message: '请输入用户名' }]}
-
-              >
-
-                <Input 
-
-                  size="large" 
-
-                  prefix={<UserOutlined className="text-slate-400" />} 
-
-                  placeholder="用户名" 
-
-                  className="bg-white/5 border-white/10 h-14 rounded-2xl text-white placeholder:text-slate-500 hover:border-blue-500/50 focus:border-blue-500 transition-all"
-
-                />
-
-              </Form.Item>
+                  <Card 
 
   
 
-              <Form.Item
-
-                name="password"
-
-                rules={[{ required: true, message: '请输入密码' }]}
-
-                className="mt-6"
-
-              >
-
-                <Input.Password 
-
-                  size="large" 
-
-                  prefix={<LockOutlined className="text-slate-400" />} 
-
-                  placeholder="密码" 
-
-                  className="bg-white/5 border-white/10 h-14 rounded-2xl text-white placeholder:text-slate-500 hover:border-blue-500/50 focus:border-blue-500 transition-all"
-
-                />
-
-              </Form.Item>
+                    className="bg-slate-900/40 border-white/10 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[2rem] overflow-hidden"
 
   
 
-              <Form.Item className="mt-10 mb-0">
+                    styles={{ body: { padding: '40px' } }}
+
+  
+
+                  >
+
+  
+
+                    <Form
+
+  
+
+                      form={form}
+
+  
+
+                      name="login"
+
+  
+
+                      layout="vertical"
+
+  
+
+                      onFinish={onFinish}
+
+  
+
+                      autoComplete="off"
+
+  
+
+                      requiredMark={false}
+
+  
+
+                    >
+
+  
+
+                      <Form.Item
+
+  
+
+                        name="username"
+
+  
+
+                        rules={[{ required: true, message: '请输入用户名' }]}
+
+  
+
+                      >
+
+  
+
+                        <Input 
+
+  
+
+                          size="large" 
+
+  
+
+                          prefix={<UserOutlined className="text-slate-400" />} 
+
+  
+
+                          placeholder="用户名" 
+
+  
+
+                          className="bg-white/5 border-white/10 h-14 rounded-2xl text-white placeholder:text-slate-500 hover:border-blue-500/50 focus:border-blue-500 transition-all"
+
+  
+
+                        />
+
+  
+
+                      </Form.Item>
+
+  
+
+          
+
+  
+
+                      <Form.Item
+
+  
+
+                        name="password"
+
+  
+
+                        rules={[{ required: true, message: '请输入密码' }]}
+
+  
+
+                        className="mt-6"
+
+  
+
+                      >
+
+  
+
+                        <Input.Password 
+
+  
+
+                          size="large" 
+
+  
+
+                          prefix={<LockOutlined className="text-slate-400" />} 
+
+  
+
+                          placeholder="密码" 
+
+  
+
+                          className="bg-white/5 border-white/10 h-14 rounded-2xl text-white placeholder:text-slate-500 hover:border-blue-500/50 focus:border-blue-500 transition-all"
+
+  
+
+                        />
+
+  
+
+                      </Form.Item>
+
+  
+
+          
+
+  
+
+                      <div className="flex justify-end -mt-2 mb-4">
+
+  
+
+                        <Button 
+
+  
+
+                          type="link" 
+
+  
+
+                          onClick={handleForgotPassword} 
+
+  
+
+                          loading={forgotLoading}
+
+  
+
+                          className="text-slate-400 hover:text-blue-400 text-xs p-0 h-auto"
+
+  
+
+                        >
+
+  
+
+                          忘记密码？
+
+  
+
+                        </Button>
+
+  
+
+                      </div>
+
+  
+
+          
+
+  
+
+                      <Form.Item className="mt-6 mb-0">
+
+  
+
+          
 
                 <Button
 
