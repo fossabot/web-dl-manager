@@ -44,6 +44,7 @@
     "lodash-es": "4.17.23"
   },
   "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

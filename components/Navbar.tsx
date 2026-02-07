@@ -1,15 +1,14 @@
 'use client';
 
-import { Layout, Tooltip, Space } from 'antd';
-import { Download, ListTodo, Activity, Settings, LogOut, Rocket } from 'lucide-react';
+import { useState } from 'react';
+import { Download, ListTodo, Activity, Settings, LogOut, Rocket, Menu, X } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-const { Sider } = Layout;
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
@@ -23,45 +22,89 @@ export default function Navbar() {
     { key: '/settings', label: '系统设置', icon: <Settings size={20} /> },
   ];
 
+  const isActive = (path: string) => pathname === path;
+
   return (
-    <Sider
-      width={64}
-      theme="dark"
-      className="fixed left-0 top-0 bottom-0 z-50 bg-black border-r border-slate-800"
-      style={{ overflow: 'auto', height: '100vh' }}
-    >
-      <div className="flex flex-col h-full justify-between items-center py-6">
-        <div className="flex flex-col items-center w-full">
-          <div className="mb-10 text-blue-500">
+    <>
+      {/* 桌面导航栏 */}
+      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 z-50 w-16 flex-col items-center justify-between bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-r border-slate-800 py-6">
+        <div className="flex flex-col items-center w-full gap-6">
+          <div className="text-blue-600 hover:text-blue-500 transition-colors">
             <Rocket size={32} />
           </div>
-          
-          <Space direction="vertical" size={24} align="center" className="w-full">
+
+          <div className="flex flex-col items-center w-full gap-6">
             {navItems.map((item) => (
-              <Tooltip key={item.key} title={item.label} placement="right">
-                <Link href={item.key}>
-                  <div className={`p-3 rounded-xl transition-all cursor-pointer ${
-                    pathname === item.key 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
-                      : 'text-slate-500 hover:text-white hover:bg-slate-900'
-                  }`}>
-                    {item.icon}
-                  </div>
-                </Link>
-              </Tooltip>
+              <Link key={item.key} href={item.key} title={item.label}>
+                <div
+                  className={`p-3 rounded-xl transition-all duration-200 cursor-pointer ${
+                    isActive(item.key)
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                  }`}
+                >
+                  {item.icon}
+                </div>
+              </Link>
             ))}
-          </Space>
+          </div>
         </div>
 
-        <Tooltip title="退出登录" placement="right">
-          <div 
-            onClick={handleLogout}
-            className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer"
-          >
-            <LogOut size={20} />
+        <button
+          onClick={handleLogout}
+          className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer"
+          title="退出登录"
+        >
+          <LogOut size={20} />
+        </button>
+      </nav>
+
+      {/* 移动端顶部导航栏 */}
+      <nav className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-slate-950 to-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Rocket size={24} className="text-blue-600" />
+          <span className="text-white font-semibold">Web DL Manager</span>
+        </div>
+
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/50 transition-colors"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </nav>
+
+      {/* 移动端菜单下拉框 */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed top-14 left-0 right-0 z-40 bg-slate-900 border-b border-slate-800 shadow-xl">
+          <div className="divide-y divide-slate-800">
+            {navItems.map((item) => (
+              <Link key={item.key} href={item.key} onClick={() => setMobileMenuOpen(false)}>
+                <div
+                  className={`px-4 py-3 flex items-center gap-3 transition-colors ${
+                    isActive(item.key)
+                      ? 'bg-blue-600/20 text-blue-400'
+                      : 'text-slate-300 hover:bg-slate-800/50'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </div>
+              </Link>
+            ))}
+            <button
+              onClick={() => {
+                handleLogout();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full px-4 py-3 flex items-center gap-3 text-red-400 hover:bg-red-400/10 transition-colors"
+            >
+              <LogOut size={20} />
+              <span>退出登录</span>
+            </button>
           </div>
-        </Tooltip>
-      </div>
-    </Sider>
+        </div>
+      )}
+    </>
   );
 }
