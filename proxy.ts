@@ -33,17 +33,11 @@ export async function proxy(request: NextRequest) {
 
   // 3. Routing Logic for Unauthenticated Users
   if (!isAuthenticated) {
-    // A. Root path shows the Blog (Camouflage) from port 5492
-    if (pathname === '/') {
-      return NextResponse.rewrite(new URL('http://127.0.0.1:5492/', request.url));
-    }
-
-    // B. Explicit Login path is allowed
+    // A. Root path or any other path guides to login (Redirect)
     if (pathname === '/login') {
       return NextResponse.next();
     }
 
-    // C. All other paths guide to login (Redirect)
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
