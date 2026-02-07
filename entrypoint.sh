@@ -41,7 +41,7 @@ if [ -n "$DATABASE_URL" ]; then
     $PRISMA_CMD generate
     
     echo "Syncing database schema..."
-    $PRISMA_CMD db push --skip-generate
+    $PRISMA_CMD db push --skip-generate --accept-data-loss
 fi
 
 # Start Camouflage Server in background
