@@ -26,7 +26,12 @@ export default function HomePage() {
 
   const handleNext = async (): Promise<void> => {
     if (step === 0) {
-      form.validateFields(['url']).then(() => setStep(1));
+      try {
+        await form.validateFields(['url']);
+        setStep(1);
+      } catch (error) {
+        console.error('Validation failed:', error);
+      }
     } else if (step === 1) {
       setStep(2);
     }
@@ -39,27 +44,32 @@ export default function HomePage() {
   const handleSubmit = async (): Promise<void> => {
     setLoading(true);
     try {
+      const formData = new FormData();
+      formData.append('url', formValues.url);
+      if (formValues.uploadService && formValues.uploadService !== 'none') {
+        formData.append('upload_service', formValues.uploadService);
+      }
+      formData.append('priority', formValues.priority || 'normal');
+      formData.append('downloader', 'gallery-dl');
+      formData.append('enable_compression', 'false');
+
       const res = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: formValues.url,
-          uploadService: formValues.uploadService && formValues.uploadService !== 'none' ? formValues.uploadService : undefined,
-          priority: formValues.priority || 'normal',
-        }),
+        body: formData,
       });
 
+      const data = await res.json();
       if (res.ok) {
-        message.success('✅ 下载任务已创建');
+        message.success(`✅ 成功创建 ${data.taskIds?.length || 1} 个下载任务`);
         form.resetFields();
         setStep(0);
         setFormValues({ url: '' });
       } else {
-        message.error('❌ 创建任务失败');
+        message.error(`❌ ${data.error || '创建任务失败'}`);
       }
     } catch (error) {
       console.error('Failed to create task:', error);
-      message.error('❌ 请求失败');
+      message.error('❌ 请求发生错误');
     } finally {
       setLoading(false);
     }
