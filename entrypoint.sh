@@ -46,17 +46,17 @@ if [ -n "$DATABASE_URL" ]; then
     sed -i "s/provider = \"mysql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
     sed -i "s/provider = \"postgresql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
     
-    # Use local prisma binary if available
-    PRISMA_BIN="./node_modules/.bin/prisma"
-    if [ ! -f "$PRISMA_BIN" ]; then
-        PRISMA_BIN="npx prisma"
-    fi
-
-    $PRISMA_BIN generate
+    # Force use of project-specific Prisma version (6.4.1)
+    # Using 'npx --no-install' ensures it fails if not in node_modules,
+    # and prevents downloading the breaking Prisma 7.x
+    PRISMA_CMD="npx --no-install prisma"
+    
+    echo "Generating Prisma Client..."
+    $PRISMA_CMD generate
     
     if [ "$PROVIDER" == "sqlite" ]; then
         echo "Running Prisma db push for SQLite..."
-        $PRISMA_BIN db push --skip-generate
+        $PRISMA_CMD db push --skip-generate
     fi
 fi
 
