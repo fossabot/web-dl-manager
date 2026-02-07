@@ -45,6 +45,7 @@ RUN mkdir -p data/archives data/downloads data/status logs && \
 COPY --from=builder --chown=node:node /app/.next/standalone /app/
 COPY --from=builder --chown=node:node /app/.next/static /app/.next/static
 COPY --from=builder --chown=node:node /app/public /app/public
+COPY --from=builder --chown=node:node /app/node_modules /app/node_modules
 COPY --from=builder --chown=node:node /app/entrypoint.sh /app/entrypoint.sh
 COPY --from=builder --chown=node:node /app/camouflage-server.mjs /app/camouflage-server.mjs
 COPY --from=builder --chown=node:node /app/package.json /app/package.json
