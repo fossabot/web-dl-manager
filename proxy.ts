@@ -22,6 +22,7 @@ export async function proxy(request: NextRequest) {
   // 2. Public Assets & Login API - Always Allow
   if (
     pathname.startsWith('/api/login') ||
+    pathname.startsWith('/api/auth/') ||
     pathname.startsWith('/_next/') ||
     pathname === '/favicon.ico' ||
     pathname === '/manifest.json' ||
@@ -55,10 +56,11 @@ export const config = {
     /*
      * Match all request paths except for the ones starting with:
      * - api/login (allow login api)
+     * - api/auth (allow auth apis like forgot-password)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api/login|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/login|api/auth|_next/static|_next/image|favicon.ico).*)',
   ],
 };
