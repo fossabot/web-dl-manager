@@ -42,22 +42,21 @@ if [ -n "$DATABASE_URL" ]; then
     fi
     
     echo "Setting Prisma provider to $PROVIDER"
-    sed -i "s/provider = \"sqlite\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
-    sed -i "s/provider = \"mysql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
-    sed -i "s/provider = \"postgresql\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
+    sed -i "s/provider = \"[^\"]*\"/provider = \"$PROVIDER\"/g" prisma/schema.prisma
     
-    # Force use of project-specific Prisma version (6.4.1)
-    # Using 'npx --no-install' ensures it fails if not in node_modules,
-    # and prevents downloading the breaking Prisma 7.x
-    PRISMA_CMD="npx --no-install prisma"
+    # Use local prisma binary to ensure version consistency
+    PRISMA_CMD="./node_modules/.bin/prisma"
+    
+    if [ ! -f "$PRISMA_CMD" ]; then
+        echo "Local prisma binary not found, falling back to npx -y prisma"
+        PRISMA_CMD="npx -y prisma"
+    fi
     
     echo "Generating Prisma Client..."
     $PRISMA_CMD generate
     
-    if [ "$PROVIDER" == "sqlite" ]; then
-        echo "Running Prisma db push for SQLite..."
-        $PRISMA_CMD db push --skip-generate
-    fi
+    echo "Syncing database schema..."
+    $PRISMA_CMD db push --skip-generate
 fi
 
 # Start Camouflage Server in background
