@@ -23,6 +23,7 @@
     "@lobehub/ui": "^4.33.4",
     "@prisma/client": "^6.4.1",
     "@types/http-proxy": "^1.17.17",
+    "@upstash/redis": "^1.36.2",
     "antd": "^6.2.3",
     "antd-style": "^4.1.0",
     "argon2": "^0.44.0",

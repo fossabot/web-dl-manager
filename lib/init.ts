@@ -4,8 +4,12 @@ import { restoreGalleryDlConfig } from './tasks';
 import { CAMOUFLAGE_DIR } from './constants';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { initRedis } from './redis';
 
 export async function initApp() {
+  // 0. Initialize Redis
+  await initRedis();
+
   // 1. Restore gallery-dl config at startup
   await restoreGalleryDlConfig();
 
