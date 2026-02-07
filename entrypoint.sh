@@ -26,25 +26,6 @@ fi
 
 # --- Prisma Setup ---
 if [ -n "$DATABASE_URL" ]; then
-    echo "Detecting database provider from DATABASE_URL..."
-    if [[ "$DATABASE_URL" == "mysql://"* ]]; then
-        PROVIDER="mysql"
-    elif [[ "$DATABASE_URL" == "postgres://"* ]] || [[ "$DATABASE_URL" == "postgresql://"* ]]; then
-        PROVIDER="postgresql"
-    elif [[ "$DATABASE_URL" == "file:"* ]] || [[ "$DATABASE_URL" == *"sqlite"* ]]; then
-        PROVIDER="sqlite"
-        # Ensure SQLite URL starts with file:
-        if [[ "$DATABASE_URL" != "file:"* ]]; then
-            export DATABASE_URL="file:$DATABASE_URL"
-        fi
-    else
-        PROVIDER="sqlite" # Default
-    fi
-    
-    echo "Setting Prisma provider to $PROVIDER"
-    # Only replace provider inside the datasource block
-    sed -i "/datasource db {/,/}/ s/provider = \"[^\"]*\"/provider = \"$PROVIDER\"/" prisma/schema.prisma
-    
     # Use local prisma binary or fallback to specific version 6.4.1
     PRISMA_CMD="./node_modules/.bin/prisma"
     
