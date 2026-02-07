@@ -1,58 +1,25 @@
 'use client';
 
-import { Form, Input, Button, message, Space, Card, Select, Steps } from 'antd';
-import { DownloadOutlined, LinkOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import { Form, Input, Select, Switch, InputNumber, Button, Card, Typography, Space, message } from 'antd';
+import { CloudDownloadOutlined, SettingOutlined, RocketOutlined } from '@ant-design/icons';
 
-interface FormValues {
-  url: string;
-  uploadService?: string;
-  priority?: string;
-}
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
-export const dynamic = 'force-dynamic';
-
-const getPriorityLabel = (priority?: string): string => {
-  if (priority === 'low') return '低';
-  if (priority === 'high') return '高';
-  return '普通';
-};
-
-export default function HomePage() {
+export default function DownloaderPage() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(0);
-  const [formValues, setFormValues] = useState<FormValues>({ url: '' });
+  const [uploadService, setUploadService] = useState('');
 
-  const handleNext = async (): Promise<void> => {
-    if (step === 0) {
-      try {
-        await form.validateFields(['url']);
-        setStep(1);
-      } catch (error) {
-        console.error('Validation failed:', error);
-      }
-    } else if (step === 1) {
-      setStep(2);
-    }
-  };
-
-  const handlePrev = (): void => {
-    setStep(step - 1);
-  };
-
-  const handleSubmit = async (): Promise<void> => {
+  const onFinish = async (values: Record<string, string | number | boolean>) => {
     setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('url', formValues.url);
-      if (formValues.uploadService && formValues.uploadService !== 'none') {
-        formData.append('upload_service', formValues.uploadService);
-      }
-      formData.append('priority', formValues.priority || 'normal');
-      formData.append('downloader', 'gallery-dl');
-      formData.append('enable_compression', 'false');
+    const formData = new FormData();
+    Object.entries(values).forEach(([key, value]) => {
+      formData.append(key, value?.toString() || '');
+    });
 
+    try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
         body: formData,
@@ -60,167 +27,150 @@ export default function HomePage() {
 
       const data = await res.json();
       if (res.ok) {
-        message.success(`✅ 成功创建 ${data.taskIds?.length || 1} 个下载任务`);
-        form.resetFields();
-        setStep(0);
-        setFormValues({ url: '' });
+        message.success(`成功启动 ${data.taskIds.length} 个任务`);
+        form.resetFields(['url']);
       } else {
-        message.error(`❌ ${data.error || '创建任务失败'}`);
+        message.error(data.error || '任务启动失败');
       }
-    } catch (error) {
-      console.error('Failed to create task:', error);
-      message.error('❌ 请求发生错误');
+    } catch {
+      message.error('请求发生错误');
     } finally {
       setLoading(false);
     }
   };
 
-  const steps = [
-    { title: '输入链接', description: '提供下载地址' },
-    { title: '配置选项', description: '设置优先级和上传' },
-    { title: '确认创建', description: '审核后创建任务' },
-  ];
-
-  const statusLabel = getPriorityLabel(formValues.priority);
-
   return (
-    <div style={{ padding: '24px' }}>
-      <Card
-        title={
-          <Space>
-            <DownloadOutlined style={{ fontSize: '24px' }} />
-            <span>创建下载任务</span>
-          </Space>
-        }
-        style={{ marginBottom: '24px' }}
-      >
-        <Steps current={step} items={steps} style={{ marginBottom: '32px' }} />
+    <div className="max-w-5xl mx-auto px-6 py-12">
+      <header className="mb-12 text-center">
+        <Title level={1} style={{ marginBottom: 8, background: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          下载管理器
+        </Title>
+        <Text type="secondary">从各种站点下载图片和视频，并自动备份至云存储</Text>
+      </header>
 
-        <Form
-          form={form}
-          layout="vertical"
-          onValuesChange={(_, values) => setFormValues(values as FormValues)}
-        >
-          {/* 步骤 0: 输入链接 */}
-          {step === 0 && (
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-              <Form.Item
-                label="下载链接"
-                name="url"
-                rules={[
-                  { required: true, message: '请输入下载链接' },
-                  {
-                    pattern: /^https?:\/\//,
-                    message: '请输入有效的 HTTP(S) 链接',
-                  },
-                ]}
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        initialValues={{
+          downloader: 'gallery-dl',
+          enable_compression: true,
+          split_compression: false,
+          split_size: 1000
+        }}
+        onValuesChange={(changedValues) => {
+          if (changedValues.upload_service !== undefined) {
+            setUploadService(String(changedValues.upload_service));
+          }
+        }}
+      >
+        <Space direction="vertical" size="large" className="w-full">
+          {/* Step 1 */}
+          <Card 
+            title={<Space><CloudDownloadOutlined /><span>步骤 1：下载设置</span></Space>}
+            className="shadow-sm border-slate-800"
+            styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Form.Item label="下载引擎" name="downloader" className="md:col-span-1">
+                <Select size="large">
+                  <Select.Option value="gallery-dl">Gallery-DL</Select.Option>
+                  <Select.Option value="kemono-dl">Kemono-DL (Pro)</Select.Option>
+                  <Select.Option value="megadl">Mega-DL</Select.Option>
+                </Select>
+              </Form.Item>
+              <Form.Item 
+                label="目标 URL (每行一个)" 
+                name="url" 
+                className="md:col-span-2"
+                rules={[{ required: true, message: '请输入目标 URL' }]}
               >
-                <Input
-                  placeholder="https://example.com/file.zip"
-                  prefix={<LinkOutlined />}
-                  size="large"
+                <TextArea
+                  rows={5}
+                  placeholder="https://example.com/user/123"
+                  className="font-mono text-sm"
                 />
               </Form.Item>
+            </div>
+          </Card>
 
-              <Form.Item>
-                <Button
-                  type="primary"
-                  size="large"
-                  block
-                  onClick={handleNext}
-                  icon={<ArrowRightOutlined />}
-                >
-                  下一步
-                </Button>
-              </Form.Item>
-            </Space>
-          )}
-
-          {/* 步骤 1: 配置选项 */}
-          {step === 1 && (
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-              <Form.Item label="优先级" name="priority" initialValue="normal">
-                <Select>
-                  <Select.Option value="low">低</Select.Option>
-                  <Select.Option value="normal">普通</Select.Option>
-                  <Select.Option value="high">高</Select.Option>
+          {/* Step 2 */}
+          <Card 
+            title={<Space><RocketOutlined /><span>步骤 2：上传设置</span></Space>}
+            className="shadow-sm border-slate-800"
+            styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Form.Item label="目标服务" name="upload_service" rules={[{ required: true, message: '请选择上传服务' }]}>
+                <Select size="large" placeholder="选择存储服务">
+                  <Select.Option value="webdav">WebDAV</Select.Option>
+                  <Select.Option value="s3">S3 兼容存储</Select.Option>
+                  <Select.Option value="b2">Backblaze B2</Select.Option>
+                  <Select.Option value="gofile">Gofile.io</Select.Option>
+                  <Select.Option value="openlist">Openlist</Select.Option>
                 </Select>
               </Form.Item>
+              {uploadService !== 'gofile' && (
+                <Form.Item label="远程路径" name="upload_path">
+                  <Input size="large" placeholder="/downloads/images" />
+                </Form.Item>
+              )}
+            </div>
+          </Card>
 
-              <Form.Item label="完成后上传到" name="uploadService" initialValue="none">
-                <Select>
-                  <Select.Option value="none">不上传</Select.Option>
-                  <Select.Option value="openlist">OpenList</Select.Option>
-                  <Select.Option value="gofile">Gofile</Select.Option>
-                </Select>
-              </Form.Item>
-
-              <Form.Item>
-                <Space style={{ width: '100%' }} size="middle">
-                  <Button size="large" style={{ flex: 1 }} onClick={handlePrev}>
-                    上一步
-                  </Button>
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{ flex: 1 }}
-                    onClick={handleNext}
-                    icon={<ArrowRightOutlined />}
-                  >
-                    下一步
-                  </Button>
-                </Space>
-              </Form.Item>
-            </Space>
-          )}
-
-          {/* 步骤 2: 确认 */}
-          {step === 2 && (
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-              <Card
-                type="inner"
-                title="确认信息"
-                style={{ backgroundColor: '#fafafa' }}
-              >
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <div>
-                    <strong>下载链接: </strong>
-                    <span>{formValues.url}</span>
-                  </div>
-                  <div>
-                    <strong>优先级: </strong>
-                    <span>{statusLabel}</span>
-                  </div>
-                  {formValues.uploadService && formValues.uploadService !== 'none' && (
-                    <div>
-                      <strong>上传服务: </strong>
-                      <span>{formValues.uploadService}</span>
+          {/* Step 3 */}
+          <Card 
+            title={<Space><SettingOutlined /><span>步骤 3：高级选项</span></Space>}
+            className="shadow-sm border-slate-800"
+            styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+          >
+            <div className="space-y-6">
+              <div className="flex flex-wrap gap-12">
+                <Form.Item name="enable_compression" valuePropName="checked" noStyle>
+                  <Switch checkedChildren="启用压缩" unCheckedChildren="禁用压缩" />
+                </Form.Item>
+                <Form.Item name="split_compression" valuePropName="checked" noStyle>
+                  <Switch checkedChildren="分卷压缩" unCheckedChildren="分卷压缩" />
+                </Form.Item>
+              </div>
+              
+              <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.split_compression !== currentValues.split_compression}>
+                {({ getFieldValue }) => 
+                  getFieldValue('split_compression') ? (
+                    <div className="w-full md:w-1/3">
+                      <Form.Item label="分卷大小 (MB)" name="split_size">
+                        <InputNumber min={1} className="w-full" size="large" />
+                      </Form.Item>
                     </div>
-                  )}
-                </Space>
-              </Card>
-
-              <Form.Item>
-                <Space style={{ width: '100%' }} size="middle">
-                  <Button size="large" style={{ flex: 1 }} onClick={handlePrev}>
-                    上一步
-                  </Button>
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{ flex: 1 }}
-                    loading={loading}
-                    onClick={handleSubmit}
-                    icon={<DownloadOutlined />}
-                  >
-                    确认创建
-                  </Button>
-                </Space>
+                  ) : null
+                }
               </Form.Item>
-            </Space>
-          )}
-        </Form>
-      </Card>
+            </div>
+          </Card>
+
+          <div className="flex justify-center py-8">
+            <Form.Item>
+              <Button
+                type="primary"
+                size="large"
+                htmlType="submit"
+                loading={loading}
+                style={{ 
+                  width: 240, 
+                  height: 56, 
+                  borderRadius: 28, 
+                  fontSize: 18, 
+                  fontWeight: 'bold',
+                  background: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)',
+                  border: 'none'
+                }}
+              >
+                开始下载任务
+              </Button>
+            </Form.Item>
+          </div>
+        </Space>
+      </Form>
     </div>
   );
 }
