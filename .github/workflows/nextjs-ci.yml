@@ -78,18 +78,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 清理无标签镜像
-  cleanup:
-    name: 清理无标签镜像
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    steps:
-      - name: 删除无标签版本
-        uses: actions/delete-package-versions@v4
-        with:
-          package-name: 'web-dl-manager'
-          package-type: 'container'
-          min-versions-to-keep: 0
-          delete-only-untagged-versions: 'true'
+  
