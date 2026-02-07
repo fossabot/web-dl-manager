@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import NavbarWrapper from './NavbarWrapper';
+import { BackgroundProvider } from './BackgroundProvider';
 
 export default function ClientLayout({
   children,
@@ -16,9 +17,11 @@ export default function ClientLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
-      <NavbarWrapper />
-      <main className="flex-1 ml-[64px]">{children}</main>
-    </div>
+    <BackgroundProvider>
+      <div className="flex min-h-screen">
+        <NavbarWrapper />
+        <main className="flex-1 ml-[64px]">{children}</main>
+      </div>
+    </BackgroundProvider>
   );
 }

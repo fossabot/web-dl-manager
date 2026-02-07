@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Form, Input, Button, Card, Typography, Space, message, Tabs, Popconfirm } from 'antd';
-import { Settings, Cloud, Database, Trash2, Save, HardDrive } from 'lucide-react';
+import { Form, Input, Button, Card, Typography, Space, message, Tabs, Popconfirm, Switch, Select, Slider, InputNumber } from 'antd';
+import { Settings, Cloud, Database, Trash2, Save, HardDrive, Palette } from 'lucide-react';
+import { validateBackgroundURL } from '@/lib/background-manager';
 
 const { Title, Text } = Typography;
 
@@ -10,6 +11,8 @@ export default function SettingsPage() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [backgroundEnabled, setBackgroundEnabled] = useState(false);
+  const [backgroundType, setBackgroundType] = useState<'image' | 'video'>('image');
 
   const fetchConfigs = useCallback(async () => {
     try {
@@ -17,6 +20,24 @@ export default function SettingsPage() {
       if (res.ok) {
         const data = await res.json();
         form.setFieldsValue(data);
+        
+        // Parse background config if it exists
+        if (data.WDM_BG_CONFIG) {
+          try {
+            const bgConfig = JSON.parse(data.WDM_BG_CONFIG);
+            setBackgroundEnabled(bgConfig.enabled);
+            setBackgroundType(bgConfig.type);
+            form.setFieldValue('WDM_BG_ENABLED', bgConfig.enabled);
+            form.setFieldValue('WDM_BG_TYPE', bgConfig.type);
+            form.setFieldValue('WDM_BG_URL', bgConfig.url);
+            form.setFieldValue('WDM_BG_OPACITY', bgConfig.opacity);
+            form.setFieldValue('WDM_BG_FIT', bgConfig.fit);
+            form.setFieldValue('WDM_BG_POSITION', bgConfig.position);
+            form.setFieldValue('WDM_BG_BLUR', bgConfig.blur || 0);
+          } catch {
+            // Invalid JSON, ignore
+          }
+        }
       }
     } catch {
       message.error('获取配置失败');
@@ -29,17 +50,58 @@ export default function SettingsPage() {
     fetchConfigs();
   }, [fetchConfigs]);
 
-  const onFinish = async (values: Record<string, string>) => {
+  const onFinish = async (values: Record<string, unknown>) => {
+    // Validate background URL if enabled
+    const bgEnabled = values.WDM_BG_ENABLED;
+    if (bgEnabled) {
+      const bgUrl = values.WDM_BG_URL as string;
+      const bgType = values.WDM_BG_TYPE as 'image' | 'video';
+      
+      if (!bgUrl) {
+        message.error('请输入背景 URL');
+        return;
+      }
+
+      if (!validateBackgroundURL(bgUrl, bgType)) {
+        message.error(`请输入有效的${bgType === 'image' ? '图片' : '视频'} URL (支持 http/https)`);
+        return;
+      }
+    }
+
+    // Prepare background config
+    const bgConfig = {
+      enabled: values.WDM_BG_ENABLED,
+      type: values.WDM_BG_TYPE,
+      url: values.WDM_BG_URL,
+      opacity: values.WDM_BG_OPACITY || 1,
+      fit: values.WDM_BG_FIT || 'cover',
+      position: values.WDM_BG_POSITION || 'center',
+      blur: values.WDM_BG_BLUR || 0,
+    };
+
+    // Remove individual background fields and add composite config
+    const configToSave = { ...values };
+    delete configToSave.WDM_BG_ENABLED;
+    delete configToSave.WDM_BG_TYPE;
+    delete configToSave.WDM_BG_URL;
+    delete configToSave.WDM_BG_OPACITY;
+    delete configToSave.WDM_BG_FIT;
+    delete configToSave.WDM_BG_POSITION;
+    delete configToSave.WDM_BG_BLUR;
+    configToSave.WDM_BG_CONFIG = JSON.stringify(bgConfig);
+
     setSaving(true);
     try {
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(configToSave),
       });
 
       if (res.ok) {
         message.success('设置已保存');
+        // Reload page to apply background changes
+        setTimeout(() => window.location.reload(), 500);
       } else {
         message.error('保存失败');
       }
@@ -176,6 +238,110 @@ export default function SettingsPage() {
                     <Form.Item label="Redis URL" name="REDIS_URL" extra="仅用于向后兼容。建议使用 DATABASE_URL 配置 Redis。支持格式: redis://[password@]host:port[/db]">
                       <Input placeholder="redis://default:password@host:port" className="bg-black border-slate-700 rounded-lg" />
                     </Form.Item>
+                  </Card>
+                </div>
+              ),
+            },
+            {
+              key: '4',
+              label: <Space><Palette size={16}/><span>背景设置</span></Space>,
+              children: (
+                <div className="pl-8 space-y-6">
+                  <Card title="自定义背景" className="bg-slate-900/50 border-slate-800">
+                    <Text type="secondary" className="block mb-6">为应用添加自定义背景，支持外链图片或视频。</Text>
+                    
+                    <Form.Item label="启用自定义背景" name="WDM_BG_ENABLED" valuePropName="checked">
+                      <Switch 
+                        onChange={(checked) => setBackgroundEnabled(checked)}
+                      />
+                    </Form.Item>
+
+                    {backgroundEnabled && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <Form.Item label="背景类型" name="WDM_BG_TYPE">
+                            <Select 
+                              options={[
+                                { label: '图片', value: 'image' },
+                                { label: '视频', value: 'video' },
+                              ]}
+                              onChange={(value) => setBackgroundType(value)}
+                              className="bg-black border-slate-700 rounded-lg"
+                            />
+                          </Form.Item>
+
+                          <Form.Item label="适配方式" name="WDM_BG_FIT">
+                            <Select 
+                              defaultValue="cover"
+                              options={[
+                                { label: '填充 (cover)', value: 'cover' },
+                                { label: '包含 (contain)', value: 'contain' },
+                                { label: '拉伸 (fill)', value: 'fill' },
+                              ]}
+                            />
+                          </Form.Item>
+                        </div>
+
+                        <Form.Item 
+                          label={`${backgroundType === 'image' ? '图片' : '视频'} URL`}
+                          name="WDM_BG_URL" 
+                          extra={`输入有效的 HTTP/HTTPS ${backgroundType === 'image' ? '图片' : '视频'}链接 (支持: ${backgroundType === 'image' ? 'jpg, png, gif, webp' : 'mp4, webm, ogg'})`}
+                          rules={[
+                            { required: true, message: '请输入 URL' }
+                          ]}
+                        >
+                          <Input 
+                            placeholder={backgroundType === 'image' ? 'https://example.com/bg.jpg' : 'https://example.com/bg.mp4'} 
+                            className="bg-black border-slate-700 rounded-lg"
+                          />
+                        </Form.Item>
+
+                        <div className="grid grid-cols-3 gap-4">
+                          <Form.Item label="背景位置" name="WDM_BG_POSITION">
+                            <Select 
+                              defaultValue="center"
+                              options={[
+                                { label: '左上', value: 'top left' },
+                                { label: '上中', value: 'top center' },
+                                { label: '右上', value: 'top right' },
+                                { label: '左中', value: 'center left' },
+                                { label: '中心', value: 'center' },
+                                { label: '右中', value: 'center right' },
+                                { label: '左下', value: 'bottom left' },
+                                { label: '下中', value: 'bottom center' },
+                                { label: '右下', value: 'bottom right' },
+                              ]}
+                            />
+                          </Form.Item>
+
+                          <Form.Item label="不透明度" name="WDM_BG_OPACITY">
+                            <InputNumber 
+                              min={0} 
+                              max={1} 
+                              step={0.1}
+                              defaultValue={1}
+                              className="w-full"
+                            />
+                          </Form.Item>
+
+                          <Form.Item label="模糊程度 (px)" name="WDM_BG_BLUR">
+                            <Slider 
+                              min={0} 
+                              max={20} 
+                              step={1}
+                              defaultValue={0}
+                              marks={{ 0: '0', 10: '10', 20: '20' }}
+                            />
+                          </Form.Item>
+                        </div>
+
+                        <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                          <Text type="secondary" className="text-xs">
+                            💡 提示：背景会应用到整个应用界面。建议使用高质量的外链资源以获得最佳效果。
+                          </Text>
+                        </div>
+                      </>
+                    )}
                   </Card>
                 </div>
               ),

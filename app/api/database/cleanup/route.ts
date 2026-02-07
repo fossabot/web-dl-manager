@@ -37,7 +37,8 @@ const KNOWN_CONFIG_KEYS = new Set([
   "WDM_B2_ACCOUNT_ID",
   "WDM_B2_APPLICATION_KEY",
   "WDM_KEMONO_USERNAME",
-  "WDM_KEMONO_PASSWORD"
+  "WDM_KEMONO_PASSWORD",
+  "WDM_BG_CONFIG", // Background configuration (stored as JSON)
 ]);
 
 export async function POST() {
