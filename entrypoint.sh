@@ -26,6 +26,9 @@ fi
 
 # --- Prisma Setup ---
 if [ -n "$DATABASE_URL" ]; then
+    echo "Running Prisma setup for automatic provider detection..."
+    node lib/setup-prisma.mjs
+
     # Use local prisma binary or fallback to specific version 6.4.1
     PRISMA_CMD="./node_modules/.bin/prisma"
     
