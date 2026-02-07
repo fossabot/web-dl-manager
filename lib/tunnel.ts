@@ -21,8 +21,16 @@ export async function startTunnel() {
   
   // Explicitly point to the camouflage port 5492
   tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token, '--url', 'http://localhost:5492'], {
-    stdio: 'ignore',
+    stdio: 'pipe',
     detached: true,
+  });
+
+  tunnelProcess.stdout?.on('data', (data) => {
+    logger.info(`[Tunnel STDOUT] ${data.toString().trim()}`);
+  });
+
+  tunnelProcess.stderr?.on('data', (data) => {
+    logger.warn(`[Tunnel STDERR] ${data.toString().trim()}`);
   });
 
   tunnelProcess.unref();
