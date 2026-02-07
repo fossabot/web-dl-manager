@@ -17,21 +17,25 @@ export async function startTunnel() {
     return;
   }
 
-  logger.info('Starting Cloudflare Tunnel on port 5492...');
+  logger.info('Starting Cloudflare Tunnel pointing to Gateway (port 5492)...');
   
-  // Explicitly point to the camouflage port 5492
+  const isHuggingFace = !!process.env.SPACE_ID || !!process.env.HF_HOME;
+
+  // Point to the smart gateway port 5492 which handles blog/app routing
   tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token, '--url', 'http://localhost:5492'], {
-    stdio: 'pipe',
+    stdio: isHuggingFace ? 'ignore' : 'pipe',
     detached: true,
   });
 
-  tunnelProcess.stdout?.on('data', (data) => {
-    logger.info(`[Tunnel STDOUT] ${data.toString().trim()}`);
-  });
+  if (!isHuggingFace) {
+    tunnelProcess.stdout?.on('data', (data) => {
+      logger.info(`[Tunnel STDOUT] ${data.toString().trim()}`);
+    });
 
-  tunnelProcess.stderr?.on('data', (data) => {
-    logger.warn(`[Tunnel STDERR] ${data.toString().trim()}`);
-  });
+    tunnelProcess.stderr?.on('data', (data) => {
+      logger.warn(`[Tunnel STDERR] ${data.toString().trim()}`);
+    });
+  }
 
   tunnelProcess.unref();
 
