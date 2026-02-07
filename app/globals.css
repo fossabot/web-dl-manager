@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "@lobehub/ui/styles";
 
 :root {
   --background: #0a0e27;
@@ -49,7 +48,7 @@ body {
 
 /* 按钮样式 */
 .btn-primary {
-  @apply px-4 py-2 bg-blue-600 hover:bg-blue-650 text-white rounded-lg transition-colors font-medium;
+  @apply px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium;
 }
 
 .btn-primary:active {

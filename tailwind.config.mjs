@@ -15,10 +15,6 @@ export default {
           950: '#0a0e27',
           925: '#0d1227',
         },
-        blue: {
-          600: '#2563eb',
-          650: '#1d4ed8',
-        },
       },
       spacing: {
         'safe-l': 'env(safe-area-inset-left)',
