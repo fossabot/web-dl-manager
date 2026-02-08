@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { Download, ListTodo, Activity, Settings, LogOut, Rocket, Menu, X } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -9,6 +9,22 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // 初始化时从本地存储读取
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('sidebarOpen');
+    return saved === null || saved === 'true';
+  });
+
+  useLayoutEffect(() => {
+    // 保存侧边栏状态到本地存储
+    localStorage.setItem('sidebarOpen', String(sidebarOpen));
+    // 更新主内容区域的边距
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+      mainContent.style.marginLeft = sidebarOpen ? '16rem' : '4rem'; // w-64 = 16rem, w-16 = 4rem
+    }
+  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
@@ -26,36 +42,56 @@ export default function Navbar() {
 
   return (
     <>
-      {/* 桌面导航栏 */}
-      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 z-50 w-16 flex-col items-center justify-between bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-r border-slate-800 py-6">
+      {/* 桌面侧边栏 - 可收起 */}
+      <nav 
+        className={`hidden md:flex fixed left-0 top-0 bottom-0 z-50 flex-col items-center justify-between bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-r border-slate-800 py-6 transition-all duration-300 overflow-hidden ${
+          sidebarOpen ? 'w-64' : 'w-16'
+        }`}
+      >
+        {/* 顶部菜单按钮和Logo */}
         <div className="flex flex-col items-center w-full gap-6">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all cursor-pointer"
+            title={sidebarOpen ? '收起菜单' : '展开菜单'}
+          >
+            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+
           <div className="text-blue-600 hover:text-blue-500 transition-colors">
             <Rocket size={32} />
           </div>
 
-          <div className="flex flex-col items-center w-full gap-6">
+          <div className="flex flex-col items-center w-full gap-2">
             {navItems.map((item) => (
-              <Link key={item.key} href={item.key} title={item.label}>
+              <Link key={item.key} href={item.key} className="w-full" title={item.label}>
                 <div
-                  className={`p-3 rounded-xl transition-all duration-200 cursor-pointer ${
+                  className={`px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer flex items-center gap-3 ${
+                    sidebarOpen ? 'justify-start px-4' : 'justify-center'
+                  } ${
                     isActive(item.key)
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30'
                       : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
                   }`}
                 >
                   {item.icon}
+                  {sidebarOpen && <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>}
                 </div>
               </Link>
             ))}
           </div>
         </div>
 
+        {/* 退出按钮 */}
         <button
           onClick={handleLogout}
-          className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer"
+          className={`p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer flex items-center gap-3 w-full ${
+            sidebarOpen ? 'justify-start px-4' : 'justify-center'
+          }`}
           title="退出登录"
         >
           <LogOut size={20} />
+          {sidebarOpen && <span className="whitespace-nowrap text-sm font-medium">退出登录</span>}
         </button>
       </nav>
 
@@ -76,7 +112,7 @@ export default function Navbar() {
 
       {/* 移动端菜单下拉框 */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed top-14 left-0 right-0 z-40 bg-slate-900 border-b border-slate-800 shadow-xl">
+        <div className="md:hidden fixed top-14 left-0 right-0 z-40 bg-slate-900 border-b border-slate-800 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="divide-y divide-slate-800">
             {navItems.map((item) => (
               <Link key={item.key} href={item.key} onClick={() => setMobileMenuOpen(false)}>

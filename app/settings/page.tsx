@@ -95,39 +95,25 @@ export default function SettingsPage() {
               onChange={(e) => handleFieldChange('PORT', parseInt(e.target.value, 10))}
             />
           </Form.Item>
-        </Space>
-      ),
-    },
-    {
-      key: 'database',
-      label: '数据库',
-      children: (
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Form.Item label="DATABASE_URL" required>
-            <Input.Password
-              placeholder="mysql://user:pass@host:3306/db"
-              value={String(formData.DATABASE_URL || '')}
-              onChange={(e) => handleFieldChange('DATABASE_URL', e.target.value)}
-            />
-          </Form.Item>
-          <div style={{ padding: '12px', backgroundColor: '#e6f7ff', borderRadius: '4px', fontSize: '12px' }}>
-            ✅ 支持 MySQL、PostgreSQL、SQLite、Redis
+
+          {/* 数据库配置提示 */}
+          <div style={{ padding: '16px', backgroundColor: 'rgba(13, 110, 253, 0.1)', border: '1px solid #0d6efd', borderRadius: '8px', marginTop: '16px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#0d6efd', marginBottom: '8px' }}>
+              ℹ️ 数据库配置
+            </div>
+            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', lineHeight: '1.6' }}>
+              数据库连接应通过环境变量 <code style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>DATABASE_URL</code> 配置。
+              <br />
+              <br />
+              <strong>支持的数据库类型：</strong>
+              <ul style={{ marginTop: '8px', marginBottom: 0, paddingLeft: '20px' }}>
+                <li>MySQL: <code style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>mysql://user:pass@host:3306/db</code></li>
+                <li>PostgreSQL: <code style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>postgresql://user:pass@host:5432/db</code></li>
+                <li>SQLite: <code style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>file:./webdl-manager.db</code></li>
+                <li>Redis: <code style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>redis://[:password]@host:port[/db]</code></li>
+              </ul>
+            </div>
           </div>
-        </Space>
-      ),
-    },
-    {
-      key: 'redis',
-      label: 'Redis',
-      children: (
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Form.Item label="REDIS_URL（备用）">
-            <Input.Password
-              placeholder="redis://localhost:6379"
-              value={String(formData.REDIS_URL || '')}
-              onChange={(e) => handleFieldChange('REDIS_URL', e.target.value)}
-            />
-          </Form.Item>
         </Space>
       ),
     },
@@ -135,74 +121,170 @@ export default function SettingsPage() {
       key: 'upload',
       label: '上传服务',
       children: (
-        <Row gutter={16}>
-          <Col xs={24} md={12}>
-            <Card title="OpenList" size="small">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Form.Item label="API 密钥">
-                  <Input.Password
-                    placeholder="OpenList API 密钥"
-                    value={String(formData.OPENLIST_API_KEY || '')}
-                    onChange={(e) => handleFieldChange('OPENLIST_API_KEY', e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="API 端点">
-                  <Input
-                    placeholder="https://api.openlist.com/upload"
-                    value={String(formData.OPENLIST_API_URL || '')}
-                    onChange={(e) => handleFieldChange('OPENLIST_API_URL', e.target.value)}
-                  />
-                </Form.Item>
-                <Button
-                  type="primary"
-                  block
-                  onClick={() => {
-                    if (formData.OPENLIST_API_KEY) {
-                      message.success('✅ OpenList 配置已启用');
-                    } else {
-                      message.warning('请输入 API 密钥');
-                    }
-                  }}
-                >
-                  启用
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-          <Col xs={24} md={12}>
-            <Card title="Gofile" size="small">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Form.Item label="API 密钥">
-                  <Input.Password
-                    placeholder="Gofile API 密钥"
-                    value={String(formData.GOFILE_API_KEY || '')}
-                    onChange={(e) => handleFieldChange('GOFILE_API_KEY', e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="文件夹 ID">
-                  <Input
-                    placeholder="默认文件夹 ID（可选）"
-                    value={String(formData.GOFILE_FOLDER_ID || '')}
-                    onChange={(e) => handleFieldChange('GOFILE_FOLDER_ID', e.target.value)}
-                  />
-                </Form.Item>
-                <Button
-                  type="primary"
-                  block
-                  onClick={() => {
-                    if (formData.GOFILE_API_KEY) {
-                      message.success('✅ Gofile 配置已启用');
-                    } else {
-                      message.warning('请输入 API 密钥');
-                    }
-                  }}
-                >
-                  启用
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <div style={{ padding: '16px', backgroundColor: 'rgba(13, 110, 253, 0.1)', border: '1px solid #0d6efd', borderRadius: '8px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#0d6efd', marginBottom: '8px' }}>
+              ℹ️ 上传服务配置
+            </div>
+            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)' }}>
+              下载页面中的上传服务选择框会显示所有支持的服务。请根据需要配置相应的服务凭证。
+            </div>
+          </div>
+
+          <Row gutter={16}>
+            {/* WebDAV */}
+            <Col xs={24} md={12}>
+              <Card title="WebDAV" size="small">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item label="服务器地址">
+                    <Input
+                      placeholder="https://webdav.example.com"
+                      value={String(formData.WEBDAV_URL || '')}
+                      onChange={(e) => handleFieldChange('WEBDAV_URL', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="用户名">
+                    <Input
+                      placeholder="用户名"
+                      value={String(formData.WEBDAV_USER || '')}
+                      onChange={(e) => handleFieldChange('WEBDAV_USER', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="密码">
+                    <Input.Password
+                      placeholder="密码"
+                      value={String(formData.WEBDAV_PASS || '')}
+                      onChange={(e) => handleFieldChange('WEBDAV_PASS', e.target.value)}
+                    />
+                  </Form.Item>
+                </Space>
+              </Card>
+            </Col>
+
+            {/* S3 */}
+            <Col xs={24} md={12}>
+              <Card title="S3 兼容存储" size="small">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item label="端点">
+                    <Input
+                      placeholder="https://s3.example.com"
+                      value={String(formData.S3_ENDPOINT || '')}
+                      onChange={(e) => handleFieldChange('S3_ENDPOINT', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="访问密钥 (Access Key)">
+                    <Input.Password
+                      placeholder="访问密钥"
+                      value={String(formData.S3_ACCESS_KEY || '')}
+                      onChange={(e) => handleFieldChange('S3_ACCESS_KEY', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="秘密密钥 (Secret Key)">
+                    <Input.Password
+                      placeholder="秘密密钥"
+                      value={String(formData.S3_SECRET_KEY || '')}
+                      onChange={(e) => handleFieldChange('S3_SECRET_KEY', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="桶名称">
+                    <Input
+                      placeholder="bucket-name"
+                      value={String(formData.S3_BUCKET || '')}
+                      onChange={(e) => handleFieldChange('S3_BUCKET', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="区域 (Region)">
+                    <Input
+                      placeholder="us-east-1"
+                      value={String(formData.S3_REGION || '')}
+                      onChange={(e) => handleFieldChange('S3_REGION', e.target.value)}
+                    />
+                  </Form.Item>
+                </Space>
+              </Card>
+            </Col>
+
+            {/* Backblaze B2 */}
+            <Col xs={24} md={12}>
+              <Card title="Backblaze B2" size="small">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item label="应用密钥 ID">
+                    <Input.Password
+                      placeholder="应用密钥 ID"
+                      value={String(formData.B2_APP_KEY_ID || '')}
+                      onChange={(e) => handleFieldChange('B2_APP_KEY_ID', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="应用密钥">
+                    <Input.Password
+                      placeholder="应用密钥"
+                      value={String(formData.B2_APP_KEY || '')}
+                      onChange={(e) => handleFieldChange('B2_APP_KEY', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="桶 ID">
+                    <Input
+                      placeholder="桶 ID"
+                      value={String(formData.B2_BUCKET_ID || '')}
+                      onChange={(e) => handleFieldChange('B2_BUCKET_ID', e.target.value)}
+                    />
+                  </Form.Item>
+                </Space>
+              </Card>
+            </Col>
+
+            {/* Gofile */}
+            <Col xs={24} md={12}>
+              <Card title="Gofile" size="small">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item label="API 密钥">
+                    <Input.Password
+                      placeholder="Gofile API 密钥"
+                      value={String(formData.GOFILE_API_KEY || '')}
+                      onChange={(e) => handleFieldChange('GOFILE_API_KEY', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="文件夹 ID">
+                    <Input
+                      placeholder="默认文件夹 ID（可选）"
+                      value={String(formData.GOFILE_FOLDER_ID || '')}
+                      onChange={(e) => handleFieldChange('GOFILE_FOLDER_ID', e.target.value)}
+                    />
+                  </Form.Item>
+                </Space>
+              </Card>
+            </Col>
+
+            {/* OpenList */}
+            <Col xs={24} md={12}>
+              <Card title="OpenList" size="small">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item label="服务器地址">
+                    <Input
+                      placeholder="https://openlist.example.com"
+                      value={String(formData.OPENLIST_URL || '')}
+                      onChange={(e) => handleFieldChange('OPENLIST_URL', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="用户名">
+                    <Input
+                      placeholder="用户名"
+                      value={String(formData.OPENLIST_USER || '')}
+                      onChange={(e) => handleFieldChange('OPENLIST_USER', e.target.value)}
+                    />
+                  </Form.Item>
+                  <Form.Item label="密码">
+                    <Input.Password
+                      placeholder="密码"
+                      value={String(formData.OPENLIST_PASS || '')}
+                      onChange={(e) => handleFieldChange('OPENLIST_PASS', e.target.value)}
+                    />
+                  </Form.Item>
+                </Space>
+              </Card>
+            </Col>
+          </Row>
+        </Space>
       ),
     },
     {

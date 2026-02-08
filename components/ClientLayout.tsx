@@ -18,9 +18,9 @@ export default function ClientLayout({
 
   return (
     <BackgroundProvider>
-      <div className="flex min-h-screen flex-col md:flex-row">
+      <div className="flex min-h-screen flex-col md:flex-row" id="app-layout">
         <NavbarWrapper />
-        <main className="flex-1 mt-14 md:mt-0 md:ml-16 w-full">
+        <main className="flex-1 mt-14 md:mt-0 md:ml-64 w-full transition-all duration-300" id="main-content">
           {children}
         </main>
       </div>
