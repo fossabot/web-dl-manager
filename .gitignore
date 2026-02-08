@@ -59,3 +59,8 @@ __pycache__/
 *$py.class
 app_py/
 .env
+
+# markdown files (keep only README.md and CHANGELOG.md)
+*.md
+!README.md
+!CHANGELOG.md
