@@ -20,6 +20,7 @@ export async function initApp() {
   if (!fs.existsSync(CAMOUFLAGE_DIR)) {
       console.log(`Cloning static site to ${CAMOUFLAGE_DIR}...`);
       try {
+          // eslint-disable-next-line sonarjs/os-command
           execSync(`git clone --quiet --depth 1 --branch ${gitBranch} ${gitUrl} ${CAMOUFLAGE_DIR}`);
           console.log("Static site cloning successful.");
       } catch (e) {

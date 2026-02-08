@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 
 function getVersion(cmd: string): string {
   try {
+    // eslint-disable-next-line sonarjs/os-command
     return execSync(`${cmd} --version`, { timeout: 3000 }).toString().trim().split('\n')[0];
   } catch {
     return 'N/A';

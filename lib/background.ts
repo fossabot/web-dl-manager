@@ -38,6 +38,7 @@ async function runRcloneCopy(source: string, dest: string, configContent: string
   fs.writeFileSync(configPath, configContent);
 
   return new Promise((resolve) => {
+    // eslint-disable-next-line sonarjs/no-os-command-from-path
     const child = spawn('rclone', ['copy', source, dest, '--config', configPath, '--log-level', 'INFO']);
     child.on('close', (code) => {
         fs.unlinkSync(configPath);

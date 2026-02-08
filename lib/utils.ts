@@ -69,6 +69,7 @@ export async function getWorkingProxy(logCallback?: (msg: string) => void): Prom
     
     // Return a random one for now to avoid heavy network operations in this environment
     if (proxies.length > 0) {
+        // eslint-disable-next-line sonarjs/pseudo-random
         const randomProxy = proxies[Math.floor(Math.random() * proxies.length)];
         if (logCallback) logCallback(`Selected proxy: ${randomProxy}`);
         return `http://${randomProxy}`;

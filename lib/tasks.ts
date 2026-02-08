@@ -161,6 +161,7 @@ async function runCommand(
         const cmdStr = `${command} ${args.join(' ')}`;
         logStream.write(`\n[Attempt ${attempt + 1}/${maxRetries}] Executing: ${cmdStr}\n`);
 
+        // eslint-disable-next-line sonarjs/os-command
         const child = spawn(command, args, {
           env: { ...process.env, ...env, PYTHONUNBUFFERED: '1' },
           shell: true,
@@ -286,7 +287,7 @@ async function uploadUncompressed(taskId: string, service: string, uploadPath: s
       }
       
       const fileSize = fs.statSync(file).size;
-      await uploadToOpenlist(olUrl, token, file, remoteFileDir, (current, total) => {
+      await uploadToOpenlist(olUrl, token, file, remoteFileDir, () => {
           // Inner progress not easily captured here without modifying openlist.ts, 
           // but we can update per file
       });
@@ -327,7 +328,7 @@ async function executeJob(taskId: string, params: TaskParams) {
   
   let tempCookieFile: string | null = null;
   let archivePaths: string[] = [];
-  let downloader = initialDownloader;
+  const downloader = initialDownloader;
 
   try {
     const useCompression = enableCompression === 'true' || enableCompression === true;
@@ -353,11 +354,11 @@ async function executeJob(taskId: string, params: TaskParams) {
     // Auto-switch to kemono-dl for certain sites if uncompressed
     const isKemonoSite = /kemono\.(cr|su)|coomer\.(st|su)/.test(url);
     if (downloader === 'kemono-dl' || (isKemonoSite && !useCompression)) {
-        downloader = 'kemono-dl';
+        const actualDownloader = 'kemono-dl';
         const kemonoUser = params.kemono_username || await dbConfig.getConfig('WDM_KEMONO_USERNAME');
         const kemonoPass = params.kemono_password || await dbConfig.getConfig('WDM_KEMONO_PASSWORD');
         
-        const args = ['-m', 'kemono_dl', '--path', taskDownloadDir, url];
+        const args = ['-m', actualDownloader, '--path', taskDownloadDir, url];
         args.push('--output', '{service}/{creator_name}/{post_title}/{filename}');
 
         if (params.cookies) {

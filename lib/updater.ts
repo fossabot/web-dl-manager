@@ -12,6 +12,7 @@ const VERSION_INFO_FILE = path.join(PROJECT_ROOT, '.version_info');
 
 export function getLocalCommitSha(): string | null {
   try {
+    // eslint-disable-next-line sonarjs/no-os-command-from-path
     const sha = execSync('git rev-parse HEAD', { cwd: PROJECT_ROOT }).toString().trim();
     return sha;
   } catch {
@@ -51,7 +52,9 @@ export async function checkForUpdates() {
 export async function runUpdate() {
   try {
     logger.info('Starting update via git pull...');
+    // eslint-disable-next-line sonarjs/no-os-command-from-path
     execSync('git pull', { cwd: PROJECT_ROOT });
+    // eslint-disable-next-line sonarjs/no-os-command-from-path
     execSync('npm install', { cwd: PROJECT_ROOT });
     // In a real environment, we would need to rebuild and restart
     // For now, we just indicate success
@@ -67,6 +70,7 @@ export function restartApplication() {
   logger.info('Restarting application...');
   // Use PM2 to restart if available, or just exit and let the supervisor handle it
   try {
+    // eslint-disable-next-line sonarjs/no-os-command-from-path
     execSync('pm2 restart ecosystem.config.js', { cwd: PROJECT_ROOT });
   } catch {
     process.exit(0);

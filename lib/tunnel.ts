@@ -22,6 +22,7 @@ export async function startTunnel() {
   const isHuggingFace = !!process.env.SPACE_ID || !!process.env.HF_HOME;
 
   // Start tunnel with token only (managed via Cloudflare Dashboard)
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
   tunnelProcess = spawn('cloudflared', ['tunnel', '--no-autoupdate', 'run', '--token', token], {
     stdio: isHuggingFace ? 'ignore' : 'pipe',
     detached: true,

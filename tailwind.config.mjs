@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 import containerQueries from '@tailwindcss/container-queries';
 
-export default {
+const config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -41,3 +41,5 @@ export default {
     containerQueries,
   ],
 };
+
+export default config;
