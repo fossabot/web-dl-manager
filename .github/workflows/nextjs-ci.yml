@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 jobs:
-  # Job 1: Comprehensive Code Audit
+  # Job 1: Comprehensive Code Audit (runs first independently)
   code-audit:
     name: Code Audit (Lint, Type, Security)
     runs-on: ubuntu-latest
@@ -37,12 +37,12 @@ jobs:
       - name: Run Type Check
         run: npm run type-check
 
-  # Job 2: Docker Build & Push (only after audit passes)
+  # Job 2: Docker Build & Push (parallel to code-audit, only push if audit passes)
   build-and-push:
     name: Build & Push to GHCR
-    needs: code-audit
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/next'
+    needs: code-audit
+    if: github.event_name == 'push' && github.ref == 'refs/heads/next' && success()
 
     steps:
       - name: Checkout code
