@@ -49,6 +49,7 @@ COPY --from=builder --chown=node:node /app/lib /app/lib
 COPY --from=builder --chown=node:node /app/entrypoint.sh /app/entrypoint.sh
 COPY --from=builder --chown=node:node /app/camouflage-server.mjs /app/camouflage-server.mjs
 COPY --from=builder --chown=node:node /app/package.json /app/package.json
+COPY --from=builder --chown=node:node /app/package-lock.json /app/package-lock.json
 COPY --from=builder --chown=node:node /app/prisma /app/prisma
 COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
