@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-next] - 2026-02-08
+
+### Added
+- **Complete Backend Migration**: Fully migrated all 17 Python FastAPI endpoints to Next.js with TypeScript:
+    - Authentication: `/api/login`, `/api/logout`, `/api/me` with JWT and bilingual error messages
+    - Task Management: `/api/tasks`, `/api/tasks/[taskId]` with full CRUD operations (create, pause, resume, retry, cancel, delete)
+    - System Monitoring: `/api/server-status`, `/api/system-info` with real-time CPU/memory/disk/network metrics
+    - Configuration: `/api/config/get`, `/api/config/post` with admin permission validation
+    - Database Management: `/api/database/cleanup` with config key validation
+    - Logging System: `/api/logs`, `/api/logs/[filename]` with access key authentication
+    - Application Info: `/api/changelog`, `/api/update` (read-only in Next.js)
+- **Task Management UI**: Comprehensive task management page with:
+    - Real-time task list with status indicators
+    - Full operations: pause, resume, retry, cancel, delete
+    - Progress tracking with percentage and file counts
+    - Batch operations support for multiple URLs
+    - Modal confirmations for destructive actions
+- **Ant Design Integration**: Replaced all toast notifications with Ant Design's `message` component for consistent UX
+- **API Client Hook**: Created comprehensive `useAPI` hook providing:
+    - Centralized API methods for all endpoints
+    - Consistent error handling with bilingual messages
+    - Type-safe responses with TypeScript interfaces
+- **React Task Hook**: Created `useTasks` hook for client-side task management:
+    - All task operations with error handling
+    - Ant Design message integration for user feedback
+- **Git Configuration**: Updated `.gitignore` to exclude markdown files except documentation:
+    - Keeps `README.md` and `CHANGELOG.md`
+    - Preserves `.github/copilot-instructions.md` for GitHub integration
+    - Prevents temporary markdown files from being committed
+
+### Changed
+- **Update Endpoint**: Modified `/api/update` to return HTTP 403 with link to GitHub Releases (updates disabled in Next.js deployment model)
+- **Progress Parsing**: Enhanced rclone output parsing with safe regex patterns and line-by-line processing to prevent ReDoS attacks
+- **Task Concurrency**: Enforces maximum 2 simultaneous download tasks using semaphore pattern in `lib/tasks.ts`
+
+### Fixed
+- **Regex Safety**: Simplified progress parsing patterns to avoid ReDoS warnings while maintaining accuracy
+- **Error Handling**: Added comprehensive `console.error()` logging to all API endpoints' catch blocks for debugging
+- **Type Safety**: Ensured all API responses are properly typed with TypeScript interfaces
+
 ## [2.0.0-next] - 2026-02-06
 
 ### Added
