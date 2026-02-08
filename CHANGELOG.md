@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error Handling**: Added comprehensive `console.error()` logging to all API endpoints' catch blocks for debugging
 - **Type Safety**: Ensured all API responses are properly typed with TypeScript interfaces
 - **Login Page Notifications**: Replaced custom CSS-based toast notification with Ant Design `message` component for consistency across all pages
+- **Lint Warnings**: Fixed all 17 ESLint warnings (100% → 0 warnings):
+    - Tailwind config: Assigned config object to variable before exporting (import/no-anonymous-default-export)
+    - OS commands: Added eslint-disable comments for controlled shell operations (sonarjs/os-command, sonarjs/no-os-command-from-path)
+    - Directory operations: Documented temporary directory usage with explanations (sonarjs/publicly-writable-directories)
+    - Variables: Changed unused reassignable variable to const (prefer-const)
+    - PRNG: Documented Math.random() usage for non-cryptographic purposes (sonarjs/pseudo-random)
 
 ## [2.0.0-next] - 2026-02-06
 
