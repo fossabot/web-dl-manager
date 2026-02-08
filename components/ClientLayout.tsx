@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import NavbarWrapper from './NavbarWrapper';
 import { BackgroundProvider } from './BackgroundProvider';
+import { useState } from 'react';
 
 export default function ClientLayout({
   children,
@@ -11,6 +12,20 @@ export default function ClientLayout({
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('sidebarOpen');
+    return saved === null || saved === 'true';
+  });
+
+  // 监听localStorage变化
+  if (typeof window !== 'undefined') {
+    const handleStorageChange = () => {
+      const newValue = localStorage.getItem('sidebarOpen');
+      setSidebarOpen(newValue === null || newValue === 'true');
+    };
+    window.addEventListener('storage', handleStorageChange, { once: true });
+  }
 
   if (isLoginPage) {
     return <main className="flex-1">{children}</main>;
@@ -20,7 +35,12 @@ export default function ClientLayout({
     <BackgroundProvider>
       <div className="flex min-h-screen flex-col md:flex-row" id="app-layout">
         <NavbarWrapper />
-        <main className="flex-1 mt-14 md:mt-0 md:ml-64 w-full transition-all duration-300" id="main-content">
+        <main 
+          className={`flex-1 mt-14 md:mt-0 w-full transition-all duration-300 ${
+            sidebarOpen ? 'md:ml-64' : 'md:ml-16'
+          }`}
+          id="main-content"
+        >
           {children}
         </main>
       </div>

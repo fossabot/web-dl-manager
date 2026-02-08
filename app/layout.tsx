@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import StyledComponentsRegistry from "@/lib/AntdRegistry";
-import { ConfigProvider, theme } from 'antd';
 import ClientLayout from "@/components/ClientLayout";
 
 const geistSans = Geist({
@@ -44,28 +42,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <StyledComponentsRegistry>
-          <ConfigProvider
-            theme={{
-              algorithm: theme.darkAlgorithm,
-              token: {
-                colorPrimary: '#1677ff',
-                borderRadius: 8,
-                colorBgBase: '#0a0e27',
-                colorTextBase: '#f1f5f9',
-              },
-              components: {
-                Button: {
-                  controlHeight: 36,
-                  primaryColor: '#ffffff',
-                  colorTextLightSolid: '#0a0e27',
-                },
-              },
-            }}
-          >
-            <ClientLayout>{children}</ClientLayout>
-          </ConfigProvider>
-        </StyledComponentsRegistry>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

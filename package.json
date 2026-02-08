@@ -23,8 +23,6 @@
     "@prisma/client": "^6.4.1",
     "@types/http-proxy": "^1.17.17",
     "@upstash/redis": "^1.36.2",
-    "antd": "^6.2.3",
-    "antd-style": "^4.1.0",
     "argon2": "^0.44.0",
     "axios": "^1.13.4",
     "clsx": "^2.1.1",
@@ -38,7 +36,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "systeminformation": "^5.30.7",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "antd": "^6.2.3"
   },
   "overrides": {
     "lodash-es": "4.17.23"

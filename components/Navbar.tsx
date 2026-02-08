@@ -19,11 +19,8 @@ export default function Navbar() {
   useLayoutEffect(() => {
     // 保存侧边栏状态到本地存储
     localStorage.setItem('sidebarOpen', String(sidebarOpen));
-    // 更新主内容区域的边距
-    const mainContent = document.getElementById('main-content');
-    if (mainContent) {
-      mainContent.style.marginLeft = sidebarOpen ? '16rem' : '4rem'; // w-64 = 16rem, w-16 = 4rem
-    }
+    // 触发存储事件使 ClientLayout 能同步状态
+    window.dispatchEvent(new Event('storage'));
   }, [sidebarOpen]);
 
   const handleLogout = async () => {
