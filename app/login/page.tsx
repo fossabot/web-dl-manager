@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Lock, User, Key } from 'lucide-react';
-import { message } from 'antd';
+import { App } from 'antd';
 
 export default function LoginPage() {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
