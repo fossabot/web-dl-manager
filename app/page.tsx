@@ -77,46 +77,58 @@ export default function DownloaderPage() {
   };
 
   const CardSection = ({ icon: Icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) => (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-6 shadow-sm">
-      <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm transition-all hover:shadow-md">
+      <div className="mb-6 flex items-center gap-3 border-b border-slate-100 pb-5">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-sm">
           {Icon}
         </div>
-        <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
+        <h3 className="text-xl font-bold text-slate-900">{title}</h3>
       </div>
       {children}
     </div>
   );
 
   return (
-    <div className="min-h-screen w-full bg-slate-950">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <header className="mb-12 text-center">
-          <h1 className="mb-2 bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-4xl font-bold text-transparent">
-            下载管理器
+    <div className="min-h-screen w-full bg-slate-50/50">
+      <div className="mx-auto max-w-5xl px-6 py-12 md:py-20">
+        <header className="mb-16 text-center">
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-blue-600 mb-6 shadow-xl shadow-blue-600/20">
+            <Rocket size={32} className="text-white" />
+          </div>
+          <h1 className="mb-4 text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
+            Web-DL Manager
           </h1>
-          <p className="text-slate-400">从各种站点下载图片和视频，并自动备份至云存储</p>
+          <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">
+            极简、高效、自动化的资源下载与备份系统。从各种站点下载资源并自动同步至您的云端。
+          </p>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Step 1: Download Settings */}
-          <CardSection icon={<CloudDownload size={20} />} title="步骤 1：下载设置">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <CardSection icon={<CloudDownload size={20} />} title="下载配置">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">下载引擎</label>
-                <select
-                  value={formValues.downloader}
-                  onChange={(e) => handleFieldChange('downloader', e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-slate-100 transition-colors hover:border-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="gallery-dl">Gallery-DL</option>
-                  <option value="kemono-dl">Kemono-DL (Pro)</option>
-                  <option value="megadl">Mega-DL</option>
-                </select>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">下载引擎</label>
+                <div className="relative">
+                  <select
+                    value={formValues.downloader}
+                    onChange={(e) => handleFieldChange('downloader', e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 transition-all hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/5 appearance-none cursor-pointer"
+                  >
+                    <option value="gallery-dl">Gallery-DL</option>
+                    <option value="kemono-dl">Kemono-DL (Pro)</option>
+                    <option value="megadl">Mega-DL</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-slate-300">
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
                   目标 URL (每行一个)
                 </label>
                 <textarea
@@ -125,40 +137,47 @@ export default function DownloaderPage() {
                   placeholder="https://example.com/user/123"
                   value={formValues.url}
                   onChange={(e) => handleFieldChange('url', e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 font-mono text-sm text-slate-100 transition-colors hover:border-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900 transition-all hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/5 placeholder:text-slate-400"
                 />
               </div>
             </div>
           </CardSection>
 
           {/* Step 2: Upload Settings */}
-          <CardSection icon={<Rocket size={20} />} title="步骤 2：上传设置">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <CardSection icon={<Rocket size={20} />} title="上传同步">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">目标服务</label>
-                <select
-                  value={formValues.upload_service}
-                  onChange={(e) => handleFieldChange('upload_service', e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-slate-100 transition-colors hover:border-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="">选择存储服务</option>
-                  <option value="webdav">WebDAV</option>
-                  <option value="s3">S3 兼容存储</option>
-                  <option value="b2">Backblaze B2</option>
-                  <option value="gofile">Gofile.io</option>
-                  <option value="openlist">Openlist</option>
-                </select>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">目标云存储</label>
+                <div className="relative">
+                  <select
+                    value={formValues.upload_service}
+                    onChange={(e) => handleFieldChange('upload_service', e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 transition-all hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/5 appearance-none cursor-pointer"
+                  >
+                    <option value="">选择存储服务</option>
+                    <option value="webdav">WebDAV</option>
+                    <option value="s3">S3 兼容存储</option>
+                    <option value="b2">Backblaze B2</option>
+                    <option value="gofile">Gofile.io</option>
+                    <option value="openlist">Openlist</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               {uploadService !== 'gofile' && (
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">远程路径</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">远程备份路径</label>
                   <input
                     type="text"
                     placeholder="/downloads/images"
                     value={formValues.upload_path || ''}
                     onChange={(e) => handleFieldChange('upload_path', e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-slate-100 transition-colors hover:border-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 transition-all hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/5 placeholder:text-slate-400"
                   />
                 </div>
               )}
@@ -166,22 +185,22 @@ export default function DownloaderPage() {
           </CardSection>
 
           {/* Step 3: Advanced Options */}
-          <CardSection icon={<Settings size={20} />} title="步骤 3：高级选项">
-            <div className="space-y-6">
-              <div className="flex flex-wrap gap-12">
-                <label className="flex items-center gap-3 cursor-pointer">
+          <CardSection icon={<Settings size={20} />} title="进阶选项">
+            <div className="space-y-8">
+              <div className="flex flex-wrap gap-x-12 gap-y-6">
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={formValues.enable_compression}
                     onChange={(e) => handleFieldChange('enable_compression', e.target.checked)}
-                    className="h-5 w-5 cursor-pointer rounded border-slate-600 bg-slate-700 text-blue-600 transition-colors hover:bg-slate-600 focus:ring-2 focus:ring-blue-500/20"
+                    className="h-6 w-6 cursor-pointer rounded-lg border-slate-200 bg-white text-blue-600 transition-all focus:ring-offset-0 focus:ring-4 focus:ring-blue-500/10 accent-blue-600"
                   />
-                  <span className="text-sm font-medium text-slate-300">
+                  <span className="text-base font-medium text-slate-700 group-hover:text-slate-900">
                     {formValues.enable_compression ? '启用压缩' : '禁用压缩'}
                   </span>
                 </label>
 
-                <label className="flex items-center gap-3 cursor-pointer">
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={formValues.split_compression}
@@ -189,35 +208,41 @@ export default function DownloaderPage() {
                       handleFieldChange('split_compression', e.target.checked);
                       setSplitSizeEnabled(e.target.checked);
                     }}
-                    className="h-5 w-5 cursor-pointer rounded border-slate-600 bg-slate-700 text-blue-600 transition-colors hover:bg-slate-600 focus:ring-2 focus:ring-blue-500/20"
+                    className="h-6 w-6 cursor-pointer rounded-lg border-slate-200 bg-white text-blue-600 transition-all focus:ring-offset-0 focus:ring-4 focus:ring-blue-500/10 accent-blue-600"
                   />
-                  <span className="text-sm font-medium text-slate-300">分卷压缩</span>
+                  <span className="text-base font-medium text-slate-700 group-hover:text-slate-900">分卷压缩存档</span>
                 </label>
               </div>
 
               {splitSizeEnabled && (
-                <div className="w-full md:w-1/3">
-                  <label className="mb-2 block text-sm font-medium text-slate-300">分卷大小 (MB)</label>
+                <div className="w-full md:w-1/2 animate-in fade-in slide-in-from-top-2">
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">单分卷大小 (MB)</label>
                   <input
                     type="number"
                     min={1}
                     value={formValues.split_size}
                     onChange={(e) => handleFieldChange('split_size', parseInt(e.target.value, 10))}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-slate-100 transition-colors hover:border-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 transition-all hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/5"
                   />
                 </div>
               )}
             </div>
           </CardSection>
 
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-12">
             <button
               type="submit"
               disabled={loading}
-              className="rounded-full bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 px-12 py-3.5 text-lg font-bold text-white shadow-lg transition-all hover:shadow-xl hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ width: 240, height: 56 }}
+              className="group relative flex h-16 w-full max-w-sm items-center justify-center overflow-hidden rounded-full bg-blue-600 font-bold text-white shadow-2xl shadow-blue-600/30 transition-all hover:bg-blue-700 hover:shadow-blue-600/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? '处理中...' : '开始下载任务'}
+              <div className="relative z-10 flex items-center gap-3">
+                {loading ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Rocket size={22} className="transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
+                )}
+                <span className="text-xl">{loading ? '正在处理任务...' : '立即启动下载'}</span>
+              </div>
             </button>
           </div>
         </form>
