@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Directory operations: Documented temporary directory usage with explanations (sonarjs/publicly-writable-directories)
     - Variables: Changed unused reassignable variable to const (prefer-const)
     - PRNG: Documented Math.random() usage for non-cryptographic purposes (sonarjs/pseudo-random)
+- **CSS Build Warning**: Fixed webkit-tap-highlight-color selector syntax for clean builds
 
 ## [2.0.0-next] - 2026-02-06
 
