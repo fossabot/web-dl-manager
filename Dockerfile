@@ -54,7 +54,8 @@ COPY --from=builder --chown=node:node /app/prisma /app/prisma
 COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Install only production dependencies for runtime (excludes dev dependencies)
-RUN npm ci --omit=dev --prefer-offline && npm cache clean --force
+# Skip prepare script since husky (a dev dependency) won't be installed
+RUN npm ci --omit=dev --prefer-offline --ignore-scripts && npm cache clean --force
 
 # Ensure correct permissions
 RUN chmod +x /app/entrypoint.sh && \
