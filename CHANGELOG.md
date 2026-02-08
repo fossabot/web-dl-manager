@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Update Endpoint**: Modified `/api/update` to return HTTP 403 with link to GitHub Releases (updates disabled in Next.js deployment model)
 - **Progress Parsing**: Enhanced rclone output parsing with safe regex patterns and line-by-line processing to prevent ReDoS attacks
 - **Task Concurrency**: Enforces maximum 2 simultaneous download tasks using semaphore pattern in `lib/tasks.ts`
+- **GitHub Actions Cache**: Disabled all caching in CI/CD workflows to eliminate wasted build time:
+    - Removed npm cache from node setup (setup-node cache: 'npm')
+    - Removed Docker GHA cache from both CI workflows (cache-from/cache-to type=gha)
+    - Kept no-cache: true for Docker builds to ensure fresh builds
+    - Eliminates "exporting to GitHub Actions Cache" delays
 
 ### Fixed
 - **Regex Safety**: Simplified progress parsing patterns to avoid ReDoS warnings while maintaining accuracy
