@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Lock, User, Key } from 'lucide-react';
+import { message } from 'antd';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const router = useRouter();
 
   const [username, setUsername] = useState('');
@@ -17,14 +17,9 @@ export default function LoginPage() {
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  };
-
   const handleForgotPassword = async () => {
     if (!username) {
-      showMessage('error', '请先输入用户名');
+      message.error('请先输入用户名');
       return;
     }
 
@@ -38,14 +33,14 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok) {
-        showMessage('success', data.message);
+        message.success(data.message);
         setResetUsername(username);
         setShowForgotModal(true);
       } else {
-        showMessage('error', data.error || '请求失败');
+        message.error(data.error || '请求失败');
       }
     } catch {
-      showMessage('error', '发送请求时发生错误');
+      message.error('发送请求时发生错误');
     } finally {
       setLoading(false);
     }
@@ -67,15 +62,15 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok) {
-        showMessage('success', data.message);
+        message.success(data.message);
         setShowForgotModal(false);
         setResetCode('');
         setNewPassword('');
       } else {
-        showMessage('error', data.error || '重置失败');
+        message.error(data.error || '重置失败');
       }
     } catch {
-      showMessage('error', '重置过程中发生错误');
+      message.error('重置过程中发生错误');
     } finally {
       setResetLoading(false);
     }
@@ -93,13 +88,13 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok) {
-        showMessage('success', '登录成功');
+        message.success('登录成功');
         setTimeout(() => router.push('/'), 500);
       } else {
-        showMessage('error', data.error || '登录失败');
+        message.error(data.error || '登录失败');
       }
     } catch {
-      showMessage('error', '登录过程中发生错误');
+      message.error('登录过程中发生错误');
     } finally {
       setLoading(false);
     }
@@ -114,17 +109,6 @@ export default function LoginPage() {
 
       {/* Grid Background Pattern */}
       <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-
-      {/* Message Toast */}
-      {message && (
-        <div className={`fixed top-4 right-4 px-4 py-3 rounded-lg text-sm font-medium z-50 ${
-          message.type === 'success'
-            ? 'bg-green-900/50 border border-green-700/50 text-green-400'
-            : 'bg-red-900/50 border border-red-700/50 text-red-400'
-        }`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="w-full max-w-sm z-10">
         {/* Header */}
