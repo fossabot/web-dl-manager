@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0e27;
-  --foreground: #f1f5f9;
+  --background: #f8fafc;
+  --foreground: #1e293b;
   --primary: #1677ff;
   --primary-dark: #1d4ed8;
   --secondary: #64748b;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --border: rgba(148, 163, 184, 0.1);
-  --divider: rgba(148, 163, 184, 0.05);
+  --border: rgba(0, 0, 0, 0.05);
+  --divider: rgba(0, 0, 0, 0.03);
 }
 
 html {
@@ -37,16 +37,16 @@ body {
   max-width: 100%;
 }
 
-/* 卡片样式 */
+/* 卡片样式 - 浅色模式 */
 .card-glass {
-  @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl;
+  @apply bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl shadow-sm;
 }
 
 .card-elevated {
-  @apply bg-slate-800 border border-slate-700/70 rounded-xl shadow-lg;
+  @apply bg-white border border-slate-200 rounded-xl shadow-md;
 }
 
-/* 按钮样式 - 确保按钮文字与背景有足够对比度 */
+/* 按钮样式 */
 .btn-primary {
   @apply px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium;
 }
@@ -56,46 +56,19 @@ body {
 }
 
 .btn-secondary {
-  @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors;
+  @apply px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors;
 }
 
 .btn-ghost {
-  @apply px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors;
+  @apply px-4 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors;
 }
 
-/* Ant Design 按钮覆盖 - 确保高对比度 */
-.ant-btn-primary {
-  background-color: #1677ff !important;
-  border-color: #1677ff !important;
-}
-
-.ant-btn-primary:hover {
-  background-color: #165ddb !important;
-  border-color: #165ddb !important;
-}
-
-.ant-btn-primary:active {
-  background-color: #1463c0 !important;
-  border-color: #1463c0 !important;
-}
-
-.ant-btn-default {
-  color: #f1f5f9 !important;
-  border-color: rgba(148, 163, 184, 0.3) !important;
-}
-
-.ant-btn-default:hover {
-  background-color: rgba(148, 163, 184, 0.1) !important;
-  border-color: rgba(148, 163, 184, 0.5) !important;
-  color: #ffffff !important;
-}
-
-/* 输入框样式 */
+/* 输入框样式 - 浅色模式 */
 .input-base {
-  @apply w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors;
+  @apply w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors;
 }
 
-/* 移动端优化 */
+/* 响应式优化 */
 @media (max-width: 640px) {
   body {
     padding-left: var(--safe-area-inset-left, 0);
@@ -118,47 +91,6 @@ body {
   .container-responsive {
     @apply px-3 sm:px-4;
   }
-}
-
-/* Ant Design 覆盖 */
-.reset-modal .ant-modal-content {
-  background-color: #1e293b !important;
-  border-radius: 24px !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-
-.reset-modal .ant-modal-close {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-
-.reset-modal .ant-modal-close:hover {
-  color: white !important;
-}
-
-/* 表格样式 */
-.ant-table {
-  background-color: transparent !important;
-}
-
-.ant-table-thead > tr > th {
-  background-color: rgba(15, 23, 42, 0.5) !important;
-  border-color: rgba(148, 163, 184, 0.1) !important;
-  color: #cbd5e1 !important;
-}
-
-.ant-table-tbody > tr {
-  background-color: rgba(30, 41, 59, 0.3) !important;
-}
-
-.ant-table-tbody > tr:hover > td {
-  background-color: rgba(30, 41, 59, 0.6) !important;
-}
-
-/* 标签样式 */
-.ant-tag {
-  background-color: rgba(99, 102, 241, 0.2) !important;
-  border-color: rgba(99, 102, 241, 0.3) !important;
-  color: #a5f3fc !important;
 }
 
 /* 光滑滚动 */

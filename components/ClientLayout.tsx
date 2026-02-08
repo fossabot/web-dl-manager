@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import NavbarWrapper from './NavbarWrapper';
 import { BackgroundProvider } from './BackgroundProvider';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function ClientLayout({
   children,
@@ -19,13 +19,15 @@ export default function ClientLayout({
   });
 
   // 监听localStorage变化
-  if (typeof window !== 'undefined') {
+  useEffect(() => {
     const handleStorageChange = () => {
       const newValue = localStorage.getItem('sidebarOpen');
       setSidebarOpen(newValue === null || newValue === 'true');
     };
-    window.addEventListener('storage', handleStorageChange, { once: true });
-  }
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   if (isLoginPage) {
     return <main className="flex-1">{children}</main>;

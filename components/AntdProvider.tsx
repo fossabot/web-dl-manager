@@ -11,7 +11,7 @@ export default function AntdProvider({ children }: { children: React.ReactNode }
       <ConfigProvider
         locale={zhCN}
         theme={{
-          algorithm: theme.darkAlgorithm,
+          algorithm: theme.defaultAlgorithm,
           token: {
             colorPrimary: '#1677ff',
             borderRadius: 6,
