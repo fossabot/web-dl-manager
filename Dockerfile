@@ -10,9 +10,9 @@ WORKDIR /app
 RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared && \
     chmod +x /usr/local/bin/cloudflared
 
-# Copy package files and install dependencies
+# Copy package files and install dependencies (including dev for build)
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci && npm cache clean --force
 
 # Copy the rest of the application code
 COPY . .
@@ -45,13 +45,15 @@ RUN mkdir -p data/archives data/downloads data/status logs && \
 COPY --from=builder --chown=node:node /app/.next/standalone /app/
 COPY --from=builder --chown=node:node /app/.next/static /app/.next/static
 COPY --from=builder --chown=node:node /app/public /app/public
-COPY --from=builder --chown=node:node /app/node_modules /app/node_modules
 COPY --from=builder --chown=node:node /app/lib /app/lib
 COPY --from=builder --chown=node:node /app/entrypoint.sh /app/entrypoint.sh
 COPY --from=builder --chown=node:node /app/camouflage-server.mjs /app/camouflage-server.mjs
 COPY --from=builder --chown=node:node /app/package.json /app/package.json
 COPY --from=builder --chown=node:node /app/prisma /app/prisma
 COPY --from=builder /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+
+# Install only production dependencies for runtime (excludes dev dependencies)
+RUN npm ci --omit=dev --prefer-offline && npm cache clean --force
 
 # Ensure correct permissions
 RUN chmod +x /app/entrypoint.sh && \
