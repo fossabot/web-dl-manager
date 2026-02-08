@@ -51,6 +51,15 @@ export default function RootLayout({
               token: {
                 colorPrimary: '#1677ff',
                 borderRadius: 8,
+                colorBgBase: '#0a0e27',
+                colorTextBase: '#f1f5f9',
+              },
+              components: {
+                Button: {
+                  controlHeight: 36,
+                  primaryColor: '#ffffff',
+                  colorTextLightSolid: '#0a0e27',
+                },
               },
             }}
           >

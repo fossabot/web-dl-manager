@@ -263,7 +263,7 @@ export default function TasksPage() {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#0a0e27' }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* 统计卡片 */}
         <Row gutter={16}>

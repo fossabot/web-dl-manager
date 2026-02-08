@@ -40,7 +40,8 @@ export default function DownloaderPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-slate-950 w-full">
+      <div className="max-w-5xl mx-auto px-6 py-12">
       <header className="mb-12 text-center">
         <Title level={1} style={{ marginBottom: 8, background: 'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           下载管理器
@@ -171,6 +172,7 @@ export default function DownloaderPage() {
           </div>
         </Space>
       </Form>
+      </div>
     </div>
   );
 }

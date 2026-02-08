@@ -165,7 +165,7 @@ export default function StatusPage() {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#0a0e27' }}>
       <Spin spinning={loading}>
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           {/* 任务统计 */}

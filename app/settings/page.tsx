@@ -263,7 +263,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#0a0e27' }}>
       <Card title="系统设置" loading={loading}>
         <Tabs items={tabItems} style={{ marginBottom: '24px' }} />
 
