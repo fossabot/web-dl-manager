@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { dbConfig } from '@/lib/config';
 
 const KNOWN_CONFIG_KEYS = new Set([
-  "REDIS_URL",  // Legacy support only, use DATABASE_URL for redis:// URLs instead
+  "REDIS_URL",
   "WDM_CONFIG_BACKUP_RCLONE_BASE64",
   "WDM_CONFIG_BACKUP_REMOTE_PATH",
   "WDM_CUSTOM_SYNC_ENABLED",
@@ -38,35 +38,42 @@ const KNOWN_CONFIG_KEYS = new Set([
   "WDM_B2_APPLICATION_KEY",
   "WDM_KEMONO_USERNAME",
   "WDM_KEMONO_PASSWORD",
-  "WDM_BG_CONFIG", // Background configuration (stored as JSON)
+  "WDM_BG_CONFIG",
 ]);
 
 export async function POST() {
-  const user = await getCurrentUser();
-  if (!user || !user.isAdmin) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
+    const user = await getCurrentUser();
+    if (!user || !user.isAdmin) {
+      return NextResponse.json(
+        { error: '权限不足', message: 'Insufficient permissions' },
+        { status: 401 }
+      );
+    }
+
     const allConfigs = await prisma.config.findMany();
     let deletedCount = 0;
 
     for (const config of allConfigs) {
       if (config.keyName === null || !KNOWN_CONFIG_KEYS.has(config.keyName)) {
         await prisma.config.delete({ where: { id: config.id } });
-        deletedCount++;
+        deletedCount += 1;
       }
     }
-    
-    // Clear cache
+
     dbConfig.clearCache();
 
-    return NextResponse.json({ 
-      status: 'success', 
-      message: `Cleanup complete. Removed ${deletedCount} unused config keys.` 
+    return NextResponse.json({
+      success: true,
+      status: 'success',
+      message: `清理完成。移除了 ${deletedCount} 个未使用的配置键`
     });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ status: 'error', message }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Database cleanup error:', message);
+    return NextResponse.json(
+      { status: 'error', error: '清理失败', message },
+      { status: 500 }
+    );
   }
 }

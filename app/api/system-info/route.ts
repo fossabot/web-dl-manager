@@ -10,17 +10,16 @@ export async function GET() {
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
 
-    // 计算 CPU 使用率
     let cpuUsage = 0;
     if (process.cpuUsage) {
       const usage = process.cpuUsage();
       cpuUsage = Math.round((usage.user + usage.system) / 1000000);
     }
 
-    // 计算平均 CPU 负载
     const loadAverage = os.loadavg();
 
     return NextResponse.json({
+      success: true,
       system: {
         platform: os.platform(),
         arch: os.arch(),
@@ -38,17 +37,17 @@ export async function GET() {
         },
       },
       memory: {
-        total: Math.round(totalMemory / 1024 / 1024), // MB
-        used: Math.round(usedMemory / 1024 / 1024), // MB
-        free: Math.round(freeMemory / 1024 / 1024), // MB
+        total: Math.round(totalMemory / 1024 / 1024),
+        used: Math.round(usedMemory / 1024 / 1024),
+        free: Math.round(freeMemory / 1024 / 1024),
         percentage: Math.round((usedMemory / totalMemory) * 100),
       },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Failed to get system info:', error);
+    console.error('System info error:', error);
     return NextResponse.json(
-      { error: 'Failed to get system information' },
+      { error: '获取系统信息失败', message: 'Failed to get system information' },
       { status: 500 }
     );
   }
