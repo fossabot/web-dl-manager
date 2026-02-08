@@ -35,11 +35,11 @@ export default function ClientLayout({
 
   return (
     <BackgroundProvider>
-      <div className="flex min-h-screen flex-col md:flex-row" id="app-layout">
+      <div className="flex min-h-screen" id="app-layout">
         <NavbarWrapper />
         <main 
-          className={`flex-1 mt-14 md:mt-0 w-full transition-all duration-300 ${
-            sidebarOpen ? 'md:ml-64' : 'md:ml-16'
+          className={`flex-1 w-full transition-all duration-300 ${
+            sidebarOpen ? 'ml-64' : 'ml-16'
           }`}
           id="main-content"
         >

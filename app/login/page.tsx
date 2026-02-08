@@ -102,37 +102,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 relative overflow-hidden">
       {/* Background Decorative Elements */}
-      <div className="absolute top-[-15%] left-[-10%] w-1/2 h-1/2 bg-blue-600/10 blur-[150px] rounded-full animate-pulse"></div>
-      <div className="absolute bottom-[-15%] right-[-10%] w-1/2 h-1/2 bg-purple-600/10 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute top-[-15%] left-[-10%] w-1/2 h-1/2 bg-blue-600/5 blur-[150px] rounded-full animate-pulse"></div>
+      <div className="absolute bottom-[-15%] right-[-10%] w-1/2 h-1/2 bg-purple-600/5 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
       <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-indigo-600/5 blur-[120px] rounded-full"></div>
 
       {/* Grid Background Pattern */}
-      <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+      <div className="absolute inset-0 z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
       <div className="w-full max-w-sm z-10">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="mb-6 inline-flex p-4 rounded-3xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/5 shadow-inner">
+          <div className="mb-6 inline-flex p-4 rounded-3xl bg-white border border-slate-200 shadow-sm">
             <div className="text-4xl">🚀</div>
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-2">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-2">
             Web-DL-Manager
           </h1>
 
           <div className="h-1 w-16 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto mt-2 mb-4 rounded-full"></div>
 
-          <p className="text-slate-400 text-base md:text-lg">开启极致下载体验</p>
+          <p className="text-slate-500 text-base md:text-lg">开启极致下载体验</p>
         </div>
 
         {/* Login Card */}
-        <div className="card-elevated p-8 md:p-10 backdrop-blur-xl shadow-2xl">
+        <div className="card-elevated p-8 md:p-10 backdrop-blur-xl shadow-xl border-slate-100">
           <form onSubmit={onFinish} className="space-y-4">
             {/* Username Field */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">用户名</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">用户名</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                 <input
@@ -141,14 +141,14 @@ export default function LoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="请输入用户名"
                   required
-                  className="input-base pl-10 h-12"
+                  className="input-base pl-10 h-12 border-slate-200 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             {/* Password Field */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">密码</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">密码</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
                 <input
@@ -157,7 +157,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请输入密码"
                   required
-                  className="input-base pl-10 h-12"
+                  className="input-base pl-10 h-12 border-slate-200 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={loading}
-                className="text-xs text-slate-400 hover:text-blue-400 transition-colors disabled:opacity-50"
+                className="text-xs text-slate-500 hover:text-blue-600 transition-colors disabled:opacity-50"
               >
                 忘记密码？
               </button>
@@ -178,7 +178,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 rounded-lg text-base font-bold bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white transition-all disabled:opacity-50 mt-6 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+              className="w-full h-12 rounded-lg text-base font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all disabled:opacity-50 mt-6 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : null}
               登 录

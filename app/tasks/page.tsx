@@ -135,7 +135,7 @@ export default function TasksPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-slate-50/50 p-6">
       <div className="space-y-6">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
