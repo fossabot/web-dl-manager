@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Table, Card, Statistic, Button, Space, Tag, Input, Select, Row, Col, message } from 'antd';
-import { ReloadOutlined, DeleteOutlined, PauseOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Card, Statistic, Button, Space, Tag, Input, Select, Row, Col, message, Modal, Tooltip } from 'antd';
+import { ReloadOutlined, DeleteOutlined, PauseOutlined, PlayCircleOutlined, SearchOutlined, RetweetOutlined } from '@ant-design/icons';
+import { useTasks } from '@/hooks/useTasks';
 
 interface Task {
   id: string;
@@ -22,6 +23,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [searchText, setSearchText] = useState('');
+  const { pauseTask, resumeTask, retryTask, cancelTask, deleteTask } = useTasks();
 
   const fetchTasks = async (): Promise<void> => {
     setLoading(true);
@@ -50,6 +52,7 @@ export default function TasksPage() {
   const getStatusColor = (status: string): string => {
     const colorMap: Record<string, string> = {
       downloading: 'processing',
+      running: 'processing',
       completed: 'success',
       failed: 'error',
       queued: 'default',
@@ -63,6 +66,7 @@ export default function TasksPage() {
   const getStatusLabel = (status: string): string => {
     const labelMap: Record<string, string> = {
       downloading: '下载中',
+      running: '运行中',
       completed: '已完成',
       failed: '失败',
       queued: '等待中',
@@ -82,36 +86,136 @@ export default function TasksPage() {
   const stats = {
     total: tasks.length,
     completed: tasks.filter((t) => t.status === 'completed').length,
-    downloading: tasks.filter((t) => t.status === 'downloading').length,
+    downloading: tasks.filter((t) => t.status === 'downloading' || t.status === 'running').length,
     failed: tasks.filter((t) => t.status === 'failed').length,
   };
 
+  // 暂停
+  const handlePause = async (taskId: string) => {
+    await pauseTask(taskId);
+    await fetchTasks();
+  };
+
+  // 恢复
+  const handleResume = async (taskId: string) => {
+    await resumeTask(taskId);
+    await fetchTasks();
+  };
+
+  // 重试
+  const handleRetry = async (taskId: string) => {
+    await retryTask(taskId);
+    await fetchTasks();
+  };
+
+  // 取消
+  const handleCancel = (taskId: string) => {
+    Modal.confirm({
+      title: '取消任务',
+      content: '确定要取消此任务吗？',
+      okText: '确定',
+      cancelText: '取消',
+      okType: 'danger',
+      onOk: async () => {
+        await cancelTask(taskId);
+        await fetchTasks();
+      },
+    });
+  };
+
+  // 删除
+  const handleDelete = (taskId: string) => {
+    Modal.confirm({
+      title: '删除任务',
+      content: '确定要删除此任务吗？此操作不可恢复。',
+      okText: '确定',
+      cancelText: '取消',
+      okType: 'danger',
+      onOk: async () => {
+        await deleteTask(taskId);
+        await fetchTasks();
+      },
+    });
+  };
+
   const renderActionButtons = (record: TableTask): React.ReactNode => {
-    if (record.status === 'downloading') {
-      return (
-        <Button
-          type="text"
-          size="small"
-          icon={<PauseOutlined />}
-          onClick={() => message.info('暂停功能待实现')}
-        >
-          暂停
-        </Button>
+    const buttons = [];
+
+    if (record.status === 'running' || record.status === 'downloading') {
+      buttons.push(
+        <Tooltip key="pause" title="暂停任务">
+          <Button
+            type="text"
+            size="small"
+            icon={<PauseOutlined />}
+            onClick={() => handlePause(record.id)}
+          >
+            暂停
+          </Button>
+        </Tooltip>
       );
     }
+
     if (record.status === 'paused') {
-      return (
-        <Button
-          type="text"
-          size="small"
-          icon={<PlayCircleOutlined />}
-          onClick={() => message.info('恢复功能待实现')}
-        >
-          恢复
-        </Button>
+      buttons.push(
+        <Tooltip key="resume" title="恢复任务">
+          <Button
+            type="text"
+            size="small"
+            icon={<PlayCircleOutlined />}
+            onClick={() => handleResume(record.id)}
+          >
+            恢复
+          </Button>
+        </Tooltip>
       );
     }
-    return null;
+
+    if (record.status === 'failed' || record.status === 'completed') {
+      buttons.push(
+        <Tooltip key="retry" title="重试任务">
+          <Button
+            type="text"
+            size="small"
+            icon={<RetweetOutlined />}
+            onClick={() => handleRetry(record.id)}
+          >
+            重试
+          </Button>
+        </Tooltip>
+      );
+    }
+
+    if (record.status === 'queued' || record.status === 'running' || record.status === 'downloading') {
+      buttons.push(
+        <Tooltip key="cancel" title="取消任务">
+          <Button
+            type="text"
+            danger
+            size="small"
+            onClick={() => handleCancel(record.id)}
+          >
+            取消
+          </Button>
+        </Tooltip>
+      );
+    }
+
+    buttons.push(
+      <Tooltip key="delete" title="删除任务记录">
+        <Button
+          type="text"
+          danger
+          size="small"
+          icon={<DeleteOutlined />}
+          onClick={() => handleDelete(record.id)}
+        >
+          删除
+        </Button>
+      </Tooltip>
+    );
+
+    return <Space size="small">{buttons}</Space>;
   };
 
   const columns = [
@@ -127,7 +231,7 @@ export default function TasksPage() {
       dataIndex: 'url',
       key: 'url',
       ellipsis: true,
-      render: (text: string) => <span title={text}>{text}</span>,
+      render: (text: string) => <Tooltip title={text}><span>{text}</span></Tooltip>,
     },
     {
       title: '状态',
@@ -153,21 +257,8 @@ export default function TasksPage() {
     {
       title: '操作',
       key: 'action',
-      width: 150,
-      render: (_text: string, record: TableTask) => (
-        <Space size="small">
-          {renderActionButtons(record)}
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={() => message.info('删除功能待实现')}
-          >
-            删除
-          </Button>
-        </Space>
-      ),
+      width: 200,
+      render: (_text: string, record: TableTask) => renderActionButtons(record),
     },
   ];
 
@@ -193,7 +284,7 @@ export default function TasksPage() {
           <Col xs={12} sm={6}>
             <Card>
               <Statistic
-                title="下载中"
+                title="进行中"
                 value={stats.downloading}
                 valueStyle={{ color: '#1677ff' }}
               />
@@ -229,6 +320,7 @@ export default function TasksPage() {
                 onChange={setStatusFilter}
                 style={{ width: '100%' }}
               >
+                <Select.Option value="running">运行中</Select.Option>
                 <Select.Option value="downloading">下载中</Select.Option>
                 <Select.Option value="completed">已完成</Select.Option>
                 <Select.Option value="failed">失败</Select.Option>

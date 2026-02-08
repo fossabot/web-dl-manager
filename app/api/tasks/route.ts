@@ -39,68 +39,98 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const formData = await request.formData();
-  const url = formData.get('url') as string;
-  const downloader = (formData.get('downloader') as string) || 'gallery-dl';
-  const uploadService = formData.get('upload_service') as string;
-  const uploadPath = formData.get('upload_path') as string;
-  const enableCompression = formData.get('enable_compression') as string;
-  const splitCompression = formData.get('split_compression') === 'true';
-  const splitSize = parseInt(formData.get('split_size') as string) || 1000;
+  try {
+    const formData = await request.formData();
+    const url = formData.get('url') as string;
+    const downloader = (formData.get('downloader') as string) || 'gallery-dl';
+    const uploadService = formData.get('upload_service') as string;
+    const uploadPath = formData.get('upload_path') as string;
+    const enableCompression = formData.get('enable_compression') as string;
+    const splitCompression = formData.get('split_compression') === 'true';
+    const splitSize = parseInt(formData.get('split_size') as string) || 1000;
 
-  // Site Specific Options
-  const kemonoPosts = formData.get('kemono_posts') ? parseInt(formData.get('kemono_posts') as string) : undefined;
-  const kemonoRevisions = formData.get('kemono_revisions') as string;
-  const kemonoPathTemplate = formData.get('kemono_path_template') as string;
-  const pixivUgoira = (formData.get('pixiv_ugoira') as string) || 'true';
+    // Site Specific Options
+    const kemonoPosts = formData.get('kemono_posts') ? parseInt(formData.get('kemono_posts') as string) : undefined;
+    const kemonoRevisions = formData.get('kemono_revisions') as string;
+    const kemonoPathTemplate = formData.get('kemono_path_template') as string;
+    const pixivUgoira = (formData.get('pixiv_ugoira') as string) || 'true';
 
-  if (!url || !uploadService) {
-    return NextResponse.json({ error: 'URL and Upload Service are required' }, { status: 400 });
-  }
+    // Validation
+    if (!url || !uploadService) {
+      return NextResponse.json(
+        { error: 'URL 和上传服务是必需的', message: 'URL and Upload Service are required' },
+        { status: 400 }
+      );
+    }
 
-  const urls = url.split('\n').map(u => u.trim()).filter(u => u);
-  const taskIds: string[] = [];
+    if (uploadService !== 'gofile' && !uploadPath) {
+      return NextResponse.json(
+        { error: '此服务需要上传路径', message: 'Upload Path is required for this service' },
+        { status: 400 }
+      );
+    }
 
-  for (const singleUrl of urls) {
-    const taskId = uuidv4();
-    taskIds.push(taskId);
+    const urls = url.split('\n').map(u => u.trim()).filter(u => u);
+    if (urls.length === 0) {
+      return NextResponse.json(
+        { error: '没有有效的 URL', message: 'No valid URLs provided' },
+        { status: 400 }
+      );
+    }
 
-    const params: TaskParams = {
-      url: singleUrl,
-      downloader,
-      upload_service: uploadService,
-      upload_path: uploadPath,
-      enable_compression: enableCompression,
-      split_compression: splitCompression,
-      split_size: splitSize,
-      createdBy: user.username,
-      kemono_posts: kemonoPosts,
-      kemono_revisions: kemonoRevisions,
-      kemono_path_template: kemonoPathTemplate,
-      pixiv_ugoira: pixivUgoira,
-      cookies: formData.get('cookies') as string,
-      gofile_token: formData.get('gofile_token') as string,
-      gofile_folder_id: formData.get('gofile_folder_id') as string,
-      openlist_url: formData.get('openlist_url') as string,
-      openlist_user: formData.get('openlist_user') as string,
-      openlist_pass: formData.get('openlist_pass') as string,
-    };
+    const taskIds: string[] = [];
 
-    updateTaskStatus(taskId, {
-      id: taskId,
-      status: 'queued',
-      url: singleUrl,
-      downloader,
-      uploadService,
-      uploadPath,
-      createdAt: new Date().toISOString(),
-      createdBy: user.username,
-      originalParams: params
+    for (const singleUrl of urls) {
+      const taskId = uuidv4();
+      taskIds.push(taskId);
+
+      const params: TaskParams = {
+        url: singleUrl,
+        downloader,
+        upload_service: uploadService,
+        upload_path: uploadPath,
+        enable_compression: enableCompression,
+        split_compression: splitCompression,
+        split_size: splitSize,
+        createdBy: user.username,
+        kemono_posts: kemonoPosts,
+        kemono_revisions: kemonoRevisions,
+        kemono_path_template: kemonoPathTemplate,
+        pixiv_ugoira: pixivUgoira,
+        cookies: formData.get('cookies') as string,
+        gofile_token: formData.get('gofile_token') as string,
+        gofile_folder_id: formData.get('gofile_folder_id') as string,
+        openlist_url: formData.get('openlist_url') as string,
+        openlist_user: formData.get('openlist_user') as string,
+        openlist_pass: formData.get('openlist_pass') as string,
+      };
+
+      updateTaskStatus(taskId, {
+        id: taskId,
+        status: 'queued',
+        url: singleUrl,
+        downloader,
+        uploadService,
+        uploadPath,
+        createdAt: new Date().toISOString(),
+        createdBy: user.username,
+        originalParams: params
+      });
+
+      // Start background job
+      processDownloadJob(taskId, params);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `成功启动 ${taskIds.length} 个任务`,
+      taskIds
     });
-
-    // Start background job
-    processDownloadJob(taskId, params);
+  } catch (error) {
+    console.error('Task creation error:', error);
+    return NextResponse.json(
+      { error: '任务创建失败', message: 'Failed to create task' },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ success: true, taskIds });
 }
