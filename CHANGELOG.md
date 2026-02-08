@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Regex Safety**: Simplified progress parsing patterns to avoid ReDoS warnings while maintaining accuracy
 - **Error Handling**: Added comprehensive `console.error()` logging to all API endpoints' catch blocks for debugging
 - **Type Safety**: Ensured all API responses are properly typed with TypeScript interfaces
+- **Login Page Notifications**: Replaced custom CSS-based toast notification with Ant Design `message` component for consistency across all pages
 
 ## [2.0.0-next] - 2026-02-06
 
