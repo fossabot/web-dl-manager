@@ -3,6 +3,7 @@
 [![Docker Build](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Jyf0214/web-dl-manager/actions/workflows/docker-publish.yml)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Jyf0214/web-dl-manager)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FJyf0214%2Fweb-dl-manager.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FJyf0214%2Fweb-dl-manager?ref=badge_shield)
 
 **Web-DL-Manager** 是一款专为私有化部署设计的自动化下载与云端分发管理系统。它不仅为 `gallery-dl` 和 `megadl` 提供了现代化的 Web 界面，更集成了一套从**高效抓取**、**极速压缩**到**多云端自动上传**的完整工作流。
 
@@ -95,3 +96,7 @@ services:
 ## 贡献与反馈
 
 欢迎提交 PR 或 Issue。如果觉得好用，请给个 ⭐！
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FJyf0214%2Fweb-dl-manager.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FJyf0214%2Fweb-dl-manager?ref=badge_large)
